@@ -3,7 +3,11 @@ import { Link } from 'react-router-dom';
 import Chart, { type ChartConfiguration } from 'chart.js/auto';
 import './EvaraFlow.css';
 
-const EvaraFlow = () => {
+interface EvaraFlowProps {
+    embedded?: boolean;
+}
+
+const EvaraFlow = ({ embedded = false }: EvaraFlowProps) => {
     // Add logging to debug potential rendering issues
     console.log("EvaraFlow component rendering...");
 
@@ -99,18 +103,20 @@ const EvaraFlow = () => {
     }, []);
 
     return (
-        <div className="evara-flow-body">
-            <nav className="ef-sidebar">
-                <Link to="/evaratank" style={{ textDecoration: 'none' }}>
-                    <div style={{ width: '24px', height: '24px', background: '#E2E8F0', borderRadius: '6px', marginBottom: '25px', cursor: 'pointer' }}></div>
-                </Link>
-                <Link to="/evaradeep" style={{ textDecoration: 'none' }}>
-                    <div style={{ width: '24px', height: '24px', background: '#E2E8F0', borderRadius: '6px', marginBottom: '25px', cursor: 'pointer' }}></div>
-                </Link>
-                <Link to="/evaraflow" style={{ textDecoration: 'none' }}>
-                    <div style={{ width: '40px', height: '40px', background: '#0EA5E9', borderRadius: '12px', marginBottom: '25px', boxShadow: '0 4px 12px rgba(14, 165, 233, 0.3)', cursor: 'pointer' }}></div>
-                </Link>
-            </nav>
+        <div className={`evara-flow-body${embedded ? ' ef-embedded' : ''}`}>
+            {!embedded && (
+                <nav className="ef-sidebar">
+                    <Link to="/evaratank" style={{ textDecoration: 'none' }}>
+                        <div style={{ width: '24px', height: '24px', background: '#E2E8F0', borderRadius: '6px', marginBottom: '25px', cursor: 'pointer' }}></div>
+                    </Link>
+                    <Link to="/evaradeep" style={{ textDecoration: 'none' }}>
+                        <div style={{ width: '24px', height: '24px', background: '#E2E8F0', borderRadius: '6px', marginBottom: '25px', cursor: 'pointer' }}></div>
+                    </Link>
+                    <Link to="/evaraflow" style={{ textDecoration: 'none' }}>
+                        <div style={{ width: '40px', height: '40px', background: '#0EA5E9', borderRadius: '12px', marginBottom: '25px', boxShadow: '0 4px 12px rgba(14, 165, 233, 0.3)', cursor: 'pointer' }}></div>
+                    </Link>
+                </nav>
+            )}
 
             <main className="ef-main-content">
                 <header className="ef-header">

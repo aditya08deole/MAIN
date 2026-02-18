@@ -3,8 +3,11 @@ import { Link } from 'react-router-dom';
 import Chart, { type ChartConfiguration } from 'chart.js/auto';
 import './EvaraTank.css';
 
-const EvaraTank = () => {
-    console.log("EvaraTank component rendering...");
+interface EvaraTankProps {
+    embedded?: boolean;
+}
+
+const EvaraTank = ({ embedded = false }: EvaraTankProps) => {
     const levelChartRef = useRef<HTMLCanvasElement>(null);
     const usageChartRef = useRef<HTMLCanvasElement>(null);
     const refillChartRef = useRef<HTMLCanvasElement>(null);
@@ -218,18 +221,20 @@ const EvaraTank = () => {
     };
 
     return (
-        <div className="evara-tank-body">
-            <nav className="et-sidebar">
-                <Link to="/evaratank" style={{ textDecoration: 'none' }}>
-                    <div style={{ width: '40px', height: '40px', background: '#4F46E5', borderRadius: '12px', marginBottom: '25px', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)', cursor: 'pointer' }}></div>
-                </Link>
-                <Link to="/evaradeep" style={{ textDecoration: 'none' }}>
-                    <div style={{ width: '24px', height: '24px', background: '#E2E8F0', borderRadius: '6px', marginBottom: '25px', cursor: 'pointer' }}></div>
-                </Link>
-                <Link to="/evaraflow" style={{ textDecoration: 'none' }}>
-                    <div style={{ width: '24px', height: '24px', background: '#E2E8F0', borderRadius: '6px', marginBottom: '25px', cursor: 'pointer' }}></div>
-                </Link>
-            </nav>
+        <div className={`evara-tank-body${embedded ? ' et-embedded' : ''}`}>
+            {!embedded && (
+                <nav className="et-sidebar">
+                    <Link to="/evaratank" style={{ textDecoration: 'none' }}>
+                        <div style={{ width: '40px', height: '40px', background: '#4F46E5', borderRadius: '12px', marginBottom: '25px', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)', cursor: 'pointer' }}></div>
+                    </Link>
+                    <Link to="/evaradeep" style={{ textDecoration: 'none' }}>
+                        <div style={{ width: '24px', height: '24px', background: '#E2E8F0', borderRadius: '6px', marginBottom: '25px', cursor: 'pointer' }}></div>
+                    </Link>
+                    <Link to="/evaraflow" style={{ textDecoration: 'none' }}>
+                        <div style={{ width: '24px', height: '24px', background: '#E2E8F0', borderRadius: '6px', marginBottom: '25px', cursor: 'pointer' }}></div>
+                    </Link>
+                </nav>
+            )}
 
             <main className="et-main-content">
                 <header className="et-header">

@@ -58,6 +58,11 @@
     width: calc(100% - 100px);
 }
 
+.evara-deep-body.ed-embedded .ed-main-content {
+    margin-left: 0;
+    width: 100%;
+}
+
 .ed-header {
     margin-bottom: 20px;
 }
