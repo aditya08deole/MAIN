@@ -15,6 +15,7 @@ const CAT_LABEL: Record<NodeCategory, string> = {
     Borewell: 'Borewell (IIIT)',
     GovtBorewell: 'Borewell (Govt)',
     PumpHouse: 'Pump House',
+    FlowMeter: 'Flow Meter',
 };
 
 const CAT_STYLES: Record<NodeCategory, { badge: string; accentBg: string; accentText: string }> = {
@@ -23,6 +24,7 @@ const CAT_STYLES: Record<NodeCategory, { badge: string; accentBg: string; accent
     Borewell: { badge: 'bg-amber-100 text-amber-700', accentBg: 'from-amber-50 to-yellow-50', accentText: 'text-amber-700' },
     GovtBorewell: { badge: 'bg-slate-200 text-slate-700', accentBg: 'from-slate-50 to-gray-100', accentText: 'text-slate-600' },
     PumpHouse: { badge: 'bg-purple-100 text-purple-700', accentBg: 'from-purple-50 to-violet-50', accentText: 'text-purple-700' },
+    FlowMeter: { badge: 'bg-cyan-100 text-cyan-700', accentBg: 'from-cyan-50 to-sky-50', accentText: 'text-cyan-700' },
 };
 
 const ANALYTICS_LABEL: Record<AnalyticsType, { label: string; badge: string }> = {

@@ -67,6 +67,14 @@ const CATEGORY_CONFIG: Record<NodeCategory, {
         badge: 'bg-purple-100 text-purple-700',
         dot: 'bg-purple-500',
     },
+    FlowMeter: {
+        label: 'Flow Meter',
+        icon: <Waves size={20} />,
+        color: 'text-cyan-600',
+        bg: 'bg-cyan-50',
+        badge: 'bg-cyan-100 text-cyan-700',
+        dot: 'bg-cyan-500',
+    },
 };
 
 const ANALYTICS_CONFIG: Record<AnalyticsType, {

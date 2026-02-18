@@ -159,15 +159,28 @@ const Dashboard = () => {
     const alertCount = nodes.filter(n => n.status === 'Alert' || n.status === 'Offline').length;
 
     // Derived stats from real nodes data + mock consumption/device types
+    const tankNodes = nodes.filter(n => n.category === 'OHT' || n.category === 'Sump' || n.category === 'PumpHouse');
+    const flowNodes = nodes.filter(n => n.category === 'FlowMeter');
+    const deepNodes = nodes.filter(n => n.category === 'Borewell' || n.category === 'GovtBorewell');
+
     const stats = {
         deployed: totalCount,
         onlineStatus: onlineCount,
         totalStatus: totalCount,
         consumption: '1.2M', // Placeholder until consumption is tracked
         saved: '350k',
-        tanks: nodes.filter(n => n.category === 'OHT' || n.category === 'Sump').length,
-        flow: 0, // No flow meters in nodes yet? Or maybe category needs update
-        deep: nodes.filter(n => n.category === 'Borewell' || n.category === 'GovtBorewell').length,
+        tanks: {
+            active: tankNodes.filter(n => n.status === 'Online').length,
+            total: tankNodes.length
+        },
+        flow: {
+            active: flowNodes.filter(n => n.status === 'Online').length,
+            total: flowNodes.length
+        },
+        deep: {
+            active: deepNodes.filter(n => n.status === 'Online').length,
+            total: deepNodes.length
+        },
         alerts: alertCount,
     };
 
@@ -185,80 +198,90 @@ const Dashboard = () => {
             </div>
 
             {/* ── Header ── */}
-            <div className="flex-none flex items-center justify-between mb-4">
-                <h1 className="text-3xl font-extrabold text-blue-600 tracking-tight">System Dashboard</h1>
-                <span className="text-sm font-semibold text-slate-400">Last updated: <span className="text-slate-600">{now}</span></span>
+            <div className="flex-none flex items-center justify-between mb-5">
+                <h1 className="text-4xl font-extrabold text-blue-600 tracking-tight">System Dashboard</h1>
+                <span className="text-base font-semibold text-slate-400">Last updated: <span className="text-slate-600">{now}</span></span>
             </div>
 
-            {/* ── Top Row — fixed height so cards never over-stretch ── */}
-            <div className="flex-none grid grid-cols-12 gap-4 mb-4" style={{ height: '260px' }}>
+            {/* ── Top Row ── */}
+            {/* Reduced height to 250px for strict no-scroll */}
+            <div className="flex-none grid grid-cols-12 gap-4 mb-4" style={{ height: '250px' }}>
 
                 {/* Left 8 cols: stacked KPI rows */}
-                <div className="col-span-8 flex flex-col gap-3 h-full">
+                <div className="col-span-8 flex flex-col gap-4 h-full">
 
                     {/* Row 1 — 4 main KPI cards */}
-                    <div className="flex-1 grid grid-cols-4 gap-3">
+                    <div className="flex-1 grid grid-cols-4 gap-4">
                         {/* Total Deployed */}
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex flex-col justify-between">
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex flex-col justify-between hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-center">
                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Deployed</span>
-                                <Layers size={18} className="text-blue-400 flex-shrink-0" />
+                                <Layers size={22} className="text-blue-400 flex-shrink-0" />
                             </div>
-                            <div className="text-4xl font-extrabold text-slate-800 leading-none">{stats.deployed}</div>
+                            <div className="text-5xl font-extrabold text-slate-800 leading-none">{stats.deployed}</div>
                             <span className="text-xs font-semibold text-slate-400">Devices active</span>
                         </div>
 
                         {/* Online Status */}
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex flex-col justify-between">
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex flex-col justify-between hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-center">
                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Online</span>
-                                <Activity size={18} className="text-green-400 flex-shrink-0" />
+                                <Activity size={22} className="text-green-400 flex-shrink-0" />
                             </div>
                             <div className="flex items-baseline gap-1 leading-none">
-                                <span className="text-4xl font-extrabold text-slate-800">{stats.onlineStatus}</span>
-                                <span className="text-xl font-bold text-slate-400">/{stats.totalStatus}</span>
+                                <span className="text-5xl font-extrabold text-slate-800">{stats.onlineStatus}</span>
+                                <span className="text-2xl font-bold text-slate-400">/{stats.totalStatus}</span>
                             </div>
                             <span className="text-xs font-semibold text-green-500">System healthy</span>
                         </div>
 
                         {/* Consumption */}
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex flex-col justify-between">
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex flex-col justify-between hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-center">
                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Consumption</span>
-                                <Droplets size={18} className="text-cyan-400 flex-shrink-0" />
+                                <Droplets size={22} className="text-cyan-400 flex-shrink-0" />
                             </div>
-                            <div className="text-4xl font-extrabold text-slate-800 leading-none">{stats.consumption}</div>
+                            <div className="text-5xl font-extrabold text-slate-800 leading-none">{stats.consumption}</div>
                             <span className="text-xs font-semibold text-slate-400">Litres / month</span>
                         </div>
 
                         {/* Saved */}
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex flex-col justify-between">
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 py-4 flex flex-col justify-between hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-center">
                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Saved</span>
-                                <ArrowUpRight size={18} className="text-emerald-400 flex-shrink-0" />
+                                <ArrowUpRight size={22} className="text-emerald-400 flex-shrink-0" />
                             </div>
-                            <div className="text-4xl font-extrabold text-emerald-600 leading-none">{stats.saved}</div>
+                            <div className="text-5xl font-extrabold text-emerald-600 leading-none">{stats.saved}</div>
                             <span className="text-xs font-semibold text-emerald-500">↑ vs last month</span>
                         </div>
                     </div>
 
                     {/* Row 2 — 4 device-type counters */}
-                    <div className="grid grid-cols-4 gap-3" style={{ height: '60px' }}>
-                        <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 flex items-center justify-between">
+                    <div className="flex-1 grid grid-cols-4 gap-4">
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 flex flex-col justify-center items-start gap-1 hover:shadow-md transition-shadow">
                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Tanks</span>
-                            <span className="text-2xl font-extrabold text-blue-600">{stats.tanks}</span>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-4xl font-extrabold text-blue-600">{stats.tanks.active}</span>
+                                <span className="text-2xl font-bold text-slate-300">/{stats.tanks.total}</span>
+                            </div>
                         </div>
-                        <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 flex items-center justify-between">
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 flex flex-col justify-center items-start gap-1 hover:shadow-md transition-shadow">
                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Flow</span>
-                            <span className="text-2xl font-extrabold text-cyan-600">{stats.flow}</span>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-4xl font-extrabold text-cyan-600">{stats.flow.active}</span>
+                                <span className="text-2xl font-bold text-slate-300">/{stats.flow.total}</span>
+                            </div>
                         </div>
-                        <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 flex items-center justify-between">
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 flex flex-col justify-center items-start gap-1 hover:shadow-md transition-shadow">
                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Deep</span>
-                            <span className="text-2xl font-extrabold text-purple-600">{stats.deep}</span>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-4xl font-extrabold text-purple-600">{stats.deep.active}</span>
+                                <span className="text-2xl font-bold text-slate-300">/{stats.deep.total}</span>
+                            </div>
                         </div>
-                        <div className="bg-white rounded-xl border-l-4 border-l-red-500 border border-red-100 shadow-sm px-4 flex items-center justify-between">
+                        <div className="bg-white rounded-2xl border-l-4 border-l-red-500 border border-red-100 shadow-sm px-5 flex flex-col justify-center items-start gap-1 hover:shadow-md transition-shadow">
                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Alerts</span>
-                            <span className="text-2xl font-extrabold text-red-600">{stats.alerts}</span>
+                            <span className="text-4xl font-extrabold text-red-600">{stats.alerts}</span>
                         </div>
                     </div>
                 </div>
@@ -269,53 +292,53 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* ── Bottom Row — fills remaining space, 3 columns ── */}
+            {/* ── Bottom Row — INCREASED FONTS as requested ── */}
             <div className="flex-1 min-h-0 grid grid-cols-3 gap-4">
 
                 {/* Col 1: Device Fleet */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden hover:shadow-md transition-shadow">
                     <div className="px-5 py-4 border-b border-slate-50 flex justify-between items-center flex-none">
                         <div>
-                            <h2 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
-                                <Server size={18} className="text-blue-500" /> Device Fleet
+                            <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+                                <Server size={24} className="text-blue-500" /> Device Fleet
                             </h2>
                         </div>
-                        <button className="text-blue-500 hover:text-blue-600 transition-colors font-bold text-xl">+</button>
+                        <button className="text-blue-500 hover:text-blue-600 transition-colors font-bold text-2xl">+</button>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
                         <table className="w-full text-left">
                             <thead className="sticky top-0 bg-white z-10">
-                                <tr className="border-b border-slate-50 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                    <th className="px-4 py-3">Device</th>
-                                    <th className="px-4 py-3">Status</th>
-                                    <th className="px-4 py-3 text-right">Health</th>
+                                <tr className="border-b border-slate-50 text-xs font-extrabold text-slate-400 uppercase tracking-widest">
+                                    <th className="px-5 py-3">Device</th>
+                                    <th className="px-5 py-3">Status</th>
+                                    <th className="px-5 py-3 text-right">Health</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50 text-sm">
+                            <tbody className="divide-y divide-slate-50 text-base">
                                 {deviceFleet.map(dev => (
                                     <tr key={dev.id} className="hover:bg-slate-50/60 transition-colors">
-                                        <td className="px-4 py-3">
-                                            <div className="font-bold text-slate-700">{dev.name}</div>
-                                            <div className="text-[10px] text-blue-400 font-mono">{dev.type}</div>
+                                        <td className="px-5 py-4">
+                                            <div className="font-bold text-slate-700 text-base">{dev.name}</div>
+                                            <div className="text-xs text-blue-400 font-mono">{dev.type}</div>
                                         </td>
-                                        <td className="px-4 py-3">
-                                            <div className={`flex items-center gap-1.5 font-bold text-[11px] ${dev.status === 'Online' ? 'text-green-600' :
+                                        <td className="px-5 py-4">
+                                            <div className={`flex items-center gap-2 font-bold text-sm ${dev.status === 'Online' ? 'text-green-600' :
                                                 dev.status === 'Alert' ? 'text-red-600' :
                                                     dev.status === 'Maintenance' ? 'text-amber-600' : 'text-slate-500'
                                                 }`}>
-                                                <div className={`w-1.5 h-1.5 rounded-full ${dev.status === 'Online' ? 'bg-green-500' :
+                                                <div className={`w-2 h-2 rounded-full ${dev.status === 'Online' ? 'bg-green-500' :
                                                     dev.status === 'Alert' ? 'bg-red-500' :
                                                         dev.status === 'Maintenance' ? 'bg-amber-500' : 'bg-slate-400'
                                                     }`} />
                                                 {dev.status}
                                             </div>
-                                            <div className="text-[10px] text-slate-400 mt-0.5">{dev.lastComm}</div>
+                                            <div className="text-xs text-slate-400 mt-1">{dev.lastComm}</div>
                                         </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <div className={`font-bold text-xs ${dev.health > 90 ? 'text-green-600' : dev.health > 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                                        <td className="px-5 py-4 text-right">
+                                            <div className={`font-bold text-sm ${dev.health > 90 ? 'text-green-600' : dev.health > 50 ? 'text-amber-600' : 'text-red-600'}`}>
                                                 {dev.health}%
                                             </div>
-                                            <div className="w-full h-1 bg-slate-100 rounded-full mt-1 overflow-hidden">
+                                            <div className="w-full h-1.5 bg-slate-100 rounded-full mt-1.5 overflow-hidden">
                                                 <div className={`h-full rounded-full ${dev.health > 90 ? 'bg-green-500' : dev.health > 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${dev.health}%` }} />
                                             </div>
                                         </td>
@@ -327,64 +350,64 @@ const Dashboard = () => {
                 </div>
 
                 {/* Col 2: Alerts */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden hover:shadow-md transition-shadow">
                     <div className="px-5 py-4 border-b border-slate-50 flex justify-between items-center flex-none">
                         <div>
-                            <h2 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
-                                <AlertTriangle size={18} className="text-red-500" /> Alerts
+                            <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+                                <AlertTriangle size={24} className="text-red-500" /> Alerts
                             </h2>
                         </div>
-                        <span className="px-2.5 py-1 bg-red-50 text-red-600 font-extrabold text-[10px] rounded-full">3 New</span>
+                        <span className="px-3 py-1 bg-red-50 text-red-600 font-extrabold text-xs rounded-full">3 New</span>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                         {alertsList.map(a => (
-                            <div key={a.id} className="p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer group border border-transparent hover:border-slate-100">
-                                <div className="flex justify-between items-start mb-1">
-                                    <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                                        <AlertTriangle size={12} className="text-amber-500 flex-shrink-0" />
+                            <div key={a.id} className="p-4 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer group border border-transparent hover:border-slate-100">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="flex items-center gap-2 text-base font-bold text-slate-800">
+                                        <AlertTriangle size={16} className="text-amber-500 flex-shrink-0" />
                                         {a.title}
                                     </div>
-                                    <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap ml-2">{a.time}</span>
+                                    <span className="text-xs text-slate-400 font-medium whitespace-nowrap ml-2">{a.time}</span>
                                 </div>
-                                <p className="text-[11px] text-slate-500 pl-5 group-hover:text-slate-700 transition-colors leading-relaxed">{a.msg}</p>
+                                <p className="text-sm text-slate-500 pl-6 group-hover:text-slate-700 transition-colors leading-relaxed">{a.msg}</p>
                             </div>
                         ))}
                     </div>
                 </div>
 
                 {/* Col 3: Quick Reports */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden hover:shadow-md transition-shadow">
                     <div className="px-5 py-4 border-b border-slate-50 flex-none">
-                        <h2 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
-                            <FileText size={18} className="text-purple-500" /> Quick Reports
+                        <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+                            <FileText size={24} className="text-purple-500" /> Quick Reports
                         </h2>
                     </div>
-                    <div className="flex-1 p-4 flex flex-col gap-3 overflow-y-auto custom-scrollbar">
-                        <button className="w-full flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition-all text-left group">
-                            <div className="p-2.5 bg-white rounded-xl shadow-sm text-slate-400 group-hover:text-blue-500 transition-colors">
-                                <Download size={18} />
+                    <div className="flex-1 p-5 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+                        <button className="w-full flex items-center gap-5 p-5 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition-all text-left group">
+                            <div className="p-3 bg-white rounded-xl shadow-sm text-slate-400 group-hover:text-blue-500 transition-colors">
+                                <Download size={24} />
                             </div>
                             <div>
-                                <div className="text-sm font-bold text-slate-700 group-hover:text-blue-700">Daily Report</div>
-                                <div className="text-[10px] text-slate-400 font-medium">Download PDF Format</div>
+                                <div className="text-lg font-bold text-slate-700 group-hover:text-blue-700">Daily Report</div>
+                                <div className="text-sm text-slate-400 font-medium">Download PDF Format</div>
                             </div>
                         </button>
-                        <button className="w-full flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-purple-200 hover:bg-purple-50 transition-all text-left group">
-                            <div className="p-2.5 bg-white rounded-xl shadow-sm text-slate-400 group-hover:text-purple-500 transition-colors">
-                                <Download size={18} />
+                        <button className="w-full flex items-center gap-5 p-5 bg-slate-50 rounded-xl border border-slate-100 hover:border-purple-200 hover:bg-purple-50 transition-all text-left group">
+                            <div className="p-3 bg-white rounded-xl shadow-sm text-slate-400 group-hover:text-purple-500 transition-colors">
+                                <Download size={24} />
                             </div>
                             <div>
-                                <div className="text-sm font-bold text-slate-700 group-hover:text-purple-700">Custom Export</div>
-                                <div className="text-[10px] text-slate-400 font-medium">Excel / CSV Format</div>
+                                <div className="text-lg font-bold text-slate-700 group-hover:text-purple-700">Custom Export</div>
+                                <div className="text-sm text-slate-400 font-medium">Excel / CSV Format</div>
                             </div>
                         </button>
 
-                        <div className="mt-auto bg-purple-50 p-4 rounded-xl border border-purple-100">
-                            <div className="flex items-center gap-2 mb-1.5">
-                                <Clock size={12} className="text-purple-500" />
-                                <span className="text-[10px] font-extrabold text-purple-700 uppercase tracking-wider">Scheduled</span>
+                        <div className="mt-auto bg-purple-50 p-5 rounded-xl border border-purple-100">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Clock size={16} className="text-purple-500" />
+                                <span className="text-xs font-extrabold text-purple-700 uppercase tracking-wider">Scheduled</span>
                             </div>
-                            <p className="text-[11px] font-medium text-purple-700 leading-snug">
+                            <p className="text-sm font-medium text-purple-700 leading-snug">
                                 Monthly compliance report will be generated on <strong>28th Feb</strong>.
                             </p>
                         </div>

@@ -45,35 +45,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
 
+    // ─── SESSION PERSISTENCE CONSTANTS ───
+    const SESSION_KEY = 'evara_session';
+    const SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 hours
+
     useEffect(() => {
         let mounted = true;
 
-        // Safety timeout: if Supabase takes too long, stop loading
+        // 1. Check LocalStorage first for instant restore
+        const tryRestoreSession = () => {
+            try {
+                const stored = localStorage.getItem(SESSION_KEY);
+                if (stored) {
+                    const { user: storedUser, timestamp } = JSON.parse(stored);
+                    const age = Date.now() - timestamp;
+                    if (age < SESSION_DURATION) {
+                        console.log('Restoring session from localStorage');
+                        setUser(storedUser);
+                        setLoading(false);
+                        return true; // Session restored
+                    } else {
+                        console.log('Session expired, clearing localStorage');
+                        localStorage.removeItem(SESSION_KEY);
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to restore session:', e);
+                localStorage.removeItem(SESSION_KEY);
+            }
+            return false;
+        };
+
+        // Attempt restore
+        const restored = tryRestoreSession();
+
+        // Safety timeout: if Supabase takes too long and we haven't restored, stop loading
         const timer = setTimeout(() => {
             if (mounted) setLoading(false);
         }, 5000);
 
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
-            if (session?.user) {
-                try {
-                    const u = await buildUser(session.user.id);
-                    if (mounted) setUser(u);
-                } catch (err) {
-                    console.error("Error building user:", err);
+        // 2. If not restored, listen to Supabase
+        if (!restored) {
+            supabase.auth.getSession().then(async ({ data: { session } }) => {
+                if (session?.user) {
+                    try {
+                        const u = await buildUser(session.user.id);
+                        if (mounted && u) {
+                            setUser(u);
+                            // Sync to local storage on successful Supabase load
+                            localStorage.setItem(SESSION_KEY, JSON.stringify({
+                                user: u,
+                                timestamp: Date.now()
+                            }));
+                        }
+                    } catch (err) {
+                        console.error("Error building user:", err);
+                    }
                 }
-            }
-            if (mounted) setLoading(false);
-        });
+                if (mounted) setLoading(false);
+            });
+        }
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (_event, session) => {
                 if (session?.user) {
                     const u = await buildUser(session.user.id);
-                    if (mounted) setUser(u);
+                    if (mounted && u) {
+                        setUser(u);
+                        localStorage.setItem(SESSION_KEY, JSON.stringify({
+                            user: u,
+                            timestamp: Date.now()
+                        }));
+                    }
                 } else {
-                    if (mounted) setUser(null);
+                    // Only clear if we don't have a valid custom session (handled by logout)
+                    // But for strict supabase sync, we might want to clear. 
+                    // However, we want to persist "Dev Bypass" sessions which Supabase doesn't know about.
+                    // So we'll rely on explicit logout to clear the global state/storage.
                 }
-                if (mounted) setLoading(false);
+                if (mounted && !restored) setLoading(false);
             }
         );
 
@@ -98,11 +148,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 plan: 'pro'
             };
             setUser(mockUser);
+            // SAVE SESSION
+            localStorage.setItem(SESSION_KEY, JSON.stringify({
+                user: mockUser,
+                timestamp: Date.now()
+            }));
             return { success: true };
         }
 
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error || !data.user) return { success: false, error: error?.message ?? 'Sign-in failed' };
+
+        // Supabase auth listener will handle state update and storage
         return { success: true };
     }, []);
 
@@ -120,6 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const logout = useCallback(async (): Promise<void> => {
         await supabase.auth.signOut();
         setUser(null);
+        localStorage.removeItem(SESSION_KEY);
     }, []);
 
     return (

@@ -48,6 +48,23 @@ const SplashScreen = ({ onDone }: { onDone: () => void }) => {
                     willChange: 'opacity, transform'
                 }}
             />
+            <h1 style={{
+                margin: 0,
+                fontSize: '32px',
+                fontWeight: '700',
+                letterSpacing: '-0.5px', // Tighter tracking like the image
+                opacity: phase === 'in' ? 0 : 1,
+                transform: phase === 'in' ? 'scale(0.8) translateY(20px)' : 'scale(1) translateY(0)',
+                transition: 'opacity 0.8s ease-out 0.1s, transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s',
+                willChange: 'opacity, transform',
+                fontFamily: '"Interact", sans-serif',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0px'
+            }}>
+                <span style={{ color: '#0077b6' }}>Evara</span>
+                <span style={{ color: '#22c55e' }}>Tech</span>
+            </h1>
         </div>
     );
 };

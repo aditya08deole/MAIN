@@ -1,6 +1,6 @@
 export type UserRole = 'superadmin' | 'distributor' | 'customer';
 export type UserPlan = 'base' | 'plus' | 'pro';
-export type NodeCategory = 'OHT' | 'Sump' | 'Borewell' | 'GovtBorewell' | 'PumpHouse';
+export type NodeCategory = 'OHT' | 'Sump' | 'Borewell' | 'GovtBorewell' | 'PumpHouse' | 'FlowMeter';
 export type AnalyticsType = 'EvaraTank' | 'EvaraDeep' | 'EvaraFlow';
 export type NodeStatus = 'Online' | 'Offline' | 'Maintenance' | 'Alert';
 export type PeriodType = 'hourly' | 'daily' | 'weekly' | 'monthly';

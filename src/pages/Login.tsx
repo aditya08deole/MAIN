@@ -143,9 +143,9 @@ const Login = () => {
                     {/* Super Admin Card */}
                     <button
                         onClick={() => handleRoleSelect('superadmin')}
-                        className="group bg-white p-8 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-blue-300 transition-all text-left relative overflow-hidden"
+                        className="group bg-white p-8 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-blue-300 transition-all text-left relative overflow-hidden min-h-[320px] flex flex-col justify-end"
                     >
-                        <div className="absolutetop-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <Shield size={120} className="text-blue-600" />
                         </div>
                         <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center mb-6 text-blue-600 group-hover:scale-110 transition-transform">
@@ -160,7 +160,7 @@ const Login = () => {
                     {/* Distributor Card */}
                     <button
                         onClick={() => handleRoleSelect('distributor')}
-                        className="group bg-white p-8 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-purple-300 transition-all text-left relative overflow-hidden"
+                        className="group bg-white p-8 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-purple-300 transition-all text-left relative overflow-hidden min-h-[320px] flex flex-col justify-end"
                     >
                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <ShoppingBag size={120} className="text-purple-600" />
@@ -177,7 +177,7 @@ const Login = () => {
                     {/* Customer Card */}
                     <button
                         onClick={() => handleRoleSelect('customer')}
-                        className="group bg-white p-8 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-green-300 transition-all text-left relative overflow-hidden"
+                        className="group bg-white p-8 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-green-300 transition-all text-left relative overflow-hidden min-h-[320px] flex flex-col justify-end"
                     >
                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <Users size={120} className="text-green-600" />
