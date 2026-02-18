@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Activity, LayoutDashboard, Layers } from 'lucide-react';
 import clsx from 'clsx';
 import { Link } from 'react-router-dom';
+import { useNodes } from '../hooks/useNodes';
+import { usePipelines } from '../hooks/usePipelines';
 import L from 'leaflet';
 
 // Fix for default marker icon in React-Leaflet
@@ -80,6 +82,13 @@ export const Home = () => {
     const [activeFilter, setActiveFilter] = useState<string | null>(null);
     const [activePipeline, setActivePipeline] = useState<string | null>(null);
 
+    const { nodes, loading: nodesLoading } = useNodes();
+    const { pipelines, loading: pipelinesLoading } = usePipelines();
+
+    if (nodesLoading || pipelinesLoading) {
+        return <div className="flex items-center justify-center h-screen">Loading map data...</div>;
+    }
+
     const handleFilterClick = (filter: string) => {
         setActiveFilter(prev => prev === filter ? null : filter);
     };
@@ -88,134 +97,17 @@ export const Home = () => {
         setActivePipeline(prev => prev === pipeline ? null : pipeline);
     };
 
-    // Pump House Data (Gachibowli Area)
-    const pumpHouses = [
-        {
-            id: 'PH-01',
-            name: 'Pump House 1',
-            type: 'Primary Hub',
-            location: 'ATM Gate',
-            capacity: '4.98L L',
-            status: 'Running',
-            coordinates: [17.4456, 78.3516] as [number, number]
-        },
-        {
-            id: 'PH-02',
-            name: 'Pump House 2',
-            type: 'Secondary',
-            location: 'Guest House',
-            capacity: '75k L',
-            status: 'Running',
-            coordinates: [17.44608, 78.34925] as [number, number]
-        },
-        {
-            id: 'PH-03',
-            name: 'Pump House 3',
-            type: 'FSQ Node',
-            location: 'Staff Qtrs',
-            capacity: '55k L',
-            status: 'Running',
-            coordinates: [17.4430, 78.3487] as [number, number]
-        },
-        {
-            id: 'PH-04',
-            name: 'Pump House 4',
-            type: 'Hostel Node',
-            location: 'Bakul',
-            capacity: '2.00L L',
-            status: 'Running',
-            coordinates: [17.4481, 78.3489] as [number, number]
-        }
-    ];
+    // Derived state for filtering
+    const pumpHouses = nodes.filter(n => n.category === 'PumpHouse');
+    const sumps = nodes.filter(n => n.category === 'Sump');
+    const ohts = nodes.filter(n => n.category === 'OHT');
+    const borewells = nodes.filter(n => n.category === 'Borewell');
+    const govtBorewells = nodes.filter(n => n.category === 'GovtBorewell');
 
-    // Sump Data
-    const sumps = [
-        { id: 'SUMP-S1', name: 'Sump S1', type: 'Hostel Sump', location: 'Bakul', capacity: '2.00L L', status: 'Normal', coordinates: [17.448097, 78.349060] as [number, number] },
-        { id: 'SUMP-S2', name: 'Sump S2', type: 'Hostel Sump', location: 'Palash', capacity: '1.10L L', status: 'Normal', coordinates: [17.444919, 78.346195] as [number, number] },
-        { id: 'SUMP-S3', name: 'Sump S3', type: 'Hostel Sump', location: 'NBH', capacity: '1.00L L', status: 'Normal', coordinates: [17.446779, 78.346996] as [number, number] },
-        { id: 'SUMP-S4', name: 'Sump S4', type: 'Main Sump', location: 'Central', capacity: '4.98L L', status: 'Normal', coordinates: [17.445630, 78.351593] as [number, number] },
-        { id: 'SUMP-S5', name: 'Sump S5', type: 'Block Sump', location: 'Blk A&B', capacity: '55k L', status: 'Normal', coordinates: [17.444766, 78.350087] as [number, number] },
-        { id: 'SUMP-S6', name: 'Sump S6', type: 'Guest Sump', location: 'Guest House', capacity: '10k L', status: 'Normal', coordinates: [17.445498, 78.350202] as [number, number] },
-        { id: 'SUMP-S7', name: 'Sump S7', type: 'Pump Sump', location: 'Pump House', capacity: '43k L', status: 'Normal', coordinates: [17.44597, 78.34906] as [number, number] },
-        { id: 'SUMP-S8', name: 'Sump S8', type: 'Ground Sump', location: 'Football', capacity: '12k L', status: 'Normal', coordinates: [17.446683, 78.348995] as [number, number] },
-        { id: 'SUMP-S9', name: 'Sump S9', type: 'Felicity Sump', location: 'Felicity', capacity: '15k L', status: 'Normal', coordinates: [17.446613, 78.346487] as [number, number] },
-        { id: 'SUMP-S10', name: 'Sump S10', type: 'FSQ Sump', location: 'FSQ A&B', capacity: '34k+31k', status: 'Normal', coordinates: [17.443076, 78.348737] as [number, number] },
-        { id: 'SUMP-S11', name: 'Sump S11', type: 'FSQ Sump', location: 'FSQ C,D,E', capacity: '1.5L+60k', status: 'Normal', coordinates: [17.444773, 78.347797] as [number, number] }
-    ];
+    // Combine for counts
+    const onlineNodes = nodes.filter(n => n.status === 'Online');
+    const offlineNodes = nodes.filter(n => n.status === 'Offline' || n.status === 'Alert' || n.status === 'Maintenance');
 
-    // OHT Data
-    const ohts = [
-        { id: 'OHT-1', name: 'Bakul OHT', type: 'OHT Pair', location: 'Bakul', capacity: '2 Units', status: 'Normal', coordinates: [17.448045, 78.348438] as [number, number] },
-        { id: 'OHT-2', name: 'Parijat OHT', type: 'OHT Pair', location: 'Parijat', capacity: '2 Units', status: 'Normal', coordinates: [17.447547, 78.347752] as [number, number] },
-        { id: 'OHT-3', name: 'Kadamba OHT', type: 'OHT Pair', location: 'Kadamba', capacity: '2 Units', status: 'Normal', coordinates: [17.446907, 78.347178] as [number, number] },
-        { id: 'OHT-4', name: 'NWH Block C OHT', type: 'OHT', location: 'NWH Block C', capacity: '1 Unit', status: 'Normal', coordinates: [17.447675, 78.347430] as [number, number] },
-        { id: 'OHT-5', name: 'NWH Block B OHT', type: 'OHT', location: 'NWH Block B', capacity: '1 Unit', status: 'Normal', coordinates: [17.447391, 78.347172] as [number, number] },
-        { id: 'OHT-6', name: 'NWH Block A OHT', type: 'OHT', location: 'NWH Block A', capacity: '1 Unit', status: 'Normal', coordinates: [17.447081, 78.346884] as [number, number] },
-        { id: 'OHT-7', name: 'Palash Nivas OHT 7', type: 'OHT Cluster', location: 'Palash Nivas', capacity: '4 Units', status: 'Normal', coordinates: [17.445096, 78.345966] as [number, number] },
-        { id: 'OHT-8', name: 'Anand Nivas OHT 8', type: 'OHT Pair', location: 'Anand Nivas', capacity: '2 Units', status: 'Normal', coordinates: [17.443976, 78.348432] as [number, number] },
-        { id: 'OHT-9', name: 'Budha Nivas OHT 9', type: 'OHT Pair', location: 'Budha Nivas', capacity: '2 Units', status: 'Normal', coordinates: [17.443396, 78.348500] as [number, number] },
-        { id: 'OHT-10', name: 'C Block OHT 10', type: 'OHT Cluster', location: 'C Block', capacity: '3 Units', status: 'Normal', coordinates: [17.443387, 78.347834] as [number, number] },
-        { id: 'OHT-11', name: 'D Block OHT 11', type: 'OHT Cluster', location: 'D Block', capacity: '3 Units', status: 'Normal', coordinates: [17.443914, 78.347773] as [number, number] },
-        { id: 'OHT-12', name: 'E Block OHT 12', type: 'OHT Cluster', location: 'E Block', capacity: '3 Units', status: 'Normal', coordinates: [17.444391, 78.347958] as [number, number] },
-        { id: 'OHT-13', name: 'Vindhya OHT', type: 'OHT Cluster', location: 'Vindhya', capacity: 'Mixed', status: 'Normal', coordinates: [17.44568, 78.34973] as [number, number] },
-        { id: 'OHT-14', name: 'Himalaya OHT (KRB)', type: 'OHT', location: 'Himalaya', capacity: 'Borewell', status: 'Normal', coordinates: [17.44525, 78.34966] as [number, number] }
-    ];
-
-    // Borewell Data
-    const borewells = [
-        { id: 'BW-P1', name: 'Borewell P1', type: 'IIIT Bore', location: 'Block C,D,E', capacity: '5 HP', status: 'Not Working', coordinates: [17.443394, 78.348117] as [number, number] },
-        { id: 'BW-P2', name: 'Borewell P2', type: 'IIIT Bore', location: 'Agri Farm', capacity: '12.5 HP', status: 'Not Working', coordinates: [17.443093, 78.348936] as [number, number] },
-        { id: 'BW-P3', name: 'Borewell P3', type: 'IIIT Bore', location: 'Palash', capacity: '5 HP', status: 'Not Working', coordinates: [17.444678, 78.347234] as [number, number] },
-        { id: 'BW-P4', name: 'Borewell P4', type: 'IIIT Bore', location: 'Vindhya', capacity: '--', status: 'Not Working', coordinates: [17.446649, 78.350578] as [number, number] },
-        { id: 'BW-P5', name: 'Borewell P5', type: 'IIIT Bore', location: 'Nilgiri', capacity: '5 HP', status: 'Working', coordinates: [17.447783, 78.349040] as [number, number] },
-        { id: 'BW-P6', name: 'Borewell P6', type: 'IIIT Bore', location: 'Bakul', capacity: '5/7.5 HP', status: 'Not Working', coordinates: [17.448335, 78.348594] as [number, number] },
-        { id: 'BW-P7', name: 'Borewell P7', type: 'IIIT Bore', location: 'Volleyball', capacity: 'N/A', status: 'Not Working', coordinates: [17.445847, 78.346416] as [number, number] },
-        { id: 'BW-P8', name: 'Borewell P8', type: 'IIIT Bore', location: 'Palash', capacity: '7.5 HP', status: 'Working', coordinates: [17.445139, 78.345277] as [number, number] },
-        { id: 'BW-P9', name: 'Borewell P9', type: 'IIIT Bore', location: 'Girls Blk A', capacity: '7.5 HP', status: 'Working', coordinates: [17.446922, 78.346699] as [number, number] },
-        { id: 'BW-P10', name: 'Borewell P10', type: 'IIIT Bore', location: 'Parking NW', capacity: '5 HP', status: 'Working', coordinates: [17.443947, 78.350139] as [number, number] },
-        { id: 'BW-P10A', name: 'Borewell P10A', type: 'IIIT Bore', location: 'Agri Farm', capacity: '--', status: 'Not Working', coordinates: [17.443451, 78.349635] as [number, number] },
-        { id: 'BW-P11', name: 'Borewell P11', type: 'IIIT Bore', location: 'Blk C,D,E', capacity: '5 HP', status: 'Not Working', coordinates: [17.444431, 78.347649] as [number, number] }
-    ];
-
-    // Govt Borewell Data
-    const govtBorewells = [
-        { id: 'BW-G1', name: 'Borewell 1', type: 'Govt Bore', location: 'Palash', capacity: '5 HP', status: 'Not Working', coordinates: [17.444601, 78.345459] as [number, number] },
-        { id: 'BW-G2', name: 'Borewell 2', type: 'Govt Bore', location: 'Palash', capacity: '1.5 HP', status: 'Not Working', coordinates: [17.445490, 78.346838] as [number, number] },
-        { id: 'BW-G3', name: 'Borewell 3', type: 'Govt Bore', location: 'Vindhaya C4', capacity: '5 HP', status: 'Working', coordinates: [17.446188, 78.350067] as [number, number] },
-        { id: 'BW-G4', name: 'Borewell 4', type: 'Govt Bore', location: 'Entrance', capacity: 'N/A', status: 'Not Working', coordinates: [17.447111, 78.350151] as [number, number] },
-        { id: 'BW-G5', name: 'Borewell 5', type: 'Govt Bore', location: 'Entrance', capacity: 'N/A', status: 'Not Working', coordinates: [17.446311, 78.351042] as [number, number] },
-        { id: 'BW-G6', name: 'Borewell 6', type: 'Govt Bore', location: 'Bamboo House', capacity: 'N/A', status: 'Not Working', coordinates: [17.445584, 78.347148] as [number, number] },
-        { id: 'BW-G7', name: 'Borewell 7', type: 'Govt Bore', location: 'Football', capacity: 'N/A', status: 'Not Working', coordinates: [17.446115, 78.348536] as [number, number] }
-    ];
-
-    // Combine for Index
-    // Link all arrays if needed for search later, but currently unused in render
-    // const allNodes = [...pumpHouses, ...sumps, ...ohts, ...borewells, ...govtBorewells];
-
-    // Pipeline Data (GeoJSON Features)
-    const pipelineFeatures = [
-        { type: "Feature", properties: { name: "PH2 - OBH/PALASH", type: "Water Supply", color: "#00b4d8" }, geometry: { type: "LineString", coordinates: [[17.446057476630784, 78.3492569095647], [17.445482194972044, 78.34825099866276], [17.44630656687505, 78.34720892666434], [17.445050104381707, 78.34598638379146]] } },
-        { type: "Feature", properties: { name: "PH2 - KADAMBA/NBH", type: "Water Supply", color: "#00b4d8" }, geometry: { type: "LineString", coordinates: [[17.4468858335199, 78.34717428867077], [17.446583646976833, 78.34687317239377], [17.446302774851645, 78.34721168790577]] } },
-        { type: "Feature", properties: { name: "PH2 - HIMALAYA", type: "Water Supply", color: "#00b4d8" }, geometry: { type: "LineString", coordinates: [[17.44605617669069, 78.34925379742043], [17.445883817839018, 78.34908273787016], [17.44532883606179, 78.34973473021046], [17.44524815714857, 78.3496616935484]] } },
-        { type: "Feature", properties: { name: "PH2 - VINDYA", type: "Water Supply", color: "#00b4d8" }, geometry: { type: "LineString", coordinates: [[17.446050296030123, 78.349258777606], [17.44566149363318, 78.34973190965451]] } },
-        { type: "Feature", properties: { name: "PH2 - PARIJAT/NGH", type: "Water Supply", color: "#00b4d8" }, geometry: { type: "LineString", coordinates: [[17.446051955076115, 78.34924741075247], [17.447117930045437, 78.34798068042636], [17.447270012848705, 78.34812314046127], [17.447551631476756, 78.34779469227817]] } },
-        { type: "Feature", properties: { name: "PH1 - PH3", type: "Water Supply", color: "#00b4d8" }, geometry: { type: "LineString", coordinates: [[17.445565496370946, 78.35156809621168], [17.445402935739253, 78.3510818505751], [17.44297366973413, 78.34871393327182]] } },
-        { type: "Feature", properties: { name: "PH3 - BLOCK B", type: "Water Supply", color: "#00b4d8" }, geometry: { type: "LineString", coordinates: [[17.443007256799305, 78.3486649229556], [17.443140183708365, 78.34880425711145], [17.443396542473252, 78.34848826715137]] } },
-        { type: "Feature", properties: { name: "PH3 - BLOCK A", type: "Water Supply", color: "#00b4d8" }, geometry: { type: "LineString", coordinates: [[17.443985216799305, 78.3484335287335], [17.44341553199783, 78.34908292542195], [17.443140183708365, 78.34880425711145]] } },
-        { type: "Feature", properties: { name: "PH1 - PH4", type: "Water Supply", color: "#00b4d8" }, geometry: { type: "LineString", coordinates: [[17.44557532910399, 78.35159848364157], [17.44576982116662, 78.35095289614935], [17.447747056552885, 78.34859125482501], [17.448093307337402, 78.34890811607835]] } },
-        { type: "Feature", properties: { name: "PH4 - BAKUL OHT", type: "Water Supply", color: "#00b4d8" }, geometry: { type: "LineString", coordinates: [[17.4481030150547, 78.34889099161575], [17.44782419439771, 78.34863663284784], [17.448006849815854, 78.34842828429481]] } },
-        { type: "Feature", properties: { name: "PH4 - NWH Block C", type: "Water Supply", color: "#00b4d8" }, geometry: { type: "LineString", coordinates: [[17.447827892848082, 78.34863200557686], [17.44714473747763, 78.34798863298869], [17.44761440706972, 78.34746274583108]] } },
-        { type: "Feature", properties: { name: "PH4 - NWH Block B", type: "Water Supply", color: "#00b4d8" }, geometry: { type: "LineString", coordinates: [[17.44714716987866, 78.34798944843249], [17.446898400205413, 78.34775073198728], [17.447350593243257, 78.3472021023727]] } },
-        { type: "Feature", properties: { name: "PH4 - NWH Block A", type: "Water Supply", color: "#00b4d8" }, geometry: { type: "LineString", coordinates: [[17.44689799488779, 78.34774710095786], [17.44658242120913, 78.34744051382114], [17.44704423616315, 78.346897993527019]] } },
-        { type: "Feature", properties: { name: "PH1 - PH2", type: "Water Supply", color: "#00b4d8" }, geometry: { type: "LineString", coordinates: [[17.44607018219577, 78.34925227266547], [17.446702074561657, 78.34983216194138]] } },
-
-        // Borewell Pipelines (Navy Blue)
-        { type: "Feature", properties: { name: "PIPE-P5-S1", type: "Borewell Water", color: "#000080" }, geometry: { type: "LineString", coordinates: [[17.447797, 78.349013], [17.448091, 78.349042]] } },
-        { type: "Feature", properties: { name: "PIPE-P5-S7", type: "Borewell Water", color: "#000080" }, geometry: { type: "LineString", coordinates: [[17.447780, 78.349018], [17.446921, 78.349951], [17.445962, 78.349090]] } },
-        { type: "Feature", properties: { name: "PIPE-P8-S2", type: "Borewell Water", color: "#000080" }, geometry: { type: "LineString", coordinates: [[17.445120, 78.345291], [17.444911, 78.346206]] } },
-        { type: "Feature", properties: { name: "PIPE-P9-S3", type: "Borewell Water", color: "#000080" }, geometry: { type: "LineString", coordinates: [[17.446868, 78.346714], [17.446715, 78.346915], [17.446715, 78.346984]] } },
-        { type: "Feature", properties: { name: "PIPE-P10-S5", type: "Borewell Water", color: "#000080" }, geometry: { type: "LineString", coordinates: [[17.443927, 78.350157], [17.444322, 78.349693], [17.444701, 78.350068]] } }
-    ];
 
     // Center Map on PH-01
     const position: [number, number] = [17.4456, 78.3490];
@@ -237,38 +129,41 @@ export const Home = () => {
                     />
 
                     {/* Pipelines */}
-                    {pipelineFeatures.filter(pipe => {
+                    {pipelines.filter(pipe => {
                         if (activePipeline === null) return false;
-                        if (activePipeline === 'watersupply') return pipe.properties.type === 'Water Supply';
-                        if (activePipeline === 'borewellwater') return pipe.properties.type === 'Borewell Water';
+                        if (activePipeline === 'watersupply') return pipe.name.includes('PH'); // Heuristic or add type to DB
+                        if (activePipeline === 'borewellwater') return pipe.name.includes('PIPE');
                         return false;
-                    }).map((pipe, idx) => (
+                    }).map((pipe) => (
                         <Polyline
-                            key={idx}
-                            positions={pipe.geometry.coordinates as [number, number][]}
-                            pathOptions={{ color: pipe.properties.color, weight: 4, opacity: 0.8 }}
+                            key={pipe.id}
+                            positions={pipe.positions}
+                            pathOptions={{ color: pipe.color, weight: 4, opacity: 0.8 }}
                         >
                             <Popup>
                                 <div className="p-2">
-                                    <h3 className="font-bold text-slate-800">{pipe.properties.name}</h3>
-                                    <p className="text-xs text-slate-500">{pipe.properties.type}</p>
+                                    <h3 className="font-bold text-slate-800">{pipe.name}</h3>
+                                    {/* <p className="text-xs text-slate-500">{pipe.type}</p> */}
                                 </div>
                             </Popup>
                         </Polyline>
                     ))}
                     {/* Pump House Markers (Purple Pins) */}
                     {(activeFilter === null || activeFilter === 'pumphouse') && pumpHouses.map((ph) => (
-                        <Marker key={ph.id} position={ph.coordinates} icon={purpleIcon}>
+                        <Marker key={ph.id} position={[ph.lat, ph.lng]} icon={purpleIcon}>
                             <Popup>
                                 <div className="p-2 min-w-[150px]">
-                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{ph.name}</h3>
+                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{ph.label}</h3>
                                     <div className="mb-3">
-                                        <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full inline-block">
+                                        <span className={clsx(
+                                            "text-[10px] font-bold px-2 py-0.5 rounded-full inline-block",
+                                            ph.status === 'Online' ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
+                                        )}>
                                             {ph.status}
                                         </span>
                                     </div>
                                     <Link
-                                        to={`/node/${ph.id}`}
+                                        to={`/node/${ph.node_key}`}
                                         className="block w-full text-center bg-blue-600 !text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
                                         style={{ color: 'white' }}
                                     >
@@ -281,17 +176,20 @@ export const Home = () => {
 
                     {/* Sumps Markers (Green Pins) */}
                     {(activeFilter === null || activeFilter === 'sump') && sumps.map((sump) => (
-                        <Marker key={sump.id} position={sump.coordinates} icon={sumpIcon}>
+                        <Marker key={sump.id} position={[sump.lat, sump.lng]} icon={sumpIcon}>
                             <Popup>
                                 <div className="p-2 min-w-[150px]">
-                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{sump.name}</h3>
+                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{sump.label}</h3>
                                     <div className="mb-3">
-                                        <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full inline-block">
+                                        <span className={clsx(
+                                            "text-[10px] font-bold px-2 py-0.5 rounded-full inline-block",
+                                            sump.status === 'Online' ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
+                                        )}>
                                             {sump.status}
                                         </span>
                                     </div>
                                     <Link
-                                        to={`/node/${sump.id}`}
+                                        to={`/node/${sump.node_key}`}
                                         className="block w-full text-center bg-blue-600 !text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
                                         style={{ color: 'white' }}
                                     >
@@ -304,17 +202,20 @@ export const Home = () => {
 
                     {/* OHT Markers (Blue Pins) */}
                     {(activeFilter === null || activeFilter === 'oht') && ohts.map((oht) => (
-                        <Marker key={oht.id} position={oht.coordinates} icon={blueIcon}>
+                        <Marker key={oht.id} position={[oht.lat, oht.lng]} icon={blueIcon}>
                             <Popup>
                                 <div className="p-2 min-w-[150px]">
-                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{oht.name}</h3>
+                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{oht.label}</h3>
                                     <div className="mb-3">
-                                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full inline-block">
+                                        <span className={clsx(
+                                            "text-[10px] font-bold px-2 py-0.5 rounded-full inline-block",
+                                            oht.status === 'Online' ? "text-blue-600 bg-blue-50" : "text-red-600 bg-red-50"
+                                        )}>
                                             {oht.status}
                                         </span>
                                     </div>
                                     <Link
-                                        to={`/node/${oht.id}`}
+                                        to={`/node/${oht.node_key}`}
                                         className="block w-full text-center bg-blue-600 !text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
                                         style={{ color: 'white' }}
                                     >
@@ -327,24 +228,24 @@ export const Home = () => {
 
                     {/* Borewell Markers (Yellow Pins) */}
                     {(activeFilter === null || activeFilter === 'borewell' || activeFilter === 'nonworking') && borewells.filter(bw => {
-                        if (activeFilter === 'nonworking') return bw.status === 'Not Working';
+                        if (activeFilter === 'nonworking') return bw.status === 'Offline' || bw.status === 'Alert';
                         if (activeFilter === 'borewell') return true;
                         return true;
                     }).map((bw) => (
-                        <Marker key={bw.id} position={bw.coordinates} icon={bw.status === 'Not Working' ? redIcon : yellowIcon}>
+                        <Marker key={bw.id} position={[bw.lat, bw.lng]} icon={(bw.status === 'Offline' || bw.status === 'Alert') ? redIcon : yellowIcon}>
                             <Popup>
                                 <div className="p-2 min-w-[150px]">
-                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{bw.name}</h3>
+                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{bw.label}</h3>
                                     <div className="mb-3">
                                         <span className={clsx(
                                             "text-[10px] font-bold px-2 py-0.5 rounded-full inline-block",
-                                            bw.status === 'Working' ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
+                                            bw.status === 'Online' ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
                                         )}>
                                             {bw.status}
                                         </span>
                                     </div>
                                     <Link
-                                        to={`/node/${bw.id}`}
+                                        to={`/node/${bw.node_key}`}
                                         className="block w-full text-center bg-blue-600 !text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
                                         style={{ color: 'white' }}
                                     >
@@ -357,24 +258,24 @@ export const Home = () => {
 
                     {/* Govt Borewell Markers (Black Pins) */}
                     {(activeFilter === null || activeFilter === 'govtborewell' || activeFilter === 'nonworking') && govtBorewells.filter(bw => {
-                        if (activeFilter === 'nonworking') return bw.status === 'Not Working';
+                        if (activeFilter === 'nonworking') return bw.status === 'Offline' || bw.status === 'Alert';
                         if (activeFilter === 'govtborewell') return true;
                         return true;
                     }).map((bw) => (
-                        <Marker key={bw.id} position={bw.coordinates} icon={bw.status === 'Not Working' ? redIcon : blackIcon}>
+                        <Marker key={bw.id} position={[bw.lat, bw.lng]} icon={(bw.status === 'Offline' || bw.status === 'Alert') ? redIcon : blackIcon}>
                             <Popup>
                                 <div className="p-2 min-w-[150px]">
-                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{bw.name}</h3>
+                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{bw.label}</h3>
                                     <div className="mb-3">
                                         <span className={clsx(
                                             "text-[10px] font-bold px-2 py-0.5 rounded-full inline-block",
-                                            bw.status === 'Working' ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
+                                            bw.status === 'Online' ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
                                         )}>
                                             {bw.status}
                                         </span>
                                     </div>
                                     <Link
-                                        to={`/node/${bw.id}`}
+                                        to={`/node/${bw.node_key}`}
                                         className="block w-full text-center bg-blue-600 !text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
                                         style={{ color: 'white' }}
                                     >
@@ -386,7 +287,7 @@ export const Home = () => {
                     ))}
 
                     {/* Custom Zoom Control Position */}
-                    < ZoomControl position="bottomright" />
+                    <ZoomControl position="bottomright" />
                 </MapContainer>
 
                 {/* Overlay Buttons */}
@@ -419,15 +320,15 @@ export const Home = () => {
                         {/* Summary Stats */}
                         <div className="grid grid-cols-3 gap-2 mb-4">
                             <div className="bg-green-50 rounded-lg p-2.5 text-center">
-                                <div className="text-lg font-extrabold text-green-600">{pumpHouses.length + sumps.length + ohts.length + borewells.filter(b => b.status === 'Working').length + govtBorewells.filter(b => b.status === 'Working').length}</div>
+                                <div className="text-lg font-extrabold text-green-600">{onlineNodes.length}</div>
                                 <div className="text-[10px] font-semibold text-green-700">Online</div>
                             </div>
                             <div className="bg-red-50 rounded-lg p-2.5 text-center">
-                                <div className="text-lg font-extrabold text-red-600">{borewells.filter(b => b.status === 'Not Working').length + govtBorewells.filter(b => b.status === 'Not Working').length}</div>
+                                <div className="text-lg font-extrabold text-red-600">{offlineNodes.length}</div>
                                 <div className="text-[10px] font-semibold text-red-700">Offline</div>
                             </div>
                             <div className="bg-blue-50 rounded-lg p-2.5 text-center">
-                                <div className="text-lg font-extrabold text-blue-600">{pumpHouses.length + sumps.length + ohts.length + borewells.length + govtBorewells.length}</div>
+                                <div className="text-lg font-extrabold text-blue-600">{nodes.length}</div>
                                 <div className="text-[10px] font-semibold text-blue-700">Total</div>
                             </div>
                         </div>
@@ -435,11 +336,11 @@ export const Home = () => {
                         {/* Asset Breakdown */}
                         <div className="space-y-3">
                             {[
-                                { name: 'Pump Houses', total: pumpHouses.length, working: pumpHouses.filter(p => p.status === 'Running').length, color: '#9333ea', bg: 'bg-purple-50' },
-                                { name: 'Sumps', total: sumps.length, working: sumps.filter(s => s.status === 'Normal').length, color: '#16a34a', bg: 'bg-green-50' },
-                                { name: 'Overhead Tanks', total: ohts.length, working: ohts.filter(o => o.status === 'Normal').length, color: '#2563eb', bg: 'bg-blue-50' },
-                                { name: 'Borewells (IIIT)', total: borewells.length, working: borewells.filter(b => b.status === 'Working').length, color: '#eab308', bg: 'bg-yellow-50' },
-                                { name: 'Borewells (Govt)', total: govtBorewells.length, working: govtBorewells.filter(b => b.status === 'Working').length, color: '#1e293b', bg: 'bg-slate-50' },
+                                { name: 'Pump Houses', total: pumpHouses.length, working: pumpHouses.filter(p => p.status === 'Online').length, color: '#9333ea', bg: 'bg-purple-50' },
+                                { name: 'Sumps', total: sumps.length, working: sumps.filter(s => s.status === 'Online').length, color: '#16a34a', bg: 'bg-green-50' },
+                                { name: 'Overhead Tanks', total: ohts.length, working: ohts.filter(o => o.status === 'Online').length, color: '#2563eb', bg: 'bg-blue-50' },
+                                { name: 'Borewells (IIIT)', total: borewells.length, working: borewells.filter(b => b.status === 'Online').length, color: '#eab308', bg: 'bg-yellow-50' },
+                                { name: 'Borewells (Govt)', total: govtBorewells.length, working: govtBorewells.filter(b => b.status === 'Online').length, color: '#1e293b', bg: 'bg-slate-50' },
                             ].map((asset, i) => (
                                 <div key={i} className={clsx("rounded-xl p-3", asset.bg)}>
                                     <div className="flex justify-between items-center mb-1.5">
@@ -469,11 +370,11 @@ export const Home = () => {
                             <LayoutDashboard size={16} className="text-[var(--color-evara-green)]" /> System Dashboard
                         </h3>
 
-                        {/* Water Consumption */}
+                        {/* Water Consumption - Dynamic Placeholder */}
                         <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-3 mb-3">
-                            <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">Today's Water Consumption</div>
-                            <div className="text-2xl font-extrabold text-blue-700">48,250 <span className="text-sm font-bold text-slate-400">Litres</span></div>
-                            <div className="text-[10px] text-green-600 font-semibold mt-0.5">&#9650; 5.2% vs yesterday</div>
+                            <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">Total Capacity</div>
+                            <div className="text-2xl font-extrabold text-blue-700">-- <span className="text-sm font-bold text-slate-400">Litres</span></div>
+                            <div className="text-[10px] text-green-600 font-semibold mt-0.5">Realtime data fetching...</div>
                         </div>
 
                         {/* System Health Metrics */}
@@ -483,16 +384,16 @@ export const Home = () => {
                                 <div className="text-lg font-extrabold text-green-600">99.8%</div>
                             </div>
                             <div className="bg-orange-50 rounded-lg p-2.5">
-                                <div className="text-[10px] font-bold text-slate-500">Avg Pressure</div>
-                                <div className="text-lg font-extrabold text-orange-600">3.2 <span className="text-[10px]">bar</span></div>
+                                <div className="text-[10px] font-bold text-slate-500">Active Alerts</div>
+                                <div className="text-lg font-extrabold text-orange-600">{offlineNodes.length}</div>
                             </div>
                             <div className="bg-purple-50 rounded-lg p-2.5">
-                                <div className="text-[10px] font-bold text-slate-500">Flow Rate</div>
-                                <div className="text-lg font-extrabold text-purple-600">145 <span className="text-[10px]">L/min</span></div>
+                                <div className="text-[10px] font-bold text-slate-500">Pipelines</div>
+                                <div className="text-lg font-extrabold text-purple-600">{pipelines.length}</div>
                             </div>
                             <div className="bg-cyan-50 rounded-lg p-2.5">
-                                <div className="text-[10px] font-bold text-slate-500">Water Quality</div>
-                                <div className="text-lg font-extrabold text-cyan-600">Good</div>
+                                <div className="text-[10px] font-bold text-slate-500">System Status</div>
+                                <div className="text-lg font-extrabold text-cyan-600">{nodesLoading ? 'Loading' : 'Active'}</div>
                             </div>
                         </div>
 
@@ -501,11 +402,12 @@ export const Home = () => {
                             <div className="text-[10px] font-bold text-slate-500 uppercase mb-2">Pipeline Network</div>
                             <div className="flex justify-between items-center mb-1">
                                 <span className="text-xs text-slate-600">Water Supply Lines</span>
-                                <span className="text-xs font-bold text-cyan-600">{pipelineFeatures.filter(p => p.properties.type === 'Water Supply').length} active</span>
+                                {/* Filter by checking naming convention or adding type to DB in future */}
+                                <span className="text-xs font-bold text-cyan-600">{pipelines.filter(p => !p.name.includes('PIPE')).length} active</span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-xs text-slate-600">Borewell Lines</span>
-                                <span className="text-xs font-bold text-indigo-600">{pipelineFeatures.filter(p => p.properties.type === 'Borewell Water').length} active</span>
+                                <span className="text-xs font-bold text-indigo-600">{pipelines.filter(p => p.name.includes('PIPE')).length} active</span>
                             </div>
                         </div>
 
@@ -513,20 +415,8 @@ export const Home = () => {
                         <div className="bg-slate-50 rounded-xl p-3">
                             <div className="text-[10px] font-bold text-slate-500 uppercase mb-2">Recent Activity</div>
                             <div className="space-y-2">
-                                {[
-                                    { text: 'PH-01 pump cycle completed', time: '2 min ago', dotColor: 'bg-green-500' },
-                                    { text: 'BW-P5 borewell refill started', time: '8 min ago', dotColor: 'bg-blue-500' },
-                                    { text: 'OHT-3 level reached 95%', time: '15 min ago', dotColor: 'bg-purple-500' },
-                                    { text: 'SUMP-S4 maintenance alert', time: '32 min ago', dotColor: 'bg-orange-500' },
-                                ].map((item, i) => (
-                                    <div key={i} className="flex items-start gap-2">
-                                        <div className={clsx("w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0", item.dotColor)}></div>
-                                        <div>
-                                            <div className="text-[11px] font-semibold text-slate-700">{item.text}</div>
-                                            <div className="text-[10px] text-slate-400">{item.time}</div>
-                                        </div>
-                                    </div>
-                                ))}
+                                {/* TODO: Fetch from audit_logs */}
+                                <div className="text-xs text-slate-400 italic">No recent activity detected.</div>
                             </div>
                         </div>
                     </div>

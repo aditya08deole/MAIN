@@ -1,140 +1,76 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import Chart, { type ChartConfiguration } from 'chart.js/auto';
+import Chart from 'chart.js/auto';
+import NodeNotConfigured from '../components/NodeNotConfigured';
+import { STATIC_NODES } from '../data/staticData';
 import './EvaraTank.css';
 
 interface EvaraTankProps {
     embedded?: boolean;
+    nodeId?: string;
 }
 
-const EvaraTank = ({ embedded = false }: EvaraTankProps) => {
+const EvaraTank = ({ embedded = false, nodeId }: EvaraTankProps) => {
+    // Chart Refs
     const levelChartRef = useRef<HTMLCanvasElement>(null);
     const usageChartRef = useRef<HTMLCanvasElement>(null);
     const refillChartRef = useRef<HTMLCanvasElement>(null);
 
-    // Refs to hold chart instances to destroy them on unmount/re-render
+    // Chart Instances
     const chartInstances = useRef<{
         level: Chart | null;
         usage: Chart | null;
         refill: Chart | null;
     }>({ level: null, usage: null, refill: null });
 
+    // State
     const [filter, setFilter] = useState('live');
-    const [kpiData, setKpiData] = useState({
+    const [tsConfig, setTsConfig] = useState<{
+        channelId: string | null;
+        readApiKey: string | null;
+    } | null>(null);
+
+    const [data, setData] = useState({
         percent: 0,
         volume: 0,
         fillHeight: 0,
-        level: 0,      // in cm
-        meters: 0.85,  // total height in m
+        meters: 0.85,  // Total height in m
         lowAlert: { state: 'green', text: 'NORMAL' },
         overAlert: { state: 'green', text: 'MINIMAL' },
         rapidAlert: { state: 'green', text: 'NORMAL' },
         sensorAlert: { state: 'green', text: 'CONNECTED' },
     });
 
-    const CHANNEL_ID = '3212670';
-    const READ_API_KEY = 'UXORK5OUGJ2VK5PX';
+    // Constants from user snippet
     const TOTAL_HEIGHT_CM = 85;
+    const TOTAL_HEIGHT_M = 0.85;
     const MAX_CAPACITY = 500;
     const TARGET_SENSOR_VAL = 40;
 
-    // Function to set filter
-    const handleFilterChange = (newFilter: string) => {
-        setFilter(newFilter);
-        // In React, fetchData will satisfy the filter dependency or be called
-    };
-
+    // 1. Fetch Config from Static Data
     useEffect(() => {
-        const fetchData = async () => {
-            let apiParams = '&results=15';
-            if (filter === '1h') apiParams = '&minutes=60';
-            if (filter === '6h') apiParams = '&minutes=360';
-            if (filter === '24h') apiParams = '&minutes=1440';
+        if (!nodeId) {
+            setTsConfig({ channelId: null, readApiKey: null });
+            return;
+        }
+        const node = STATIC_NODES.find(n => n.id === nodeId || n.node_key === nodeId);
+        if (node) {
+            setTsConfig({
+                channelId: node.thingspeak_channel_id ?? null,
+                readApiKey: node.thingspeak_read_api_key ?? null,
+            });
+        } else {
+            console.warn("Node not found:", nodeId);
+            setTsConfig({ channelId: null, readApiKey: null });
+        }
+    }, [nodeId]);
 
-            const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?api_key=${READ_API_KEY}${apiParams}`;
-
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                const feeds = data.feeds;
-
-                // Mock calculations based on user's script
-                const sensorReading = TARGET_SENSOR_VAL; // Static mock from user code
-                const currentLevel = TOTAL_HEIGHT_CM - sensorReading;
-                const percentage = (currentLevel / TOTAL_HEIGHT_CM) * 100;
-                // const meters = currentLevel / 100; // Unused in display update
-                const volume = (percentage / 100) * MAX_CAPACITY;
-
-                // Determine Alert States
-                let low = { state: 'green', text: 'NORMAL' };
-                if (percentage < 20) low = { state: 'orange', text: 'ATTENTION REQUIRED' };
-
-                let over = { state: 'green', text: 'MINIMAL' };
-                if (percentage > 90) over = { state: 'red', text: 'CRITICAL' };
-
-                setKpiData({
-                    percent: percentage,
-                    volume: volume,
-                    fillHeight: percentage,
-                    level: currentLevel,
-                    meters: 0.85,
-                    lowAlert: low,
-                    overAlert: over,
-                    rapidAlert: { state: 'green', text: 'NORMAL' },
-                    sensorAlert: { state: 'green', text: 'CONNECTED' }
-                });
-
-
-                // --- CHART COLOR LOGIC ---
-                let borderColor = '#4F46E5';
-                let bgColor = 'rgba(79, 70, 229, 0.1)';
-
-                if (percentage > 70) {
-                    borderColor = '#1e40af'; // Deep Blue
-                    bgColor = 'rgba(30, 64, 175, 0.2)';
-                } else if (percentage < 30) {
-                    borderColor = '#38bdf8'; // Sky Blue
-                    bgColor = 'rgba(56, 189, 248, 0.2)';
-                }
-
-                // Update Level Chart
-                if (chartInstances.current.level) {
-                    const labels = feeds.map((f: any) => {
-                        let d = new Date(f.created_at);
-                        return d.getHours() + ":" + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
-                    });
-                    const points = feeds.map(() => currentLevel); // Mock data from script
-
-                    chartInstances.current.level.data.labels = labels;
-                    chartInstances.current.level.data.datasets[0].data = points;
-                    chartInstances.current.level.data.datasets[0].borderColor = borderColor;
-                    chartInstances.current.level.data.datasets[0].backgroundColor = bgColor;
-                    chartInstances.current.level.update();
-                }
-
-            } catch (error) {
-                console.error("Error:", error);
-                setKpiData(prev => ({
-                    ...prev,
-                    sensorAlert: { state: 'red', text: 'DISCONNECTED' }
-                }));
-            }
-        };
-
-        // Initial Fetch
-        fetchData();
-        const interval = setInterval(fetchData, 15000); // 15s refresh
-
-        return () => clearInterval(interval);
-    }, [filter]);
-
-    // Initialize Charts on Mount
+    // 2. Initialize Charts
     useEffect(() => {
-        // 1. Level Chart
+        // Level Chart
         if (levelChartRef.current) {
             if (chartInstances.current.level) chartInstances.current.level.destroy();
-
-            const config: ChartConfiguration = {
+            chartInstances.current.level = new Chart(levelChartRef.current, {
                 type: 'line',
                 data: {
                     labels: [],
@@ -147,45 +83,24 @@ const EvaraTank = ({ embedded = false }: EvaraTankProps) => {
                         tension: 0.3
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true, max: 85 } },
-                    plugins: { legend: { display: false } }
-                }
-            };
-            chartInstances.current.level = new Chart(levelChartRef.current, config);
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 85 } }, plugins: { legend: { display: false } } }
+            });
         }
 
-        // 2. Usage Chart
+        // Usage Chart
         if (usageChartRef.current) {
             if (chartInstances.current.usage) chartInstances.current.usage.destroy();
-
-            const config: ChartConfiguration = {
+            chartInstances.current.usage = new Chart(usageChartRef.current, {
                 type: 'doughnut',
-                data: {
-                    labels: ['Normal', 'Abnormal'],
-                    datasets: [{
-                        data: [95, 5],
-                        backgroundColor: ['#4F46E5', '#EF4444'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '80%',
-                    plugins: { legend: { display: false } }
-                } as any
-            };
-            chartInstances.current.usage = new Chart(usageChartRef.current, config);
+                data: { labels: ['Normal', 'Abnormal'], datasets: [{ data: [95, 5], backgroundColor: ['#4F46E5', '#EF4444'], borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '80%', plugins: { legend: { display: false } } } as any
+            });
         }
 
-        // 3. Refill Chart
+        // Refill Chart
         if (refillChartRef.current) {
             if (chartInstances.current.refill) chartInstances.current.refill.destroy();
-
-            const config: ChartConfiguration = {
+            chartInstances.current.refill = new Chart(refillChartRef.current, {
                 type: 'doughnut',
                 data: {
                     labels: ['Cycles', 'Remaining'],
@@ -203,14 +118,96 @@ const EvaraTank = ({ embedded = false }: EvaraTankProps) => {
                     plugins: { legend: { display: false }, tooltip: { enabled: false } },
                     animation: { animateScale: true, animateRotate: true } as any
                 } as any
-            };
-            chartInstances.current.refill = new Chart(refillChartRef.current, config);
+            });
         }
 
         return () => {
             Object.values(chartInstances.current).forEach(chart => chart?.destroy());
         };
     }, []);
+
+    // 3. Data Fetching Loop
+    useEffect(() => {
+        if (!tsConfig?.channelId || !tsConfig?.readApiKey) return;
+
+        const fetchData = async () => {
+            let apiParams = '&results=15';
+            if (filter === '1h') apiParams = '&minutes=60';
+            if (filter === '6h') apiParams = '&minutes=360';
+            if (filter === '24h') apiParams = '&minutes=1440';
+
+            const url = `https://api.thingspeak.com/channels/${tsConfig.channelId}/feeds.json?api_key=${tsConfig.readApiKey}${apiParams}`;
+
+            try {
+                const response = await fetch(url);
+                const json = await response.json();
+                const feeds = json.feeds;
+
+                // Static mock logic from snippet (mimicking the user's JS logic)
+                const sensorReading = TARGET_SENSOR_VAL;
+                const currentLevel = TOTAL_HEIGHT_CM - sensorReading;
+                const percentage = (currentLevel / TOTAL_HEIGHT_CM) * 100;
+                const volume = (percentage / 100) * MAX_CAPACITY;
+
+                // Alert Logic
+                let low = { state: 'green', text: 'NORMAL' };
+                if (percentage < 20) low = { state: 'orange', text: 'ATTENTION REQUIRED' };
+
+                let over = { state: 'green', text: 'MINIMAL' };
+                if (percentage > 90) over = { state: 'red', text: 'CRITICAL' };
+
+                // Update State
+                setData(prev => ({
+                    ...prev,
+                    percent: percentage,
+                    volume: volume,
+                    fillHeight: percentage,
+                    lowAlert: low,
+                    overAlert: over,
+                    sensorAlert: { state: 'green', text: 'CONNECTED' }
+                }));
+
+                // Update Charts
+                if (chartInstances.current.level) {
+                    // Color Logic
+                    let borderColor = '#4F46E5';
+                    let bgColor = 'rgba(79, 70, 229, 0.1)';
+
+                    if (percentage > 70) {
+                        borderColor = '#1e40af'; // Deep Blue
+                        bgColor = 'rgba(30, 64, 175, 0.2)';
+                    } else if (percentage < 30) {
+                        borderColor = '#38bdf8'; // Sky Blue
+                        bgColor = 'rgba(56, 189, 248, 0.2)';
+                    }
+
+                    chartInstances.current.level.data.datasets[0].borderColor = borderColor;
+                    chartInstances.current.level.data.datasets[0].backgroundColor = bgColor;
+
+                    const labels = feeds.map((f: any) => {
+                        let d = new Date(f.created_at);
+                        return d.getHours() + ":" + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
+                    });
+                    // Mock data mapping as per snippet
+                    const points = feeds.map(() => currentLevel);
+
+                    chartInstances.current.level.data.labels = labels;
+                    chartInstances.current.level.data.datasets[0].data = points;
+                    chartInstances.current.level.update();
+                }
+
+            } catch (error) {
+                console.error("Error:", error);
+                setData(prev => ({ ...prev, sensorAlert: { state: 'red', text: 'DISCONNECTED' } }));
+            }
+        };
+
+        fetchData();
+        const interval = setInterval(fetchData, 15000); // 15s polling
+        return () => clearInterval(interval);
+
+    }, [tsConfig, filter]);
+
 
     // Helper for alert classes
     const getAlertClass = (state: string) => {
@@ -220,18 +217,20 @@ const EvaraTank = ({ embedded = false }: EvaraTankProps) => {
         return { dot: 'et-alert-dot', text: 'et-alert-right' };
     };
 
+    if (!tsConfig?.channelId && !embedded) return <NodeNotConfigured analyticsType="EvaraTank" />;
+
     return (
         <div className={`evara-tank-body${embedded ? ' et-embedded' : ''}`}>
             {!embedded && (
                 <nav className="et-sidebar">
                     <Link to="/evaratank" style={{ textDecoration: 'none' }}>
-                        <div style={{ width: '40px', height: '40px', background: '#4F46E5', borderRadius: '12px', marginBottom: '25px', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)', cursor: 'pointer' }}></div>
+                        <div style={{ width: '40px', height: '40px', background: 'var(--primary)', borderRadius: '12px', marginBottom: '25px' }}></div>
                     </Link>
                     <Link to="/evaradeep" style={{ textDecoration: 'none' }}>
-                        <div style={{ width: '24px', height: '24px', background: '#E2E8F0', borderRadius: '6px', marginBottom: '25px', cursor: 'pointer' }}></div>
+                        <div style={{ width: '32px', height: '32px', background: '#E2E8F0', borderRadius: '10px', marginBottom: '25px' }}></div>
                     </Link>
                     <Link to="/evaraflow" style={{ textDecoration: 'none' }}>
-                        <div style={{ width: '24px', height: '24px', background: '#E2E8F0', borderRadius: '6px', marginBottom: '25px', cursor: 'pointer' }}></div>
+                        <div style={{ width: '32px', height: '32px', background: '#E2E8F0', borderRadius: '10px', marginBottom: '25px' }}></div>
                     </Link>
                 </nav>
             )}
@@ -249,12 +248,12 @@ const EvaraTank = ({ embedded = false }: EvaraTankProps) => {
                     <div className="et-card">
                         <div className="et-tank-display">
                             <div className="et-tank-tube">
-                                <div className="et-water-fill" style={{ height: `${kpiData.fillHeight}%` }}></div>
+                                <div className="et-water-fill" style={{ height: `${data.fillHeight}%` }}></div>
                             </div>
                             <div>
                                 <div className="et-kpi-label">Current Level</div>
-                                <div className="et-percent-large">{kpiData.percent.toFixed(1)}%</div>
-                                <div className="et-meter-subtext">Total: {kpiData.meters}m</div>
+                                <div className="et-percent-large">{data.percent.toFixed(1)}%</div>
+                                <div className="et-meter-subtext">Total: {TOTAL_HEIGHT_M}m</div>
                             </div>
                         </div>
                     </div>
@@ -267,7 +266,7 @@ const EvaraTank = ({ embedded = false }: EvaraTankProps) => {
 
                     <div className="et-card">
                         <div className="et-kpi-label">Available Volume</div>
-                        <div className="et-kpi-value">{kpiData.volume.toFixed(1)} L</div>
+                        <div className="et-kpi-value">{data.volume.toFixed(1)} L</div>
                         <div className="et-kpi-sub">Calculated Real-Time</div>
                     </div>
 
@@ -281,15 +280,10 @@ const EvaraTank = ({ embedded = false }: EvaraTankProps) => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h3 style={{ margin: 0, fontSize: '16px' }}>Real-Time Water Level</h3>
                             <div className="et-filter-group">
-                                {['live', '1h', '6h', '24h'].map(f => (
-                                    <button
-                                        key={f}
-                                        className={`et-filter-btn ${filter === f ? 'active' : ''}`}
-                                        onClick={() => handleFilterChange(f)}
-                                    >
-                                        {f === 'live' ? 'Live' : f}
-                                    </button>
-                                ))}
+                                <button className={`et-filter-btn ${filter === 'live' ? 'active' : ''}`} onClick={() => setFilter('live')}>Live</button>
+                                <button className={`et-filter-btn ${filter === '1h' ? 'active' : ''}`} onClick={() => setFilter('1h')}>1h</button>
+                                <button className={`et-filter-btn ${filter === '6h' ? 'active' : ''}`} onClick={() => setFilter('6h')}>6h</button>
+                                <button className={`et-filter-btn ${filter === '24h' ? 'active' : ''}`} onClick={() => setFilter('24h')}>24h</button>
                             </div>
                         </div>
                         <div className="et-chart-container">
@@ -347,34 +341,34 @@ const EvaraTank = ({ embedded = false }: EvaraTankProps) => {
 
                             <div className="et-list-item">
                                 <div className="et-alert-left">
-                                    <div className={getAlertClass(kpiData.lowAlert.state).dot}></div>
+                                    <div className={getAlertClass(data.lowAlert.state).dot}></div>
                                     <span className="et-list-label">Low Water Level</span>
                                 </div>
-                                <div className={getAlertClass(kpiData.lowAlert.state).text}>{kpiData.lowAlert.text}</div>
+                                <div className={getAlertClass(data.lowAlert.state).text}>{data.lowAlert.text}</div>
                             </div>
 
                             <div className="et-list-item">
                                 <div className="et-alert-left">
-                                    <div className={getAlertClass(kpiData.overAlert.state).dot}></div>
+                                    <div className={getAlertClass(data.overAlert.state).dot}></div>
                                     <span className="et-list-label">Overflow Risk</span>
                                 </div>
-                                <div className={getAlertClass(kpiData.overAlert.state).text}>{kpiData.overAlert.text}</div>
+                                <div className={getAlertClass(data.overAlert.state).text}>{data.overAlert.text}</div>
                             </div>
 
                             <div className="et-list-item">
                                 <div className="et-alert-left">
-                                    <div className={getAlertClass(kpiData.rapidAlert.state).dot}></div>
+                                    <div className={getAlertClass(data.rapidAlert.state).dot}></div>
                                     <span className="et-list-label">Rapid Depletion</span>
                                 </div>
-                                <div className={getAlertClass(kpiData.rapidAlert.state).text}>{kpiData.rapidAlert.text}</div>
+                                <div className={getAlertClass(data.rapidAlert.state).text}>{data.rapidAlert.text}</div>
                             </div>
 
                             <div className="et-list-item">
                                 <div className="et-alert-left">
-                                    <div className={getAlertClass(kpiData.sensorAlert.state).dot}></div>
+                                    <div className={getAlertClass(data.sensorAlert.state).dot}></div>
                                     <span className="et-list-label">Sensor/Device Offline</span>
                                 </div>
-                                <div className={getAlertClass(kpiData.sensorAlert.state).text}>{kpiData.sensorAlert.text}</div>
+                                <div className={getAlertClass(data.sensorAlert.state).text}>{data.sensorAlert.text}</div>
                             </div>
 
                         </div>

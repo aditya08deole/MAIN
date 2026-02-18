@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, ZoomControl } from 'react-leaflet';
+import { useState } from 'react';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import {
@@ -29,86 +29,20 @@ const makeIcon = (color: string, size = 26) => L.divIcon({
     popupAnchor: [0, -size],
 });
 
-const blueIcon   = makeIcon('#2563eb');
-const greenIcon  = makeIcon('#16a34a');
+const blueIcon = makeIcon('#2563eb');
+const greenIcon = makeIcon('#16a34a');
 const purpleIcon = makeIcon('#9333ea');
-const amberIcon  = makeIcon('#d97706', 20);
-const redIcon    = makeIcon('#ef4444', 20);
+const amberIcon = makeIcon('#d97706', 20);
+const redIcon = makeIcon('#ef4444', 20);
 // slateIcon used for govt borewells not shown in mini-map
 
 // ─── Map Data — all assets matching Home.tsx ─────────────────────────────────
 
 const IIITH_CENTER: [number, number] = [17.4456, 78.3490];
 
-const pumpHouses = [
-    { id: 'PH-01', name: 'Pump House 1', location: 'ATM Gate',    coordinates: [17.4456,  78.3516 ] as [number, number] },
-    { id: 'PH-02', name: 'Pump House 2', location: 'Guest House', coordinates: [17.44608, 78.34925] as [number, number] },
-    { id: 'PH-03', name: 'Pump House 3', location: 'Staff Qtrs',  coordinates: [17.4430,  78.3487 ] as [number, number] },
-    { id: 'PH-04', name: 'Pump House 4', location: 'Bakul',       coordinates: [17.4481,  78.3489 ] as [number, number] },
-];
+// ─── Map Data — Fetched via useNodes ─────────────────────────────────
+// Hardcoded arrays removed in favor of useNodes hook
 
-const sumps = [
-    { id: 'SUMP-S1',  name: 'Sump S1',  coordinates: [17.448097, 78.349060] as [number, number] },
-    { id: 'SUMP-S2',  name: 'Sump S2',  coordinates: [17.444919, 78.346195] as [number, number] },
-    { id: 'SUMP-S3',  name: 'Sump S3',  coordinates: [17.446779, 78.346996] as [number, number] },
-    { id: 'SUMP-S4',  name: 'Sump S4',  coordinates: [17.445630, 78.351593] as [number, number] },
-    { id: 'SUMP-S5',  name: 'Sump S5',  coordinates: [17.444766, 78.350087] as [number, number] },
-    { id: 'SUMP-S6',  name: 'Sump S6',  coordinates: [17.445498, 78.350202] as [number, number] },
-    { id: 'SUMP-S7',  name: 'Sump S7',  coordinates: [17.44597,  78.34906 ] as [number, number] },
-    { id: 'SUMP-S8',  name: 'Sump S8',  coordinates: [17.446683, 78.348995] as [number, number] },
-    { id: 'SUMP-S9',  name: 'Sump S9',  coordinates: [17.446613, 78.346487] as [number, number] },
-    { id: 'SUMP-S10', name: 'Sump S10', coordinates: [17.443076, 78.348737] as [number, number] },
-    { id: 'SUMP-S11', name: 'Sump S11', coordinates: [17.444773, 78.347797] as [number, number] },
-];
-
-const ohts = [
-    { id: 'OHT-1',  name: 'Bakul OHT',        coordinates: [17.448045, 78.348438] as [number, number] },
-    { id: 'OHT-2',  name: 'Parijat OHT',       coordinates: [17.447547, 78.347752] as [number, number] },
-    { id: 'OHT-3',  name: 'Kadamba OHT',        coordinates: [17.446907, 78.347178] as [number, number] },
-    { id: 'OHT-4',  name: 'NWH Blk C OHT',      coordinates: [17.447675, 78.347430] as [number, number] },
-    { id: 'OHT-5',  name: 'NWH Blk B OHT',      coordinates: [17.447391, 78.347172] as [number, number] },
-    { id: 'OHT-6',  name: 'NWH Blk A OHT',      coordinates: [17.447081, 78.346884] as [number, number] },
-    { id: 'OHT-7',  name: 'Palash OHT',         coordinates: [17.445096, 78.345966] as [number, number] },
-    { id: 'OHT-8',  name: 'Anand Nivas OHT',    coordinates: [17.443976, 78.348432] as [number, number] },
-    { id: 'OHT-9',  name: 'Budha Nivas OHT',    coordinates: [17.443396, 78.348500] as [number, number] },
-    { id: 'OHT-10', name: 'C Block OHT',         coordinates: [17.443387, 78.347834] as [number, number] },
-    { id: 'OHT-11', name: 'D Block OHT',         coordinates: [17.443914, 78.347773] as [number, number] },
-    { id: 'OHT-12', name: 'E Block OHT',         coordinates: [17.444391, 78.347958] as [number, number] },
-    { id: 'OHT-13', name: 'Vindhya OHT',         coordinates: [17.44568,  78.34973 ] as [number, number] },
-    { id: 'OHT-14', name: 'Himalaya OHT (KRB)', coordinates: [17.44525,  78.34966 ] as [number, number] },
-];
-
-const borewells = [
-    { id: 'BW-P1',  name: 'Borewell P1',  working: false, coordinates: [17.443394, 78.348117] as [number, number] },
-    { id: 'BW-P2',  name: 'Borewell P2',  working: false, coordinates: [17.443093, 78.348936] as [number, number] },
-    { id: 'BW-P3',  name: 'Borewell P3',  working: false, coordinates: [17.444678, 78.347234] as [number, number] },
-    { id: 'BW-P5',  name: 'Borewell P5',  working: true,  coordinates: [17.447783, 78.349040] as [number, number] },
-    { id: 'BW-P8',  name: 'Borewell P8',  working: true,  coordinates: [17.445139, 78.345277] as [number, number] },
-    { id: 'BW-P9',  name: 'Borewell P9',  working: true,  coordinates: [17.446922, 78.346699] as [number, number] },
-    { id: 'BW-P10', name: 'Borewell P10', working: true,  coordinates: [17.443947, 78.350139] as [number, number] },
-    { id: 'BW-P6',  name: 'Borewell P6',  working: false, coordinates: [17.448335, 78.348594] as [number, number] },
-    { id: 'BW-P7',  name: 'Borewell P7',  working: false, coordinates: [17.445847, 78.346416] as [number, number] },
-    { id: 'BW-G3',  name: 'Govt BW 3',    working: true,  coordinates: [17.446188, 78.350067] as [number, number] },
-    { id: 'BW-G6',  name: 'Govt BW 6',    working: false, coordinates: [17.445584, 78.347148] as [number, number] },
-    { id: 'BW-G7',  name: 'Govt BW 7',    working: false, coordinates: [17.446115, 78.348536] as [number, number] },
-];
-
-const pipelines: Array<{ positions: [number, number][]; color: string; name: string }> = [
-    { name: 'PH2 - OBH/PALASH',  color: '#00b4d8', positions: [[17.446057, 78.349256], [17.445482, 78.348250], [17.446306, 78.347208], [17.445050, 78.345986]] },
-    { name: 'PH2 - KADAMBA/NBH', color: '#00b4d8', positions: [[17.446885, 78.347174], [17.446583, 78.346873], [17.446302, 78.347211]] },
-    { name: 'PH2 - HIMALAYA',    color: '#00b4d8', positions: [[17.446056, 78.349253], [17.445883, 78.349082], [17.445328, 78.349734], [17.445248, 78.349661]] },
-    { name: 'PH2 - VINDYA',      color: '#00b4d8', positions: [[17.446050, 78.349258], [17.445661, 78.349731]] },
-    { name: 'PH2 - PARIJAT/NGH', color: '#00b4d8', positions: [[17.446051, 78.349247], [17.447117, 78.347980], [17.447551, 78.347794]] },
-    { name: 'PH1 - PH3',         color: '#00b4d8', positions: [[17.445565, 78.351568], [17.445402, 78.351081], [17.442973, 78.348713]] },
-    { name: 'PH1 - PH4',         color: '#00b4d8', positions: [[17.445575, 78.351598], [17.447747, 78.348591], [17.448093, 78.348908]] },
-    { name: 'PH4 - BAKUL OHT',   color: '#00b4d8', positions: [[17.448103, 78.348890], [17.448006, 78.348428]] },
-    { name: 'PH3 - BLOCK B',     color: '#00b4d8', positions: [[17.443007, 78.348664], [17.443396, 78.348488]] },
-    { name: 'PH3 - BLOCK A',     color: '#00b4d8', positions: [[17.443985, 78.348433], [17.443415, 78.349082], [17.443140, 78.348804]] },
-    { name: 'BW P5 - SUMP S1',   color: '#000080', positions: [[17.447797, 78.349013], [17.448091, 78.349042]] },
-    { name: 'BW P8 - SUMP S2',   color: '#000080', positions: [[17.445120, 78.345291], [17.444911, 78.346206]] },
-    { name: 'BW P9 - SUMP S3',   color: '#000080', positions: [[17.446868, 78.346714], [17.446715, 78.346984]] },
-    { name: 'BW P10 - SUMP S5',  color: '#000080', positions: [[17.443927, 78.350157], [17.444701, 78.350068]] },
-];
 
 // ─── Mock Dashboard Data ──────────────────────────────────────────────────────
 
@@ -130,68 +64,81 @@ const alertsList = [
 
 // ─── Mini Map Widget ──────────────────────────────────────────────────────────
 
-const MiniMap = ({ onExpand }: { onExpand: () => void }) => (
-    <div className="relative w-full h-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm group cursor-pointer" onClick={onExpand}>
-        <MapContainer
-            center={IIITH_CENTER}
-            zoom={16}
-            zoomControl={false}
-            scrollWheelZoom={false}
-            dragging={false}
-            doubleClickZoom={false}
-            attributionControl={false}
-            className="w-full h-full"
-            style={{ pointerEvents: 'none' }}
-        >
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+import { useNodes } from '../hooks/useNodes';
+import type { NodeRow } from '../types/database';
 
-            {/* All Sumps — green */}
-            {sumps.map(s => <Marker key={s.id} position={s.coordinates} icon={greenIcon} />)}
+// ─── Mini Map Widget ──────────────────────────────────────────────────────────
 
-            {/* All OHTs — blue */}
-            {ohts.map(o => <Marker key={o.id} position={o.coordinates} icon={blueIcon} />)}
+const MiniMap = ({ onExpand, nodes }: { onExpand: () => void, nodes: NodeRow[] }) => {
+    const pumpHouses = nodes.filter(n => n.category === 'PumpHouse');
+    const sumps = nodes.filter(n => n.category === 'Sump');
+    const ohts = nodes.filter(n => n.category === 'OHT');
+    const borewells = nodes.filter(n => n.category === 'Borewell' || n.category === 'GovtBorewell');
 
-            {/* All Borewells — amber (working) / red (not working) */}
-            {borewells.map(bw => (
-                <Marker key={bw.id} position={bw.coordinates} icon={bw.working ? amberIcon : redIcon} />
-            ))}
+    return (
+        <div className="relative w-full h-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm group cursor-pointer" onClick={onExpand}>
+            <MapContainer
+                center={IIITH_CENTER}
+                zoom={16}
+                zoomControl={false}
+                scrollWheelZoom={false}
+                dragging={false}
+                doubleClickZoom={false}
+                attributionControl={false}
+                className="w-full h-full"
+                style={{ pointerEvents: 'none' }}
+            >
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-            {/* Pump Houses — purple (on top) */}
-            {pumpHouses.map(p => <Marker key={p.id} position={p.coordinates} icon={purpleIcon} />)}
-        </MapContainer>
+                {/* All Sumps — green */}
+                {sumps.map(s => <Marker key={s.id} position={[s.lat, s.lng]} icon={greenIcon} />)}
 
-        {/* Hover overlay */}
-        <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/15 transition-all duration-300 flex items-center justify-center">
-            <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 bg-white/90 backdrop-blur-sm px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold text-slate-700">
-                <Maximize2 size={16} /> Expand Map
+                {/* All OHTs — blue */}
+                {ohts.map(o => <Marker key={o.id} position={[o.lat, o.lng]} icon={blueIcon} />)}
+
+                {/* All Borewells — amber (working) / red (not working) */}
+                {borewells.map(bw => (
+                    <Marker key={bw.id} position={[bw.lat, bw.lng]} icon={(bw.status === 'Online') ? amberIcon : redIcon} />
+                ))}
+
+                {/* Pump Houses — purple (on top) */}
+                {pumpHouses.map(p => <Marker key={p.id} position={[p.lat, p.lng]} icon={purpleIcon} />)}
+            </MapContainer>
+
+            {/* Hover overlay */}
+            <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/15 transition-all duration-300 flex items-center justify-center">
+                <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 bg-white/90 backdrop-blur-sm px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-sm font-bold text-slate-700">
+                    <Maximize2 size={16} /> Expand Map
+                </div>
+            </div>
+
+            {/* Live badge */}
+            <div className="absolute top-3 right-3 z-[400] bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg shadow-sm border border-slate-100 flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-slate-600">Live</span>
+            </div>
+
+            {/* Mini legend */}
+            <div className="absolute bottom-3 left-3 z-[400] bg-white/90 backdrop-blur-sm px-2.5 py-2 rounded-xl shadow-sm border border-slate-100 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-600 inline-block" /><span className="text-[10px] font-semibold text-slate-600">Pump House</span></div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-600 inline-block" /><span className="text-[10px] font-semibold text-slate-600">OHT</span></div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-600 inline-block" /><span className="text-[10px] font-semibold text-slate-600">Sump</span></div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /><span className="text-[10px] font-semibold text-slate-600">Borewell</span></div>
             </div>
         </div>
-
-        {/* Live badge */}
-        <div className="absolute top-3 right-3 z-[400] bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg shadow-sm border border-slate-100 flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-[10px] font-bold text-slate-600">Live</span>
-        </div>
-
-        {/* Mini legend */}
-        <div className="absolute bottom-3 left-3 z-[400] bg-white/90 backdrop-blur-sm px-2.5 py-2 rounded-xl shadow-sm border border-slate-100 flex flex-col gap-1">
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-600 inline-block" /><span className="text-[10px] font-semibold text-slate-600">Pump House</span></div>
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-600 inline-block" /><span className="text-[10px] font-semibold text-slate-600">OHT</span></div>
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-600 inline-block" /><span className="text-[10px] font-semibold text-slate-600">Sump</span></div>
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /><span className="text-[10px] font-semibold text-slate-600">Borewell</span></div>
-        </div>
-    </div>
-);
+    );
+}
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 const Dashboard = () => {
-    const { user, loading } = useAuth();
+    const { loading } = useAuth();
+    const { nodes, loading: nodesLoading } = useNodes();
     const navigate = useNavigate();
     const [now] = useState(() => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
     const [isNavigating, setIsNavigating] = useState(false);
 
-    if (loading) {
+    if (loading || nodesLoading) {
         return (
             <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
                 <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -207,10 +154,21 @@ const Dashboard = () => {
         }, 300);
     };
 
+    const onlineCount = nodes.filter(n => n.status === 'Online').length;
+    const totalCount = nodes.length;
+    const alertCount = nodes.filter(n => n.status === 'Alert' || n.status === 'Offline').length;
+
+    // Derived stats from real nodes data + mock consumption/device types
     const stats = {
-        deployed: 5, onlineStatus: 2, totalStatus: 5,
-        consumption: '1.2M', saved: '350k',
-        tanks: 2, flow: 1, deep: 2, alerts: 1,
+        deployed: totalCount,
+        onlineStatus: onlineCount,
+        totalStatus: totalCount,
+        consumption: '1.2M', // Placeholder until consumption is tracked
+        saved: '350k',
+        tanks: nodes.filter(n => n.category === 'OHT' || n.category === 'Sump').length,
+        flow: 0, // No flow meters in nodes yet? Or maybe category needs update
+        deep: nodes.filter(n => n.category === 'Borewell' || n.category === 'GovtBorewell').length,
+        alerts: alertCount,
     };
 
     return (
@@ -307,7 +265,7 @@ const Dashboard = () => {
 
                 {/* Right 4 cols: Map */}
                 <div className="col-span-4 h-full">
-                    <MiniMap onExpand={handleMapClick} />
+                    <MiniMap onExpand={handleMapClick} nodes={nodes} />
                 </div>
             </div>
 

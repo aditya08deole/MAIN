@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import {
     Users, User, Network, RefreshCw, Eye, Plus, Trash2, ChevronRight,
-    Home, Shield, Database, Clock, Activity, AlertCircle, CheckCircle,
-    MapPin, Zap, ToggleLeft, ToggleRight, X, ArrowLeft, Settings,
-    Radio, Cpu, FileText, BarChart2
+    Home, Shield, Activity, AlertCircle,
+    MapPin, Zap, Radio
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
@@ -65,8 +64,8 @@ const AuditTrail = ({ entries, onRefresh }: { entries: AuditEntry[]; onRefresh: 
                     {entries.map(e => (
                         <div key={e.id} className="flex items-start gap-2.5 p-2.5 bg-slate-50 rounded-xl">
                             <div className={`mt-0.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${e.type === 'success' ? 'bg-green-500' :
-                                    e.type === 'warning' ? 'bg-amber-500' :
-                                        e.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                                e.type === 'warning' ? 'bg-amber-500' :
+                                    e.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
                                 }`} />
                             <div className="flex-1 min-w-0">
                                 <p className="text-[11px] font-semibold text-slate-700 leading-tight">{e.action}</p>

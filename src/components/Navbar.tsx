@@ -25,8 +25,8 @@ const Navbar = () => {
         ...(isAuthenticated ? [{ name: 'ADMINISTRATION', path: '/admin', icon: LayoutDashboard }] : []),
     ];
 
-    const handleLogout = () => {
-        logout();
+    const handleLogout = async () => {
+        await logout();
         navigate('/login');
     };
 

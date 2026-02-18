@@ -18,8 +18,6 @@
     margin: 0;
     display: flex;
     min-height: 100vh;
-    width: 100vw;
-    overflow-x: hidden;
 }
 
 .et-sidebar {
@@ -30,31 +28,30 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding-top: 80px;
+    padding-top: 20px;
     position: fixed;
     z-index: 10;
-    left: 0;
-    top: 0;
 }
 
 .et-main-content {
     margin-left: 100px;
-    padding: 20px;
-    flex: 1;
+    padding: 40px;
     width: calc(100% - 100px);
-    height: 100vh;
-    overflow-y: auto;
+    max-width: 1400px;
+}
+
+/* Embedded mode adjustments */
+.evara-tank-body.et-embedded .et-sidebar {
+    display: none;
 }
 
 .evara-tank-body.et-embedded .et-main-content {
     margin-left: 0;
     width: 100%;
-    height: auto;
-    overflow-y: visible;
 }
 
 .et-header {
-    margin-bottom: 20px;
+    margin-bottom: 30px;
 }
 
 .et-header-title h1 {
@@ -72,13 +69,13 @@
 .et-dashboard-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+    gap: 24px;
 }
 
 .et-card {
     background: var(--card);
-    border-radius: 16px;
-    padding: 20px;
+    border-radius: 20px;
+    padding: 24px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     transition: all 0.3s ease;
     position: relative;

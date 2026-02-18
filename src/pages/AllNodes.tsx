@@ -2,81 +2,10 @@ import { useState } from 'react';
 import { Search, Filter, Droplets, Waves, Gauge, MapPin, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
+import { useNodes } from '../hooks/useNodes';
+import type { NodeCategory, AnalyticsType } from '../types/database';
 
-// ─── Node registry — every asset from the map ───────────────────────────────
-
-type NodeCategory = 'OHT' | 'Sump' | 'Borewell' | 'GovtBorewell' | 'PumpHouse';
-type AnalyticsType = 'EvaraTank' | 'EvaraDeep' | 'EvaraFlow';
-
-interface NodeRecord {
-    id: string;
-    name: string;
-    category: NodeCategory;
-    analytics: AnalyticsType;
-    location: string;
-    capacity: string;
-    status: 'Online' | 'Offline';
-}
-
-const ALL_NODES: NodeRecord[] = [
-    // ── Pump Houses → EvaraFlow ──
-    { id: 'PH-01', name: 'Pump House 1', category: 'PumpHouse', analytics: 'EvaraFlow', location: 'ATM Gate', capacity: '4.98L L', status: 'Online' },
-    { id: 'PH-02', name: 'Pump House 2', category: 'PumpHouse', analytics: 'EvaraFlow', location: 'Guest House', capacity: '75k L', status: 'Online' },
-    { id: 'PH-03', name: 'Pump House 3', category: 'PumpHouse', analytics: 'EvaraFlow', location: 'Staff Qtrs', capacity: '55k L', status: 'Online' },
-    { id: 'PH-04', name: 'Pump House 4', category: 'PumpHouse', analytics: 'EvaraFlow', location: 'Bakul', capacity: '2.00L L', status: 'Online' },
-
-    // ── Sumps → EvaraTank ──
-    { id: 'SUMP-S1',  name: 'Sump S1',  category: 'Sump', analytics: 'EvaraTank', location: 'Bakul',       capacity: '2.00L L',    status: 'Online' },
-    { id: 'SUMP-S2',  name: 'Sump S2',  category: 'Sump', analytics: 'EvaraTank', location: 'Palash',      capacity: '1.10L L',    status: 'Online' },
-    { id: 'SUMP-S3',  name: 'Sump S3',  category: 'Sump', analytics: 'EvaraTank', location: 'NBH',         capacity: '1.00L L',    status: 'Online' },
-    { id: 'SUMP-S4',  name: 'Sump S4',  category: 'Sump', analytics: 'EvaraTank', location: 'Central',     capacity: '4.98L L',    status: 'Online' },
-    { id: 'SUMP-S5',  name: 'Sump S5',  category: 'Sump', analytics: 'EvaraTank', location: 'Blk A&B',     capacity: '55k L',      status: 'Online' },
-    { id: 'SUMP-S6',  name: 'Sump S6',  category: 'Sump', analytics: 'EvaraTank', location: 'Guest House', capacity: '10k L',      status: 'Online' },
-    { id: 'SUMP-S7',  name: 'Sump S7',  category: 'Sump', analytics: 'EvaraTank', location: 'Pump House',  capacity: '43k L',      status: 'Online' },
-    { id: 'SUMP-S8',  name: 'Sump S8',  category: 'Sump', analytics: 'EvaraTank', location: 'Football',    capacity: '12k L',      status: 'Online' },
-    { id: 'SUMP-S9',  name: 'Sump S9',  category: 'Sump', analytics: 'EvaraTank', location: 'Felicity',    capacity: '15k L',      status: 'Online' },
-    { id: 'SUMP-S10', name: 'Sump S10', category: 'Sump', analytics: 'EvaraTank', location: 'FSQ A&B',     capacity: '34k+31k',    status: 'Online' },
-    { id: 'SUMP-S11', name: 'Sump S11', category: 'Sump', analytics: 'EvaraTank', location: 'FSQ C,D,E',   capacity: '1.5L+60k',   status: 'Online' },
-
-    // ── Overhead Tanks → EvaraTank ──
-    { id: 'OHT-1',  name: 'Bakul OHT',           category: 'OHT', analytics: 'EvaraTank', location: 'Bakul',       capacity: '2 Units',  status: 'Online' },
-    { id: 'OHT-2',  name: 'Parijat OHT',          category: 'OHT', analytics: 'EvaraTank', location: 'Parijat',     capacity: '2 Units',  status: 'Online' },
-    { id: 'OHT-3',  name: 'Kadamba OHT',           category: 'OHT', analytics: 'EvaraTank', location: 'Kadamba',     capacity: '2 Units',  status: 'Online' },
-    { id: 'OHT-4',  name: 'NWH Block C OHT',       category: 'OHT', analytics: 'EvaraTank', location: 'NWH Block C', capacity: '1 Unit',   status: 'Online' },
-    { id: 'OHT-5',  name: 'NWH Block B OHT',       category: 'OHT', analytics: 'EvaraTank', location: 'NWH Block B', capacity: '1 Unit',   status: 'Online' },
-    { id: 'OHT-6',  name: 'NWH Block A OHT',       category: 'OHT', analytics: 'EvaraTank', location: 'NWH Block A', capacity: '1 Unit',   status: 'Online' },
-    { id: 'OHT-7',  name: 'Palash Nivas OHT',      category: 'OHT', analytics: 'EvaraTank', location: 'Palash Nivas', capacity: '4 Units', status: 'Online' },
-    { id: 'OHT-8',  name: 'Anand Nivas OHT',       category: 'OHT', analytics: 'EvaraTank', location: 'Anand Nivas', capacity: '2 Units',  status: 'Online' },
-    { id: 'OHT-9',  name: 'Budha Nivas OHT',       category: 'OHT', analytics: 'EvaraTank', location: 'Budha Nivas', capacity: '2 Units',  status: 'Online' },
-    { id: 'OHT-10', name: 'C Block OHT',            category: 'OHT', analytics: 'EvaraTank', location: 'C Block',     capacity: '3 Units',  status: 'Online' },
-    { id: 'OHT-11', name: 'D Block OHT',            category: 'OHT', analytics: 'EvaraTank', location: 'D Block',     capacity: '3 Units',  status: 'Online' },
-    { id: 'OHT-12', name: 'E Block OHT',            category: 'OHT', analytics: 'EvaraTank', location: 'E Block',     capacity: '3 Units',  status: 'Online' },
-    { id: 'OHT-13', name: 'Vindhya OHT',            category: 'OHT', analytics: 'EvaraTank', location: 'Vindhya',     capacity: 'Mixed',    status: 'Online' },
-    { id: 'OHT-14', name: 'Himalaya OHT (KRB)',     category: 'OHT', analytics: 'EvaraTank', location: 'Himalaya',    capacity: 'Borewell', status: 'Online' },
-
-    // ── IIIT Borewells → EvaraDeep ──
-    { id: 'BW-P1',   name: 'Borewell P1',   category: 'Borewell',     analytics: 'EvaraDeep', location: 'Block C,D,E', capacity: '5 HP',       status: 'Offline' },
-    { id: 'BW-P2',   name: 'Borewell P2',   category: 'Borewell',     analytics: 'EvaraDeep', location: 'Agri Farm',   capacity: '12.5 HP',    status: 'Offline' },
-    { id: 'BW-P3',   name: 'Borewell P3',   category: 'Borewell',     analytics: 'EvaraDeep', location: 'Palash',      capacity: '5 HP',       status: 'Offline' },
-    { id: 'BW-P4',   name: 'Borewell P4',   category: 'Borewell',     analytics: 'EvaraDeep', location: 'Vindhya',     capacity: '--',         status: 'Offline' },
-    { id: 'BW-P5',   name: 'Borewell P5',   category: 'Borewell',     analytics: 'EvaraDeep', location: 'Nilgiri',     capacity: '5 HP',       status: 'Online' },
-    { id: 'BW-P6',   name: 'Borewell P6',   category: 'Borewell',     analytics: 'EvaraDeep', location: 'Bakul',       capacity: '5/7.5 HP',   status: 'Offline' },
-    { id: 'BW-P7',   name: 'Borewell P7',   category: 'Borewell',     analytics: 'EvaraDeep', location: 'Volleyball',  capacity: 'N/A',        status: 'Offline' },
-    { id: 'BW-P8',   name: 'Borewell P8',   category: 'Borewell',     analytics: 'EvaraDeep', location: 'Palash',      capacity: '7.5 HP',     status: 'Online' },
-    { id: 'BW-P9',   name: 'Borewell P9',   category: 'Borewell',     analytics: 'EvaraDeep', location: 'Girls Blk A', capacity: '7.5 HP',     status: 'Online' },
-    { id: 'BW-P10',  name: 'Borewell P10',  category: 'Borewell',     analytics: 'EvaraDeep', location: 'Parking NW',  capacity: '5 HP',       status: 'Online' },
-    { id: 'BW-P10A', name: 'Borewell P10A', category: 'Borewell',     analytics: 'EvaraDeep', location: 'Agri Farm',   capacity: '--',         status: 'Offline' },
-    { id: 'BW-P11',  name: 'Borewell P11',  category: 'Borewell',     analytics: 'EvaraDeep', location: 'Blk C,D,E',  capacity: '5 HP',       status: 'Offline' },
-
-    // ── Govt Borewells → EvaraDeep ──
-    { id: 'BW-G1', name: 'Govt Borewell 1', category: 'GovtBorewell', analytics: 'EvaraDeep', location: 'Palash',        capacity: '5 HP',   status: 'Offline' },
-    { id: 'BW-G2', name: 'Govt Borewell 2', category: 'GovtBorewell', analytics: 'EvaraDeep', location: 'Palash',        capacity: '1.5 HP', status: 'Offline' },
-    { id: 'BW-G3', name: 'Govt Borewell 3', category: 'GovtBorewell', analytics: 'EvaraDeep', location: 'Vindhaya C4',   capacity: '5 HP',   status: 'Online' },
-    { id: 'BW-G4', name: 'Govt Borewell 4', category: 'GovtBorewell', analytics: 'EvaraDeep', location: 'Entrance',      capacity: 'N/A',    status: 'Offline' },
-    { id: 'BW-G5', name: 'Govt Borewell 5', category: 'GovtBorewell', analytics: 'EvaraDeep', location: 'Entrance',      capacity: 'N/A',    status: 'Offline' },
-    { id: 'BW-G6', name: 'Govt Borewell 6', category: 'GovtBorewell', analytics: 'EvaraDeep', location: 'Bamboo House',  capacity: 'N/A',    status: 'Offline' },
-    { id: 'BW-G7', name: 'Govt Borewell 7', category: 'GovtBorewell', analytics: 'EvaraDeep', location: 'Football',      capacity: 'N/A',    status: 'Offline' },
-];
+// TODO(fake-data): ALL_NODES was hardcoded array, now using useNodes() Supabase hook
 
 // ─── Category config ─────────────────────────────────────────────────────────
 
@@ -194,16 +123,18 @@ const AllNodes = () => {
     const [analyticsFilter, setAnalyticsFilter] = useState<AnalyticsType | 'all'>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'Online' | 'Offline'>('all');
 
-    const filtered = ALL_NODES.filter(n => {
-        const matchAnalytics = analyticsFilter === 'all' || n.analytics === analyticsFilter;
-        const matchStatus    = statusFilter === 'all' || n.status === statusFilter;
+    const { nodes, loading, error } = useNodes();
+
+    const filtered = nodes.filter(n => {
+        const matchAnalytics = analyticsFilter === 'all' || n.analytics_type === analyticsFilter;
+        const matchStatus = statusFilter === 'all' || n.status === statusFilter;
         const q = search.toLowerCase();
-        const matchSearch = !q || n.name.toLowerCase().includes(q) || n.location.toLowerCase().includes(q) || n.id.toLowerCase().includes(q);
+        const matchSearch = !q || n.label.toLowerCase().includes(q) || n.location_name.toLowerCase().includes(q) || n.node_key.toLowerCase().includes(q);
         return matchAnalytics && matchStatus && matchSearch;
     });
 
-    const onlineCount  = ALL_NODES.filter(n => n.status === 'Online').length;
-    const offlineCount = ALL_NODES.filter(n => n.status === 'Offline').length;
+    const onlineCount = nodes.filter(n => n.status === 'Online').length;
+    const offlineCount = nodes.filter(n => n.status === 'Offline').length;
 
     return (
         <div className="min-h-full bg-slate-50">
@@ -212,22 +143,30 @@ const AllNodes = () => {
                 <div className="max-w-screen-2xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">All Nodes</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">
-                            All infrastructure assets deployed on campus — {ALL_NODES.length} total
-                        </p>
+                        {loading ? (
+                            <p className="text-sm text-slate-500 mt-0.5">Loading nodes...</p>
+                        ) : error ? (
+                            <p className="text-sm text-red-600 mt-0.5">Error: {error}</p>
+                        ) : (
+                            <p className="text-sm text-slate-500 mt-0.5">
+                                All infrastructure assets deployed on campus — {nodes.length} total
+                            </p>
+                        )}
                     </div>
 
                     {/* Stats */}
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 bg-green-50 border border-green-200 px-4 py-2 rounded-xl">
-                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                            <span className="text-sm font-bold text-green-700">{onlineCount} Online</span>
+                    {!loading && !error && (
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 bg-green-50 border border-green-200 px-4 py-2 rounded-xl">
+                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                <span className="text-sm font-bold text-green-700">{onlineCount} Online</span>
+                            </div>
+                            <div className="flex items-center gap-2 bg-red-50 border border-red-200 px-4 py-2 rounded-xl">
+                                <span className="w-2 h-2 rounded-full bg-red-400"></span>
+                                <span className="text-sm font-bold text-red-700">{offlineCount} Offline</span>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2 bg-red-50 border border-red-200 px-4 py-2 rounded-xl">
-                            <span className="w-2 h-2 rounded-full bg-red-400"></span>
-                            <span className="text-sm font-bold text-red-700">{offlineCount} Offline</span>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
@@ -260,9 +199,9 @@ const AllNodes = () => {
                                 className={clsx(
                                     'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
                                     statusFilter === s
-                                        ? s === 'Online'  ? 'bg-green-500 text-white'
-                                        : s === 'Offline' ? 'bg-red-500 text-white'
-                                        : 'bg-slate-800 text-white'
+                                        ? s === 'Online' ? 'bg-green-500 text-white'
+                                            : s === 'Offline' ? 'bg-red-500 text-white'
+                                                : 'bg-slate-800 text-white'
                                         : 'text-slate-500 hover:bg-slate-100'
                                 )}
                             >
@@ -289,14 +228,14 @@ const AllNodes = () => {
                             'text-[11px] font-bold px-1.5 py-0.5 rounded-md',
                             analyticsFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
                         )}>
-                            {ALL_NODES.length}
+                            {nodes.length}
                         </span>
                     </button>
 
                     {/* EvaraTank / EvaraDeep / EvaraFlow tabs */}
                     {(Object.keys(ANALYTICS_CONFIG) as AnalyticsType[]).map(key => {
                         const cfg = ANALYTICS_CONFIG[key];
-                        const count = ALL_NODES.filter(n => n.analytics === key).length;
+                        const count = nodes.filter(n => n.analytics_type === key).length;
                         const active = analyticsFilter === key;
                         return (
                             <button
@@ -331,20 +270,33 @@ const AllNodes = () => {
 
                 {/* ── Results count ── */}
                 <p className="text-xs text-slate-400 font-medium">
-                    Showing {filtered.length} of {ALL_NODES.length} nodes
+                    Showing {filtered.length} of {nodes.length} nodes
                 </p>
 
                 {/* ── Grid ── */}
-                {filtered.length > 0 ? (
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center py-24 text-center">
+                        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-slate-500 font-medium mt-4">Loading nodes...</p>
+                    </div>
+                ) : error ? (
+                    <div className="flex flex-col items-center justify-center py-24 text-center bg-red-50 rounded-2xl border border-red-200">
+                        <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mb-4">
+                            <span className="text-2xl text-red-600">!</span>
+                        </div>
+                        <h3 className="text-red-600 font-semibold mb-1">Failed to load nodes</h3>
+                        <p className="text-red-500 text-sm">{error}</p>
+                    </div>
+                ) : filtered.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                         {filtered.map(node => {
-                            const cfg    = CATEGORY_CONFIG[node.category];
-                            const anCfg  = ANALYTICS_CONFIG[node.analytics];
+                            const cfg = CATEGORY_CONFIG[node.category];
+                            const anCfg = ANALYTICS_CONFIG[node.analytics_type];
                             const isOnline = node.status === 'Online';
                             return (
                                 <Link
-                                    key={node.id}
-                                    to={`/node/${node.id}`}
+                                    key={node.node_key}
+                                    to={`/node/${node.node_key}`}
                                     className="group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden flex flex-col"
                                 >
                                     {/* Card top accent — analytics color */}
@@ -371,9 +323,9 @@ const AllNodes = () => {
 
                                         {/* Name + ID */}
                                         <h3 className="font-bold text-slate-800 text-base leading-snug mb-1 group-hover:text-blue-600 transition-colors">
-                                            {node.name}
+                                            {node.label}
                                         </h3>
-                                        <p className="text-xs text-slate-400 font-mono mb-3">{node.id}</p>
+                                        <p className="text-xs text-slate-400 font-mono mb-3">{node.node_key}</p>
 
                                         {/* Category + analytics badges */}
                                         <div className="flex flex-wrap gap-1.5 mb-4">
@@ -381,7 +333,7 @@ const AllNodes = () => {
                                                 {cfg.label}
                                             </span>
                                             <span className={clsx('text-[11px] font-semibold px-2 py-0.5 rounded-md', anCfg.badge)}>
-                                                {node.analytics}
+                                                {node.analytics_type}
                                             </span>
                                         </div>
 
@@ -389,7 +341,7 @@ const AllNodes = () => {
                                         <div className="mt-auto pt-3 border-t border-slate-50 flex items-center justify-between">
                                             <div className="flex items-center gap-1.5 text-xs text-slate-500">
                                                 <MapPin size={12} />
-                                                <span className="font-medium">{node.location}</span>
+                                                <span className="font-medium">{node.location_name}</span>
                                             </div>
                                             <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
                                                 {node.capacity}

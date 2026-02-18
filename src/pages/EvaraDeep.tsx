@@ -1,13 +1,17 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Chart, { type ChartConfiguration } from 'chart.js/auto';
+import { useThingSpeak } from '../hooks/useThingSpeak';
+
+import { STATIC_NODES } from '../data/staticData';
 import './EvaraDeep.css';
 
 interface EvaraDeepProps {
     embedded?: boolean;
+    nodeId?: string;
 }
 
-const EvaraDeep = ({ embedded = false }: EvaraDeepProps) => {
+const EvaraDeep = ({ embedded = false, nodeId }: EvaraDeepProps) => {
     // Add logging to debug potential rendering issues
     console.log("EvaraDeep component rendering...");
 
@@ -18,11 +22,53 @@ const EvaraDeep = ({ embedded = false }: EvaraDeepProps) => {
         seasonal: Chart | null;
     }>({ gw: null, seasonal: null });
 
+    const [filter] = useState('live');
+    const [tsConfig, setTsConfig] = useState<{
+        channelId: string | null;
+        readApiKey: string | null;
+    } | null>(null);
+
+    // Fetch ThingSpeak config from Static Data
     useEffect(() => {
-        // 1. Groundwater Chart
+        if (!nodeId) {
+            setTsConfig({ channelId: null, readApiKey: null });
+            return;
+        }
+
+        const node = STATIC_NODES.find(n => n.id === nodeId || n.node_key === nodeId);
+        if (node) {
+            setTsConfig({
+                channelId: node.thingspeak_channel_id ?? null,
+                readApiKey: node.thingspeak_read_api_key ?? null,
+            });
+        } else {
+            setTsConfig({ channelId: null, readApiKey: null });
+        }
+    }, [nodeId]);
+
+    useThingSpeak({
+        channelId: tsConfig?.channelId ?? null,
+        readApiKey: tsConfig?.readApiKey ?? null,
+        filter
+    });
+
+    // Animation State
+    const [waterColHeight, setWaterColHeight] = useState(0);
+
+    useEffect(() => {
+        // Trigger animation after mount
+        const timer = setTimeout(() => {
+            setWaterColHeight(65); // Target height from CSS/Mock
+        }, 100);
+        return () => clearTimeout(timer);
+    }, []);
+
+    useEffect(() => {
+        // 1. Groundwater Chart (Line)
         if (gwChartRef.current) {
             if (chartInstances.current.gw) chartInstances.current.gw.destroy();
 
+            // TODO(fake-data): replace with real ThingSpeak feeds data
             const config: ChartConfiguration = {
                 type: 'line',
                 data: {
@@ -49,6 +95,7 @@ const EvaraDeep = ({ embedded = false }: EvaraDeepProps) => {
         if (seasonalChartRef.current) {
             if (chartInstances.current.seasonal) chartInstances.current.seasonal.destroy();
 
+            // TODO(fake-data): replace with real ThingSpeak feeds data
             const config: ChartConfiguration = {
                 type: 'radar',
                 data: {
@@ -81,6 +128,8 @@ const EvaraDeep = ({ embedded = false }: EvaraDeepProps) => {
         };
     }, []);
 
+    // if (noConfig) return <NodeNotConfigured analyticsType="EvaraDeep" />;
+
     return (
         <div className={`evara-deep-body${embedded ? ' ed-embedded' : ''}`}>
             {!embedded && (
@@ -108,7 +157,9 @@ const EvaraDeep = ({ embedded = false }: EvaraDeepProps) => {
                 <div className="ed-dashboard-grid">
                     <div className="ed-card">
                         <div className="ed-depth-display">
-                            <div className="ed-borewell-shaft"><div className="ed-water-column"></div></div>
+                            <div className="ed-borewell-shaft">
+                                <div className="ed-water-column" style={{ height: `${waterColHeight}%`, transition: 'height 1s ease-out' }}></div>
+                            </div>
                             <div>
                                 <div className="ed-kpi-label">Current Depth</div>
                                 <div className="ed-kpi-value">145m</div>
@@ -119,18 +170,21 @@ const EvaraDeep = ({ embedded = false }: EvaraDeepProps) => {
 
                     <div className="ed-card">
                         <div className="ed-kpi-label">Dynamic Level</div>
+                        {/* TODO(fake-data): replace with real ThingSpeak feeds data */}
                         <div className="ed-kpi-value">58m</div>
                         <div className="ed-kpi-sub" style={{ color: 'var(--ed-warning)' }}>Pump Active</div>
                     </div>
 
                     <div className="ed-card">
                         <div className="ed-kpi-label">Recharge Rate</div>
+                        {/* TODO(fake-data): replace with real ThingSpeak feeds data */}
                         <div className="ed-kpi-value">1.2m/hr</div>
                         <div className="ed-kpi-sub" style={{ color: 'var(--ed-secondary)' }}>↑ Stable</div>
                     </div>
 
                     <div className="ed-card">
                         <div className="ed-kpi-label">Sustainability</div>
+                        {/* TODO(fake-data): replace with real ThingSpeak feeds data */}
                         <div className="ed-kpi-value">Optimal</div>
                         <div className="ed-kpi-sub" style={{ color: 'var(--ed-success)' }}>Healthy Source</div>
                     </div>

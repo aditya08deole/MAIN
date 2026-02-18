@@ -1,13 +1,17 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Chart, { type ChartConfiguration } from 'chart.js/auto';
+import { useThingSpeak } from '../hooks/useThingSpeak';
+
+import { STATIC_NODES } from '../data/staticData';
 import './EvaraFlow.css';
 
 interface EvaraFlowProps {
     embedded?: boolean;
+    nodeId?: string;
 }
 
-const EvaraFlow = ({ embedded = false }: EvaraFlowProps) => {
+const EvaraFlow = ({ embedded = false, nodeId }: EvaraFlowProps) => {
     // Add logging to debug potential rendering issues
     console.log("EvaraFlow component rendering...");
 
@@ -21,11 +25,53 @@ const EvaraFlow = ({ embedded = false }: EvaraFlowProps) => {
         live: Chart | null;
     }>({ trend: null, usage: null, live: null });
 
+    const [filter] = useState('live');
+    const [tsConfig, setTsConfig] = useState<{
+        channelId: string | null;
+        readApiKey: string | null;
+    } | null>(null);
+
+    // Fetch ThingSpeak config from Static Data
+    useEffect(() => {
+        if (!nodeId) {
+            setTsConfig({ channelId: null, readApiKey: null });
+            return;
+        }
+
+        const node = STATIC_NODES.find(n => n.id === nodeId || n.node_key === nodeId);
+        if (node) {
+            setTsConfig({
+                channelId: node.thingspeak_channel_id ?? null,
+                readApiKey: node.thingspeak_read_api_key ?? null,
+            });
+        } else {
+            setTsConfig({ channelId: null, readApiKey: null });
+        }
+    }, [nodeId]);
+
+    useThingSpeak({
+        channelId: tsConfig?.channelId ?? null,
+        readApiKey: tsConfig?.readApiKey ?? null,
+        filter
+    });
+
+    // Animation State
+    const [flowFillHeight, setFlowFillHeight] = useState(0);
+
+    useEffect(() => {
+        // Trigger animation after mount
+        const timer = setTimeout(() => {
+            setFlowFillHeight(60); // Target height from CSS/Mock
+        }, 100);
+        return () => clearTimeout(timer);
+    }, []);
+
     useEffect(() => {
         // 1. Flow Trend Chart (Line)
         if (flowTrendChartRef.current) {
             if (chartInstances.current.trend) chartInstances.current.trend.destroy();
 
+            // TODO(fake-data): replace with real ThingSpeak feeds data
             const config: ChartConfiguration = {
                 type: 'line',
                 data: {
@@ -54,6 +100,7 @@ const EvaraFlow = ({ embedded = false }: EvaraFlowProps) => {
         if (usageDoughnutRef.current) {
             if (chartInstances.current.usage) chartInstances.current.usage.destroy();
 
+            // TODO(fake-data): replace with real ThingSpeak feeds data
             const config: ChartConfiguration = {
                 type: 'doughnut',
                 data: {
@@ -77,6 +124,7 @@ const EvaraFlow = ({ embedded = false }: EvaraFlowProps) => {
         if (liveFlowBarRef.current) {
             if (chartInstances.current.live) chartInstances.current.live.destroy();
 
+            // TODO(fake-data): replace with real ThingSpeak feeds data
             const config: ChartConfiguration = {
                 type: 'bar',
                 data: {
@@ -102,6 +150,8 @@ const EvaraFlow = ({ embedded = false }: EvaraFlowProps) => {
         };
     }, []);
 
+    // if (noConfig) return <NodeNotConfigured analyticsType="EvaraFlow" />;
+
     return (
         <div className={`evara-flow-body${embedded ? ' ef-embedded' : ''}`}>
             {!embedded && (
@@ -126,9 +176,12 @@ const EvaraFlow = ({ embedded = false }: EvaraFlowProps) => {
 
                 <div className="ef-dashboard-grid">
                     <div className="ef-card" style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <div className="ef-flow-visual"><div className="ef-flow-fill"></div></div>
+                        <div className="ef-flow-visual">
+                            <div className="ef-flow-fill" style={{ height: `${flowFillHeight}%` }}></div>
+                        </div>
                         <div>
                             <div className="ef-kpi-label">Instant Flow</div>
+                            {/* TODO(fake-data): replace with real ThingSpeak feeds data */}
                             <div className="ef-kpi-value">12.5</div>
                             <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ef-primary)' }}>L/Min</div>
                         </div>
@@ -136,18 +189,21 @@ const EvaraFlow = ({ embedded = false }: EvaraFlowProps) => {
 
                     <div className="ef-card">
                         <div className="ef-kpi-label">Cumulative Usage</div>
+                        {/* TODO(fake-data): replace with real ThingSpeak feeds data */}
                         <div className="ef-kpi-value">1,240 L</div>
                         <div className="ef-kpi-sub" style={{ color: 'var(--ef-text-muted)' }}>Today</div>
                     </div>
 
                     <div className="ef-card">
                         <div className="ef-kpi-label">Peak Flow</div>
+                        {/* TODO(fake-data): replace with real ThingSpeak feeds data */}
                         <div className="ef-kpi-value">28.4 L</div>
                         <div className="ef-kpi-sub" style={{ color: 'var(--ef-warning)' }}>08:45 AM</div>
                     </div>
 
                     <div className="ef-card">
                         <div className="ef-kpi-label">Efficiency</div>
+                        {/* TODO(fake-data): replace with real ThingSpeak feeds data */}
                         <div className="ef-kpi-value">94%</div>
                         <div className="ef-kpi-sub" style={{ color: 'var(--ef-success)' }}>Optimal Range</div>
                     </div>
@@ -172,6 +228,7 @@ const EvaraFlow = ({ embedded = false }: EvaraFlowProps) => {
                         <div className="ef-chart-container" style={{ height: '180px' }}>
                             <canvas ref={usageDoughnutRef}></canvas>
                         </div>
+                        {/* TODO(fake-data): replace with real ThingSpeak feeds data */}
                         <div style={{ marginTop: '16px', fontSize: '13px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                                 <span>Morning Peak</span><span style={{ fontWeight: 700 }}>45%</span>
