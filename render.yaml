@@ -21,11 +21,13 @@ services:
         value: 3.10.12
 
   # React Frontend
+  # React Frontend
   - type: web
     name: evara-frontend
     env: static
-    buildCommand: cd client && npm install && npm run build
-    staticPublishPath: client/dist
+    root: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
     routes:
       - type: rewrite
         source: /*
