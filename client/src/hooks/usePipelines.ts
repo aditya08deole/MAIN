@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import api from '../services/api';
 import type { PipelineRow, PipelineInsert } from '../types/database';
-import { STATIC_PIPELINES } from '../data/staticData';
 
 interface UsePipelinesResult {
     pipelines: PipelineRow[];
@@ -19,51 +18,55 @@ export function usePipelines(): UsePipelinesResult {
 
     const fetchPipelines = useCallback(async () => {
         setLoading(true);
-        // Imitate a very short delay
-        setTimeout(() => {
-            setPipelines(STATIC_PIPELINES);
+        try {
+            const response = await api.get<PipelineRow[]>('/pipelines/');
+            setPipelines(response.data);
+            setError(null);
+        } catch (err: any) {
+            setError(err.response?.data?.detail || "Failed to fetch pipelines");
+            console.error("Error fetching pipelines:", err);
+        } finally {
             setLoading(false);
-        }, 100);
+        }
     }, []);
 
-    useEffect(() => { fetchPipelines(); }, [fetchPipelines]);
+    useEffect(() => {
+        fetchPipelines();
+    }, [fetchPipelines]);
 
     const addPipeline = useCallback(async (
         p: Omit<PipelineInsert, 'created_by'>
     ): Promise<PipelineRow | null> => {
-        const { data: { user } } = await supabase.auth.getUser();
-        const { data, error: err } = await supabase
-            .from('pipelines')
-            // @ts-ignore
-            .insert({ ...p, created_by: user?.id ?? null })
-            .select()
-            .single();
-        if (err) { setError(err.message); return null; }
-        const row = data as PipelineRow;
-        setPipelines(prev => [...prev, row]);
-        return row;
+        try {
+            const response = await api.post<PipelineRow>('/pipelines/', p);
+            const row = response.data;
+            setPipelines(prev => [...prev, row]);
+            return row;
+        } catch (err: any) {
+            setError(err.response?.data?.detail || "Failed to add pipeline");
+            return null;
+        }
     }, []);
 
     const updatePipeline = useCallback(async (
         id: string,
         p: Partial<Omit<PipelineInsert, 'created_by'>>
     ): Promise<void> => {
-        const { error: err } = await supabase
-            .from('pipelines')
-            // @ts-ignore
-            .update({ ...p, updated_at: new Date().toISOString() })
-            .eq('id', id);
-        if (err) { setError(err.message); return; }
-        setPipelines(prev => prev.map(pl => pl.id === id ? { ...pl, ...p } : pl));
+        try {
+            await api.patch(`/pipelines/${id}`, p);
+            setPipelines(prev => prev.map(pl => pl.id === id ? { ...pl, ...p } : pl));
+        } catch (err: any) {
+            setError(err.response?.data?.detail || "Failed to update pipeline");
+        }
     }, []);
 
     const deletePipeline = useCallback(async (id: string): Promise<void> => {
-        const { error: err } = await supabase
-            .from('pipelines')
-            .delete()
-            .eq('id', id);
-        if (err) { setError(err.message); return; }
-        setPipelines(prev => prev.filter(pl => pl.id !== id));
+        try {
+            await api.delete(`/pipelines/${id}`);
+            setPipelines(prev => prev.filter(pl => pl.id !== id));
+        } catch (err: any) {
+            setError(err.response?.data?.detail || "Failed to delete pipeline");
+        }
     }, []);
 
     return { pipelines, loading, error, addPipeline, updatePipeline, deletePipeline };

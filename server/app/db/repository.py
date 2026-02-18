@@ -1,4 +1,4 @@
-from typing import Generic, TypeVar, Type, List, Optional
+from typing import Generic, TypeVar, Type, List, Optional, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from app.db.base import Base
@@ -44,6 +44,10 @@ class NodeRepository(BaseRepository[Node]):
     def __init__(self, session: AsyncSession):
         super().__init__(Node, session)
     
+    async def get_by_key(self, key: str) -> Optional[Node]:
+        result = await self.session.execute(select(self.model).filter(self.model.node_key == key))
+        return result.scalars().first()
+
     async def get_by_category(self, category: str) -> List[Node]:
         result = await self.session.execute(select(self.model).filter(self.model.category == category))
         return result.scalars().all()

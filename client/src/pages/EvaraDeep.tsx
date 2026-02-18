@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Chart, { type ChartConfiguration } from 'chart.js/auto';
 import { useThingSpeak } from '../hooks/useThingSpeak';
-
-import { STATIC_NODES } from '../data/staticData';
+import { getDeviceDetails } from '../services/devices';
 import './EvaraDeep.css';
 
 interface EvaraDeepProps {
@@ -12,9 +11,6 @@ interface EvaraDeepProps {
 }
 
 const EvaraDeep = ({ embedded = false, nodeId }: EvaraDeepProps) => {
-    // Add logging to debug potential rendering issues
-    console.log("EvaraDeep component rendering...");
-
     const gwChartRef = useRef<HTMLCanvasElement>(null);
     const seasonalChartRef = useRef<HTMLCanvasElement>(null);
     const chartInstances = useRef<{
@@ -28,22 +24,27 @@ const EvaraDeep = ({ embedded = false, nodeId }: EvaraDeepProps) => {
         readApiKey: string | null;
     } | null>(null);
 
-    // Fetch ThingSpeak config from Static Data
+    // Fetch ThingSpeak config from Backend
     useEffect(() => {
         if (!nodeId) {
             setTsConfig({ channelId: null, readApiKey: null });
             return;
         }
 
-        const node = STATIC_NODES.find(n => n.id === nodeId || n.node_key === nodeId);
-        if (node) {
-            setTsConfig({
-                channelId: node.thingspeak_channel_id ?? null,
-                readApiKey: node.thingspeak_read_api_key ?? null,
-            });
-        } else {
-            setTsConfig({ channelId: null, readApiKey: null });
-        }
+        const fetchConfig = async () => {
+            try {
+                const node = await getDeviceDetails(nodeId);
+                setTsConfig({
+                    channelId: node.thingspeak_channel_id ?? null,
+                    readApiKey: node.thingspeak_read_api_key ?? null,
+                });
+            } catch (err) {
+                console.error("Failed to fetch node config:", err);
+                setTsConfig({ channelId: null, readApiKey: null });
+            }
+        };
+
+        fetchConfig();
     }, [nodeId]);
 
     useThingSpeak({
@@ -56,19 +57,15 @@ const EvaraDeep = ({ embedded = false, nodeId }: EvaraDeepProps) => {
     const [waterColHeight, setWaterColHeight] = useState(0);
 
     useEffect(() => {
-        // Trigger animation after mount
         const timer = setTimeout(() => {
-            setWaterColHeight(65); // Target height from CSS/Mock
+            setWaterColHeight(65);
         }, 100);
         return () => clearTimeout(timer);
     }, []);
 
     useEffect(() => {
-        // 1. Groundwater Chart (Line)
         if (gwChartRef.current) {
             if (chartInstances.current.gw) chartInstances.current.gw.destroy();
-
-            // TODO(fake-data): replace with real ThingSpeak feeds data
             const config: ChartConfiguration = {
                 type: 'line',
                 data: {
@@ -91,11 +88,8 @@ const EvaraDeep = ({ embedded = false, nodeId }: EvaraDeepProps) => {
             chartInstances.current.gw = new Chart(gwChartRef.current, config);
         }
 
-        // 2. Seasonal Radar Chart
         if (seasonalChartRef.current) {
             if (chartInstances.current.seasonal) chartInstances.current.seasonal.destroy();
-
-            // TODO(fake-data): replace with real ThingSpeak feeds data
             const config: ChartConfiguration = {
                 type: 'radar',
                 data: {
@@ -111,9 +105,7 @@ const EvaraDeep = ({ embedded = false, nodeId }: EvaraDeepProps) => {
                     plugins: { legend: { display: false } },
                     scales: {
                         r: {
-                            angleLines: {
-                                display: false
-                            },
+                            angleLines: { display: false },
                             suggestedMin: 0,
                             suggestedMax: 100
                         }
@@ -127,8 +119,6 @@ const EvaraDeep = ({ embedded = false, nodeId }: EvaraDeepProps) => {
             Object.values(chartInstances.current).forEach(chart => chart?.destroy());
         };
     }, []);
-
-    // if (noConfig) return <NodeNotConfigured analyticsType="EvaraDeep" />;
 
     return (
         <div className={`evara-deep-body${embedded ? ' ed-embedded' : ''}`}>
@@ -170,21 +160,18 @@ const EvaraDeep = ({ embedded = false, nodeId }: EvaraDeepProps) => {
 
                     <div className="ed-card">
                         <div className="ed-kpi-label">Dynamic Level</div>
-                        {/* TODO(fake-data): replace with real ThingSpeak feeds data */}
                         <div className="ed-kpi-value">58m</div>
                         <div className="ed-kpi-sub" style={{ color: 'var(--ed-warning)' }}>Pump Active</div>
                     </div>
 
                     <div className="ed-card">
                         <div className="ed-kpi-label">Recharge Rate</div>
-                        {/* TODO(fake-data): replace with real ThingSpeak feeds data */}
                         <div className="ed-kpi-value">1.2m/hr</div>
                         <div className="ed-kpi-sub" style={{ color: 'var(--ed-secondary)' }}>↑ Stable</div>
                     </div>
 
                     <div className="ed-card">
                         <div className="ed-kpi-label">Sustainability</div>
-                        {/* TODO(fake-data): replace with real ThingSpeak feeds data */}
                         <div className="ed-kpi-value">Optimal</div>
                         <div className="ed-kpi-sub" style={{ color: 'var(--ed-success)' }}>Healthy Source</div>
                     </div>

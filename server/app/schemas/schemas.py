@@ -5,11 +5,24 @@ from datetime import datetime
 # ─── USER SCHEMAS ───
 class UserBase(BaseModel):
     email: EmailStr
-    display_name: Optional[str] = None
+    display_name: str | None = None
     role: str = "customer"
+    plan: str = "base"
+    organization_id: str | None = None
+    community_id: str | None = None
 
 class UserCreate(UserBase):
-    password: str
+    id: str # Supabase UUID
+    password: str | None = None # Not used for Supabase auth but kept for backward compat if needed
+
+class UserUpdate(UserBase):
+    password: str | None = None
+
+class User(UserBase):
+    id: str
+    
+    class Config:
+        from_attributes = True
 
 class UserResponse(UserBase):
     id: str
@@ -33,6 +46,11 @@ class NodeBase(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     location_name: Optional[str] = None
+    capacity: Optional[str] = None
+    thingspeak_channel_id: Optional[str] = None
+    thingspeak_read_api_key: Optional[str] = None
+    firmware_version: Optional[str] = None
+    calibration_factor: float = 1.0
 
 class NodeCreate(NodeBase):
     pass

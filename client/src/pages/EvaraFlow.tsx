@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Chart, { type ChartConfiguration } from 'chart.js/auto';
 import { useThingSpeak } from '../hooks/useThingSpeak';
 
-import { STATIC_NODES } from '../data/staticData';
+import { getDeviceDetails } from '../services/devices';
 import './EvaraFlow.css';
 
 interface EvaraFlowProps {
@@ -31,22 +31,27 @@ const EvaraFlow = ({ embedded = false, nodeId }: EvaraFlowProps) => {
         readApiKey: string | null;
     } | null>(null);
 
-    // Fetch ThingSpeak config from Static Data
+    // Fetch ThingSpeak config from Backend
     useEffect(() => {
         if (!nodeId) {
             setTsConfig({ channelId: null, readApiKey: null });
             return;
         }
 
-        const node = STATIC_NODES.find(n => n.id === nodeId || n.node_key === nodeId);
-        if (node) {
-            setTsConfig({
-                channelId: node.thingspeak_channel_id ?? null,
-                readApiKey: node.thingspeak_read_api_key ?? null,
-            });
-        } else {
-            setTsConfig({ channelId: null, readApiKey: null });
-        }
+        const fetchConfig = async () => {
+            try {
+                const node = await getDeviceDetails(nodeId);
+                setTsConfig({
+                    channelId: node.thingspeak_channel_id ?? null,
+                    readApiKey: node.thingspeak_read_api_key ?? null,
+                });
+            } catch (err) {
+                console.error("Failed to fetch node config:", err);
+                setTsConfig({ channelId: null, readApiKey: null });
+            }
+        };
+
+        fetchConfig();
     }, [nodeId]);
 
     useThingSpeak({

@@ -1,5 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from app.api.api_v1.api import api_router
+from app.core.logging import setup_logging
+from app.db.session import create_tables
+from app.core.background import start_background_tasks
+from app.services.seeder import seed_db
 
 app = FastAPI(title="EvaraTech Backend", version="1.0.0")
 
@@ -18,15 +25,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.api.api_v1.api import api_router
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"]) # In prod, restrict this!
 
 app.include_router(api_router, prefix="/api/v1")
 
-from app.core.background import start_background_tasks
+# Setup logging
+logger = setup_logging()
 
 @app.on_event("startup")
 async def startup_event():
+    logger.info("Starting EvaraTech Backend...")
+    # Initialize database tables
+    await create_tables()
+    # Auto-seed if database is new/empty
+    await seed_db()
     await start_background_tasks()
+    logger.info("Background tasks started.")
 
 @app.get("/health")
 async def health_check():

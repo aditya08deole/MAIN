@@ -1,6 +1,6 @@
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.all_models import User, TankNode, DeepNode, FlowNode, Pipeline, NodeAssignment
+from app.models.all_models import User, TankNode, DeepNode, FlowNode, Pipeline, NodeAssignment, Organization, Region, Community
 from app.db.session import AsyncSessionLocal
 from app.core.config import get_settings
 from datetime import datetime
@@ -28,18 +28,34 @@ async def seed_db():
     print("🌱 Seeding Database...")
     async with AsyncSessionLocal() as session:
         # Check if initialized
-        existing_user = await session.get(User, "usr_admin")
-        if existing_user:
+        existing_org = await session.get(Organization, "org_evara_hq")
+        if existing_org:
             print("  - Database already seeded.")
             return
 
-        # Users
+        # 1. Hierarchy
+        org = Organization(id="org_evara_hq", name="Evara HQ", plan_tier="enterprise")
+        region = Region(id="reg_hyd_north", name="Hyderabad North", organization_id="org_evara_hq")
+        community = Community(id="comm_myhome", name="My Home Avatar", region_id="reg_hyd_north", organization_id="org_evara_hq")
+        
+        session.add(org)
+        session.add(region)
+        session.add(community)
+        await session.flush() # Ensure IDs differ
+
+        # 2. Users (Linked to Org/Community)
         for u in INITIAL_USERS:
+            # All seeded users belong to the main org/community for now
+            u["organization_id"] = "org_evara_hq"
+            u["community_id"] = "comm_myhome"
             session.add(User(**u))
         
-        # Nodes (Polymorphic)
+        # 3. Nodes (Linked to Org/Community)
         for n in INITIAL_NODES:
             ntype = n.pop("type")
+            n["organization_id"] = "org_evara_hq"
+            n["community_id"] = "comm_myhome"
+            
             if ntype == "EvaraTank":
                 session.add(TankNode(analytics_type="EvaraTank", **n))
             elif ntype == "EvaraDeep":

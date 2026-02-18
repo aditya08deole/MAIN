@@ -21,6 +21,10 @@ env/
 # Vite
 *.local
 
+# Databases
+*.db
+*.sqlite
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

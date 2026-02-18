@@ -32,3 +32,8 @@ async def get_db():
             yield session
         finally:
             await session.close()
+
+async def create_tables():
+    from app.models.all_models import Base as ModelsBase
+    async with engine.begin() as conn:
+        await conn.run_sync(ModelsBase.metadata.create_all)

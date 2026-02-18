@@ -1,10 +1,10 @@
 from datetime import timedelta
-from typing import Any
+from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import deps
-from app.core import security
+from app.core import security, security_supabase
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.schemas import schemas
@@ -13,28 +13,45 @@ from app.db.repository import UserRepository
 settings = get_settings()
 router = APIRouter()
 
-@router.post("/login/access-token", response_model=schemas.Token)
-async def login_access_token(
-    db: AsyncSession = Depends(get_db),
-    form_data: OAuth2PasswordRequestForm = Depends()
+@router.post("/sync", response_model=schemas.User)
+async def sync_user_profile(
+    user_payload: Dict[str, Any] = Depends(security_supabase.get_current_user_token),
+    db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
-    OAuth2 compatible token login, get an access token for future requests.
+    Sync Supabase User with Local DB.
+    Called by frontend after Supabase login to ensure backend profile exists.
     """
     repo = UserRepository(db)
-    user = await repo.get_by_email(form_data.username)
     
-    if not user or not security.verify_password(form_data.password, "hashed_password_placeholder"): 
-        # Note: In real app, we check user.hashed_password. 
-        # For this setup with seeded data, we might need a workaround or ensure seed has hashes.
-        # ALLOWING ANY PASSWORD FOR DEMO IF USER EXISTS to avoid blocking
-        if not user:
-             raise HTTPException(status_code=400, detail="Incorrect email or password")
+    # Extract details from Supabase JWT
+    supabase_id = user_payload.get("sub")
+    email = user_payload.get("email")
+    user_metadata = user_payload.get("user_metadata", {})
     
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    return {
-        "access_token": security.create_access_token(
-            user.id, expires_delta=access_token_expires
-        ),
-        "token_type": "bearer",
-    }
+    # Map Roles (Default to customer if not found)
+    role = user_metadata.get("role", "customer")
+    display_name = user_metadata.get("display_name", email.split("@")[0] if email else "User")
+    
+    # Check if user exists
+    user = await repo.get(supabase_id)
+    
+    if not user:
+        # Create new user
+        # Assign to default Community/Org if not present (Logic can be improved later)
+        # For now, linking to Evara HQ default
+        user_in = schemas.UserCreate(
+            id=supabase_id,
+            email=email,
+            display_name=display_name,
+            role=role,
+            organization_id="org_evara_hq", 
+            community_id="comm_myhome" # Default community for new users
+        )
+        user = await repo.create(obj_in=user_in)
+    else:
+        # Update existing user metadata if needed
+        # (Optional: sync logic here)
+        pass
+        
+    return user

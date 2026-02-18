@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Chart from 'chart.js/auto';
 import NodeNotConfigured from '../components/NodeNotConfigured';
-import { STATIC_NODES } from '../data/staticData';
+import { getDeviceDetails } from '../services/devices';
 import './EvaraTank.css';
 
 interface EvaraTankProps {
@@ -47,22 +47,27 @@ const EvaraTank = ({ embedded = false, nodeId }: EvaraTankProps) => {
     const MAX_CAPACITY = 500;
     const TARGET_SENSOR_VAL = 40;
 
-    // 1. Fetch Config from Static Data
+    // 1. Fetch Config from Backend
     useEffect(() => {
         if (!nodeId) {
             setTsConfig({ channelId: null, readApiKey: null });
             return;
         }
-        const node = STATIC_NODES.find(n => n.id === nodeId || n.node_key === nodeId);
-        if (node) {
-            setTsConfig({
-                channelId: node.thingspeak_channel_id ?? null,
-                readApiKey: node.thingspeak_read_api_key ?? null,
-            });
-        } else {
-            console.warn("Node not found:", nodeId);
-            setTsConfig({ channelId: null, readApiKey: null });
-        }
+
+        const fetchConfig = async () => {
+            try {
+                const node = await getDeviceDetails(nodeId);
+                setTsConfig({
+                    channelId: node.thingspeak_channel_id ?? null,
+                    readApiKey: node.thingspeak_read_api_key ?? null,
+                });
+            } catch (err) {
+                console.error("Failed to fetch node config:", err);
+                setTsConfig({ channelId: null, readApiKey: null });
+            }
+        };
+
+        fetchConfig();
     }, [nodeId]);
 
     // 2. Initialize Charts
