@@ -1,6 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import api from '../services/api';
 import type { UserRole, UserPlan } from '../types/database';
+
+/** Ensure backend has this user (creates/updates users_profiles). Call after login or session restore. */
+const syncWithBackend = async (): Promise<void> => {
+    try {
+        await api.post('/auth/sync');
+    } catch (err) {
+        console.warn('Backend sync failed (user may still work):', err);
+    }
+};
 
 // Re-export so existing imports from AuthContext continue to work
 export type { UserRole, UserPlan };
@@ -92,11 +102,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         const u = await buildUser(session.user.id);
                         if (mounted && u) {
                             setUser(u);
-                            // Sync to local storage on successful Supabase load
                             localStorage.setItem(SESSION_KEY, JSON.stringify({
                                 user: u,
                                 timestamp: Date.now()
                             }));
+                            await syncWithBackend();
                         }
                     } catch (err) {
                         console.error("Error building user:", err);
@@ -116,6 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             user: u,
                             timestamp: Date.now()
                         }));
+                        await syncWithBackend();
                     }
                 } else {
                     // Only clear if we don't have a valid custom session (handled by logout)
@@ -148,11 +159,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 plan: 'pro'
             };
             setUser(mockUser);
-            // SAVE SESSION
             localStorage.setItem(SESSION_KEY, JSON.stringify({
                 user: mockUser,
                 timestamp: Date.now()
             }));
+            await syncWithBackend();
             return { success: true };
         }
 
@@ -167,6 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
             setUser(mockUser);
             localStorage.setItem(SESSION_KEY, JSON.stringify({ user: mockUser, timestamp: Date.now() }));
+            await syncWithBackend();
             return { success: true };
         }
 
@@ -181,6 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
             setUser(mockUser);
             localStorage.setItem(SESSION_KEY, JSON.stringify({ user: mockUser, timestamp: Date.now() }));
+            await syncWithBackend();
             return { success: true };
         }
 
@@ -196,13 +209,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
             setUser(mockUser);
             localStorage.setItem(SESSION_KEY, JSON.stringify({ user: mockUser, timestamp: Date.now() }));
+            await syncWithBackend();
             return { success: true };
         }
 
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error || !data.user) return { success: false, error: error?.message ?? 'Sign-in failed' };
 
-        // Supabase auth listener will handle state update and storage
+        // Ensure backend has this user (Supabase stores session in localStorage; api interceptor will send it)
+        await syncWithBackend();
         return { success: true };
     }, []);
 

@@ -14,11 +14,21 @@ def verify_supabase_token(token: str) -> Dict[str, Any]:
     """
     # ─── DEV BYPASS ───
     if token.startswith("dev-bypass-"):
+        print(f"DEBUG: Dev Bypass detected. ENVIRONMENT: {settings.ENVIRONMENT}")
+        if settings.ENVIRONMENT != "development":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Dev Bypass not allowed in production"
+            )
+
         # Create a mock payload for local development
         # The token format is 'dev-bypass-id-email' or 'dev-bypass-role'
         parts = token.split("-")
         email = parts[-1] if "@" in parts[-1] else "dev@evara.com"
-        role = "superadmin" if "admin" in token else "customer"
+        
+        # Match frontend bypass admins
+        admins = ['ritik@evaratech.com', 'yasha@evaratech.com', 'aditya@evaratech.com', 'admin@evara.com']
+        role = "superadmin" if email in admins or "admin" in token else "customer"
         
         return {
             "sub": token,

@@ -14,7 +14,16 @@ export const useNodes = () => {
             setNodes(response.data);
             setError(null);
         } catch (err: any) {
-            setError(err.response?.data?.detail || "Failed to fetch nodes");
+            const status = err.response?.status;
+            const detail = err.response?.data?.detail;
+            if (status === 401) {
+                const msg = typeof detail === "string" && detail.includes("not synchronized")
+                    ? "Your account is not synced with the backend. Please log out and log in again."
+                    : "Please log in again to view nodes.";
+                setError(msg);
+            } else {
+                setError(typeof detail === "string" ? detail : "Failed to fetch nodes");
+            }
             console.error("Error fetching nodes:", err);
         } finally {
             setLoading(false);

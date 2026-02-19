@@ -4,6 +4,7 @@ from functools import lru_cache
 class Settings(BaseSettings):
     PROJECT_NAME: str = "EvaraTech Backend"
     API_V1_STR: str = "/api/v1"
+    ENVIRONMENT: str = "development" # development, staging, production
     
     # CORS
     @property
@@ -44,4 +45,6 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings():
-    return Settings()
+    s = Settings()
+    print(f"SETTINGS: ENVIRONMENT={s.ENVIRONMENT}")
+    return s

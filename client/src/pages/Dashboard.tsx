@@ -14,6 +14,34 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import type { NodeRow } from '../types/database';
 import { getSystemHealth, type SystemHealth } from '../services/dashboard';
 import { getActiveAlerts, type AlertHistory } from '../services/alerts';
+import api from '../services/api';
+
+function SyncAccountButton({ onSync }: { onSync: () => void }) {
+    const [syncing, setSyncing] = useState(false);
+
+    const handleSync = async () => {
+        setSyncing(true);
+        try {
+            await api.post('/auth/sync');
+            onSync();
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setSyncing(false);
+        }
+    };
+
+    return (
+        <button
+            type="button"
+            onClick={handleSync}
+            disabled={syncing}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+        >
+            {syncing ? 'Syncing...' : 'Sync Account'}
+        </button>
+    );
+}
 
 // Custom Purple Icon (Pump House)
 const purpleIcon = L.divIcon({
@@ -139,7 +167,7 @@ const MiniMap = ({ onExpand, nodes }: { onExpand: () => void, nodes: NodeRow[] }
 
 const Dashboard = () => {
     const { loading } = useAuth();
-    const { nodes, loading: nodesLoading } = useNodes();
+    const { nodes, loading: nodesLoading, error: nodesError, refresh: refreshNodes } = useNodes();
     const navigate = useNavigate();
     const [now] = useState(() => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
     const [isNavigating, setIsNavigating] = useState(false);
@@ -177,6 +205,30 @@ const Dashboard = () => {
         return (
             <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
                 <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    const isSyncError = typeof nodesError === 'string' && nodesError.toLowerCase().includes('not synced');
+    if (nodesError) {
+        return (
+            <div className="h-screen w-screen flex items-center justify-center bg-slate-50 p-6">
+                <div className="max-w-md text-center bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
+                    <p className="text-red-600 font-medium mb-2">Could not load dashboard data</p>
+                    <p className="text-slate-600 text-sm mb-4">{nodesError}</p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        {isSyncError && (
+                            <SyncAccountButton onSync={refreshNodes} />
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => refreshNodes()}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                </div>
             </div>
         );
     }

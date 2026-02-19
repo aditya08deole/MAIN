@@ -45,10 +45,11 @@ async def sync_user_profile(
             email=email,
             display_name=display_name,
             role=role,
-            organization_id="org_evara_hq", 
-            community_id="comm_myhome" # Default community for new users
+            organization_id="org_evara_hq",
+            community_id="comm_myhome"  # Default community for new users
         )
-        user = await repo.create(obj_in=user_in)
+        attrs = user_in.model_dump(exclude={"password"})
+        user = await repo.create(attrs)
     else:
         # Update existing user metadata if needed
         # (Optional: sync logic here)

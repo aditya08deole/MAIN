@@ -44,12 +44,41 @@ class NodeRepository(BaseRepository[Node]):
     def __init__(self, session: AsyncSession):
         super().__init__(Node, session)
     
+    async def get(self, id: Any) -> Optional[Node]:
+        from sqlalchemy.orm import selectinload
+        result = await self.session.execute(
+            select(self.model)
+            .options(selectinload(self.model.assignments))
+            .filter(self.model.id == id)
+        )
+        return result.scalars().first()
+
+    async def get_all(self, skip: int = 0, limit: int = 100) -> List[Node]:
+        from sqlalchemy.orm import selectinload
+        result = await self.session.execute(
+            select(self.model)
+            .options(selectinload(self.model.assignments))
+            .offset(skip)
+            .limit(limit)
+        )
+        return result.scalars().all()
+
     async def get_by_key(self, key: str) -> Optional[Node]:
-        result = await self.session.execute(select(self.model).filter(self.model.node_key == key))
+        from sqlalchemy.orm import selectinload
+        result = await self.session.execute(
+            select(self.model)
+            .options(selectinload(self.model.assignments))
+            .filter(self.model.node_key == key)
+        )
         return result.scalars().first()
 
     async def get_by_category(self, category: str) -> List[Node]:
-        result = await self.session.execute(select(self.model).filter(self.model.category == category))
+        from sqlalchemy.orm import selectinload
+        result = await self.session.execute(
+            select(self.model)
+            .options(selectinload(self.model.assignments))
+            .filter(self.model.category == category)
+        )
         return result.scalars().all()
 
 class UserRepository(BaseRepository[User]):

@@ -35,5 +35,11 @@ async def get_db():
 
 async def create_tables():
     from app.models.all_models import Base as ModelsBase
-    async with engine.begin() as conn:
-        await conn.run_sync(ModelsBase.metadata.create_all)
+    import asyncio
+    try:
+        # Strict 5-second timeout to prevent startup hang on blocked networks
+        async with asyncio.timeout(5):
+            async with engine.begin() as conn:
+                await conn.run_sync(ModelsBase.metadata.create_all)
+    except (asyncio.TimeoutError, Exception) as e:
+        print(f"⚠️ DATABASE UNREACHABLE (TIMEOUT): {e}")

@@ -7,6 +7,7 @@ import httpx
 
 router = APIRouter()
 
+@router.get("", response_model=Dict[str, Any])
 @router.get("/", response_model=Dict[str, Any])
 async def health_check(
     db: AsyncSession = Depends(get_db),

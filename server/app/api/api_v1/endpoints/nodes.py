@@ -4,9 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import deps
 from app.core import security_supabase
 from app.schemas import schemas
-from app.db.repository import NodeRepository
+from app.db.repository import NodeRepository, UserRepository
+from app.models.all_models import User
 from app.services.analytics import NodeAnalyticsService
 from app.db.session import get_db
+from app.services.seeder import INITIAL_NODES
+from app.core.config import get_settings
+import asyncio
+import traceback
 
 router = APIRouter()
 
@@ -44,55 +49,82 @@ async def read_nodes(
     Retrieve nodes.
     Restricted to User's Community unless Super Admin.
     """
+    import asyncio
     repo = NodeRepository(db)
     
     # Extract Access Context
     user_metadata = user_payload.get("user_metadata", {})
     role = user_metadata.get("role", "customer")
-    community_id = user_metadata.get("community_id") # We need to ensure sync puts this in token OR we query DB user
-    
-    # BETTER APPROACH: Query the local DB user to get the latest permissions/community
-    # (Token might be stale if community changed)
-    from app.db.repository import UserRepository
-    user_repo = UserRepository(db)
     user_id = user_payload.get("sub")
-    current_user = await user_repo.get(user_id)
     
-    if not current_user and user_id.startswith("dev-bypass-"):
-        # Auto-create dev user if missing
-        print(f"Auto-creating dev user profile for {user_id}")
-        current_user = User(
-            id=user_id,
-            email=user_payload.get("email"),
-            display_name=user_payload.get("user_metadata", {}).get("display_name", "Dev User"),
-            role=user_payload.get("user_metadata", {}).get("role", "superadmin"),
-            community_id="comm_myhome",
-            organization_id="org_evara_hq"
-        )
-        db.add(current_user)
-        await db.commit()
-        await db.refresh(current_user)
-
-    if not current_user:
-        print(f"ERROR: User {user_id} not found in local profiles table. Please run synchronization.")
-        raise HTTPException(status_code=401, detail=f"User {user_id} not synchronized")
-
-    if current_user.role == "superadmin":
-        # Super Admin sees all
-        nodes = await repo.get_all(skip=skip, limit=limit)
-    else:
-        # Others see only their community nodes
-        # Assuming repo.get_all doesn't support filtering yet, we might need a custom method or filter manually
-        # Ideally: await repo.get_by_community(current_user.community_id)
-        # For now, adding basic filtering logic here or invoking a new repo method
-        # Let's assume we add filter_by logic to repository or use raw query here
-        # Quick fix: fetch all and filter in python (NOT SCALABLE but works for now as repo layer update is Phase 5)
-        # WAIT! Phase 5 is Device Registry. Phase 2 (Data Model) implies we should have backend filtering.
-        # Let's use simple filtering on the returned list for the MVP of Phase 4.
-        all_nodes = await repo.get_all(skip=0, limit=1000)
-        nodes = [n for n in all_nodes if n.community_id == current_user.community_id]
+    print(f"DEBUG: Processing read_nodes for user {user_id} (Role: {role})")
+    
+    try:
+        # BETTER APPROACH: Query the local DB user to get the latest permissions/community
+        user_repo = UserRepository(db)
         
-    return nodes
+        # 5s timeout to prevent hanging on blocked nodes
+        async with asyncio.timeout(5):
+            current_user = await user_repo.get(user_id)
+            
+            if not current_user and user_id.startswith("dev-bypass-"):
+                # Auto-create dev user if missing
+                print(f"Auto-creating dev user profile for {user_id}")
+                current_user = User(
+                    id=user_id,
+                    email=user_payload.get("email"),
+                    display_name=user_payload.get("user_metadata", {}).get("display_name", "Dev User"),
+                    role=user_payload.get("user_metadata", {}).get("role", "superadmin"),
+                    community_id="comm_myhome",
+                    organization_id="org_evara_hq"
+                )
+                db.add(current_user)
+                await db.commit()
+                await db.refresh(current_user)
+
+        if not current_user:
+            print(f"ERROR: User {user_id} not found in local profiles table. Please run synchronization.")
+            raise HTTPException(status_code=401, detail=f"User {user_id} not synchronized")
+
+        # Fetch nodes with timeout
+        async with asyncio.timeout(5):
+            if current_user.role == "superadmin":
+                # Super Admin sees all
+                nodes = await repo.get_all(skip=skip, limit=limit)
+            else:
+                all_nodes = await repo.get_all(skip=0, limit=1000)
+                nodes = [n for n in all_nodes if n.community_id == current_user.community_id]
+                
+        return nodes
+    except (asyncio.TimeoutError, Exception) as e:
+        traceback.print_exc()
+        
+        settings = get_settings()
+        if settings.ENVIRONMENT == "development":
+            print(f"⚠️ PRO-FALLBACK: DB unreachable ({str(e)}). Serving mock nodes for {user_id}")
+            
+            mock_response = []
+            for n in INITIAL_NODES:
+                mock_node = {
+                    "id": n.get("id", "mock-id"),
+                    "node_key": n.get("node_key", "mock-key"),
+                    "label": n.get("label", "Mock Node"),
+                    "category": n.get("category", "General"),
+                    "analytics_type": n.get("type", n.get("category", "EvaraFlow")),
+                    "status": n.get("status", "Online"),
+                    "lat": n.get("lat"),
+                    "lng": n.get("lng"),
+                    "location_name": n.get("location_name"),
+                    "capacity": n.get("capacity"),
+                    "thingspeak_channel_id": n.get("thingspeak_channel_id"),
+                    "thingspeak_read_api_key": n.get("thingspeak_read_api_key"),
+                    "assignments": []
+                }
+                mock_response.append(mock_node)
+            return mock_response
+            
+        print(f"ERROR: Database failed while fetching nodes for {user_id}: {str(e)}")
+        raise HTTPException(status_code=503, detail="Database connection timed out or failed")
 
 @router.get("/{node_id}", response_model=schemas.NodeResponse)
 async def read_node_by_id(

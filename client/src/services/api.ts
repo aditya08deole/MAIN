@@ -11,12 +11,12 @@ const api = axios.create({
     },
 });
 
-// Request Interceptor: Attach Supabase Token
+// Request Interceptor: Attach Supabase Token or Dev-Bypass Token
 api.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        // More robust way to find the Supabase auth token
         let token: string | null = null;
 
+        // 1. Try Supabase auth token (real login)
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
             if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
@@ -27,6 +27,21 @@ api.interceptors.request.use(
                     console.error('Failed to parse Supabase session:', e);
                 }
                 break;
+            }
+        }
+
+        // 2. Fallback: dev-bypass session (no Supabase token; backend accepts Bearer dev-bypass-*)
+        if (!token) {
+            try {
+                const stored = localStorage.getItem('evara_session');
+                if (stored) {
+                    const { user } = JSON.parse(stored);
+                    if (user?.id && typeof user.id === 'string' && user.id.startsWith('dev-bypass-')) {
+                        token = user.id;
+                    }
+                }
+            } catch {
+                // ignore
             }
         }
 
