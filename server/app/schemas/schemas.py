@@ -145,6 +145,15 @@ class NodeResponse(NodeBase):
         from_attributes = True
         populate_by_name = True
 
+class NodeAnalyticsResponse(BaseModel):
+    """Response model for node analytics endpoint."""
+    node_id: str
+    days_to_empty: Optional[float] = None
+    rolling_avg_flow: Optional[float] = None
+    
+    class Config:
+        from_attributes = True
+
 # ─── SYSTEM CONFIG SCHEMAS ───
 class SystemConfigUpdate(BaseModel):
     rate: int

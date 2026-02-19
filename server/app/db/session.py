@@ -45,10 +45,10 @@ async def create_tables():
         async with asyncio.timeout(10):
             async with engine.begin() as conn:
                 await conn.run_sync(ModelsBase.metadata.create_all)
-        print("✅ Database tables created/verified successfully")
+        print("[OK] Database tables created/verified successfully")
     except asyncio.TimeoutError:
-        print("⚠️ DATABASE CONNECTION TIMEOUT - This is normal if using Supabase with schema already deployed")
+        print("[WARN] DATABASE CONNECTION TIMEOUT - This is normal if using Supabase with schema already deployed")
     except Exception as e:
-        print(f"⚠️ DATABASE SETUP INFO: {e}")
+        print(f"[WARN] DATABASE SETUP INFO: {e}")
         print("💡 If using Supabase, ensure schema is deployed via Supabase SQL Editor")
         # Don't raise error - allow app to start for development

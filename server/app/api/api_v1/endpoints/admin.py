@@ -8,7 +8,7 @@ from app.db.repository import DistributorRepository, CommunityRepository, Custom
 import uuid
 import re
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from app.core import security, security_supabase
 from app.core.permissions import Permission
@@ -55,7 +55,7 @@ async def read_distributors(
 @router.get("/communities", response_model=List[schemas.CommunityResponse])
 async def read_communities(
     db: AsyncSession = Depends(get_db),
-    user: dict = Depends(RequirePermission(Permission.COMMUNITY_VIEW))
+    user: dict = Depends(RequirePermission(Permission.COMMUNITY_READ))
 ):
     repo = CommunityRepository(db)
     dist_id = get_effective_distributor_id(user)
@@ -475,7 +475,7 @@ async def read_audit_logs(
 @router.get("/stats")
 async def read_system_stats(
     db: AsyncSession = Depends(get_db),
-    user: dict = Depends(RequirePermission(Permission.COMMUNITY_VIEW))
+    user: dict = Depends(RequirePermission(Permission.COMMUNITY_READ))
 ):
     dist_id = get_effective_distributor_id(user)
     
@@ -507,7 +507,7 @@ async def read_system_stats(
 @router.post("/admin/rotate-keys")
 async def rotate_encryption_keys(
     db: AsyncSession = Depends(get_db),
-    user_payload: dict = Depends(RequirePermission(Permission.ADMIN_FULL))
+    user_payload: dict = Depends(RequirePermission(Permission.SYSTEM_CONFIG_WRITE))
 ):
     """
     P33: Rotate encryption key and re-encrypt all ThingSpeak API keys.
@@ -543,7 +543,7 @@ async def rotate_encryption_keys(
 @router.get("/admin/system-status")
 async def get_system_status(
     db: AsyncSession = Depends(get_db),
-    user_payload: dict = Depends(RequirePermission(Permission.ADMIN_FULL))
+    user_payload: dict = Depends(RequirePermission(Permission.SYSTEM_CONFIG_WRITE))
 ):
     """
     P45: Comprehensive operational status for admins.

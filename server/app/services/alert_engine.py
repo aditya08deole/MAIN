@@ -95,7 +95,7 @@ class AlertEngine:
         )
         self.db.add(alert)
         await self.db.commit()
-        logger.warning(f"⚠️ ALERT TRIGGERED: {title}")
+        logger.warning(f"[ALERT] TRIGGERED: {title}")
         
         # Send Notification
         from app.services.notifications.console import ConsoleNotificationProvider
@@ -116,7 +116,7 @@ class AlertEngine:
         if active_alert:
             active_alert.resolved_at = datetime.utcnow()
             await self.db.commit()
-            logger.info(f"✅ ALERT RESOLVED: Node {node_id} - {rule.id}")
+            logger.info(f"[OK] ALERT RESOLVED: Node {node_id} - {rule.id}")
 
     async def create_offline_alert(self, node_id: str):
         """Create a single 'device_offline' alert for a node (de-duped)."""
@@ -156,7 +156,7 @@ class AlertEngine:
             alert.resolved_at = datetime.utcnow()
             alert.resolve_comment = "Auto-resolved: device came back online."
             await self.db.commit()
-            logger.info(f"✅ OFFLINE ALERT RESOLVED: Node {node_id}")
+            logger.info(f"[OK] OFFLINE ALERT RESOLVED: Node {node_id}")
 
     # P22: Offline detection alert
     async def create_offline_alert(self, node_id: str):
@@ -187,7 +187,7 @@ class AlertEngine:
         )
         self.db.add(alert)
         await self.db.commit()
-        logger.warning(f"⚠️ OFFLINE ALERT: Node {node_id}")
+        logger.warning(f"[ALERT] OFFLINE: Node {node_id}")
         
         # P24: Dispatch notification
         try:
@@ -211,7 +211,7 @@ class AlertEngine:
             active.resolved_at = datetime.utcnow()
             active.resolve_comment = "Auto-resolved: device came back online"
             await self.db.commit()
-            logger.info(f"✅ OFFLINE ALERT AUTO-RESOLVED: Node {node_id}")
+            logger.info(f"[OK] OFFLINE ALERT AUTO-RESOLVED: Node {node_id}")
 
     # P38: Maintenance window check
     async def _in_maintenance_window(self, node_id: str) -> bool:

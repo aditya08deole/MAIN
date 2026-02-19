@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import deps
 from app.core import security_supabase
+from app.core.permissions import Permission
+from app.core.security_supabase import RequirePermission
 from app.schemas import schemas
 from app.db.repository import NodeRepository, UserRepository
 from app.models.all_models import User
@@ -23,7 +25,7 @@ async def create_node(
     *,
     db: AsyncSession = Depends(get_db),
     node_in: schemas.NodeCreate,
-    user_payload: dict = Depends(security_supabase.RequirePermission(security_supabase.Permission.DEVICE_PROVISION))
+    user_payload: dict = Depends(RequirePermission(Permission.DEVICE_PROVISION))
 ) -> Any:
     """
     Create a new node.
@@ -68,7 +70,7 @@ async def read_nodes(
     skip: int = 0,
     limit: int = 100,
     q: str = None, # Search query
-    user_payload: dict = Depends(security_supabase.RequirePermission(security_supabase.Permission.DEVICE_READ))
+    user_payload: dict = Depends(RequirePermission(Permission.DEVICE_READ))
 ) -> Any:
     """
     Retrieve nodes.

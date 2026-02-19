@@ -23,6 +23,9 @@ class Permission(str, Enum):
 
     # User
     USER_MANAGE = "user:manage"
+    
+    # Audit
+    AUDIT_VIEW = "audit:view"
 
 # Role -> Permissions Mapping
 ROLE_PERMISSIONS = {
@@ -34,7 +37,8 @@ ROLE_PERMISSIONS = {
         Permission.DEVICE_PROVISION,
         Permission.DEVICE_READ,
         Permission.DEVICE_CONTROL,
-        Permission.USER_MANAGE
+        Permission.USER_MANAGE,
+        Permission.AUDIT_VIEW
     ],
     UserRole.REGION_ADMIN: [
         Permission.COMMUNITY_READ,

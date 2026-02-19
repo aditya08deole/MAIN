@@ -12,7 +12,8 @@ from sqlalchemy import select, desc
 
 from app.db.session import get_db
 from app.models import all_models as models
-from app.core import security_supabase
+from app.core.permissions import Permission
+from app.core.security_supabase import RequirePermission, get_current_user_token
 
 router = APIRouter()
 
@@ -21,7 +22,7 @@ router = APIRouter()
 async def export_nodes(
     format: str = Query("csv", description="csv or json"),
     db: AsyncSession = Depends(get_db),
-    user_payload: dict = Depends(security_supabase.RequirePermission(security_supabase.Permission.DEVICE_READ))
+    user_payload: dict = Depends(RequirePermission(Permission.DEVICE_READ))
 ) -> Any:
     """Export device inventory as CSV or JSON."""
     result = await db.execute(select(models.Node).order_by(models.Node.label))
@@ -72,7 +73,7 @@ async def export_readings(
     days: int = Query(7, le=90),
     format: str = Query("csv"),
     db: AsyncSession = Depends(get_db),
-    user_payload: dict = Depends(security_supabase.get_current_user_token)
+    user_payload: dict = Depends(get_current_user_token)
 ) -> Any:
     """Export sensor readings for a device."""
     cutoff = datetime.utcnow() - timedelta(days=days)
@@ -112,7 +113,7 @@ async def export_alerts(
     format: str = Query("json"),
     days: int = Query(30, le=365),
     db: AsyncSession = Depends(get_db),
-    user_payload: dict = Depends(security_supabase.get_current_user_token)
+    user_payload: dict = Depends(get_current_user_token)
 ) -> Any:
     """Export alert history."""
     cutoff = datetime.utcnow() - timedelta(days=days)

@@ -39,7 +39,7 @@ async def cleanup_loop():
     from app.models import all_models as models
     from datetime import datetime, timedelta
     
-    print("🧹 Data Cleanup Service Started.")
+    print("[CLEANUP] Data Cleanup Service Started.")
     
     while True:
         try:
@@ -68,10 +68,10 @@ async def cleanup_loop():
                 )
                 
                 await db.commit()
-                print(f"🧹 Cleanup: readings>{cutoff.date()}, alerts>{alert_cutoff.date()}, audits>{audit_cutoff.date()}")
+                print(f"[CLEANUP] Cleanup: readings>{cutoff.date()}, alerts>{alert_cutoff.date()}, audits>{audit_cutoff.date()}")
                 
         except Exception as e:
-            print(f"❌ Error in Cleanup Loop: {e}")
+            print(f"[ERROR] Error in Cleanup Loop: {e}")
             
         # Wait 24 hours (approx)
         await asyncio.sleep(86400)
@@ -180,7 +180,7 @@ async def poll_thingspeak_loop():
                     await db.commit()
                         
         except Exception as e:
-            print(f"❌ Error in Polling Loop: {e}")
+            print(f"[ERROR] Error in Polling Loop: {e}")
             
         # Wait 60 seconds
         await asyncio.sleep(60)

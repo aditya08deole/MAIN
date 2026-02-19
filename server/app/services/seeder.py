@@ -70,7 +70,7 @@ async def seed_db(force: bool = True):
     try:
         # Strict 5-second timeout to prevent startup hang
         async with asyncio.timeout(5):
-            print("🌱 Seeding Database...")
+            print("[SEED] Seeding Database...")
             async with AsyncSessionLocal() as session:
                 # 1. Hierarchy: Distributor → Community
                 distributor = await session.get(Distributor, "dist_evara_hq")
@@ -155,9 +155,9 @@ async def seed_db(force: bool = True):
                 
                 from sqlalchemy import select, func
                 count = await session.scalar(select(func.count()).select_from(Node))
-                print(f"✅ Seeding Complete. Added {nodes_added} new nodes, {ts_mappings_added} ThingSpeak mappings. Total Nodes: {count}")
+                print(f"[OK] Seeding Complete. Added {nodes_added} new nodes, {ts_mappings_added} ThingSpeak mappings. Total Nodes: {count}")
     except (asyncio.TimeoutError, Exception) as e:
-        print(f"⚠️ Seeding skipped: Database unreachable (TIMEOUT). ({e})")
+        print(f"[WARN] Seeding skipped: Database unreachable (TIMEOUT). ({e})")
 
 if __name__ == "__main__":
     asyncio.run(seed_db())

@@ -132,33 +132,33 @@ async def startup_event():
     # Check 1: Database connection
     try:
         await create_tables()
-        checks["database"] = "✅ Connected"
+        checks["database"] = "[OK] Connected"
     except Exception as e:
-        checks["database"] = f"❌ Failed: {e}"
+        checks["database"] = f"[ERROR] Failed: {e}"
         logger.error(f"DB startup check failed: {e}")
     
     # Check 2: Required env vars
     required_vars = ["DATABASE_URL", "SUPABASE_URL", "SUPABASE_JWT_SECRET"]
     missing = [v for v in required_vars if not getattr(settings, v.lower(), None) and not getattr(settings, v, None)]
-    checks["env_vars"] = "✅ All present" if not missing else f"⚠️ Missing: {missing}"
+    checks["env_vars"] = "[OK] All present" if not missing else f"[WARN] Missing: {missing}"
     
     # Check 3: Supabase Auth endpoint
     try:
         import httpx
         async with httpx.AsyncClient(timeout=3) as client:
             resp = await client.get(f"{settings.SUPABASE_URL}/auth/v1/settings")
-            checks["supabase_auth"] = f"✅ Reachable (HTTP {resp.status_code})"
+            checks["supabase_auth"] = f"[OK] Reachable (HTTP {resp.status_code})"
     except Exception as e:
-        checks["supabase_auth"] = f"⚠️ Unreachable: {e}"
+        checks["supabase_auth"] = f"[WARN] Unreachable: {e}"
     
     # Check 4: ThingSpeak API (non-critical)
     try:
         import httpx
         async with httpx.AsyncClient(timeout=3) as client:
             resp = await client.get("https://api.thingspeak.com/channels/public.json?page=1")
-            checks["thingspeak"] = f"✅ Reachable (HTTP {resp.status_code})"
+            checks["thingspeak"] = f"[OK] Reachable (HTTP {resp.status_code})"
     except Exception as e:
-        checks["thingspeak"] = f"⚠️ Unreachable (non-critical): {e}"
+        checks["thingspeak"] = f"[WARN] Unreachable (non-critical): {e}"
     
     # Log all checks
     logger.info("=== STARTUP HEALTH CHECKS ===")

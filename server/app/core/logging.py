@@ -72,4 +72,9 @@ def setup_structured_logging():
     logger.addHandler(console_handler)
     return logger
 
+# Main setup function
+def setup_logging():
+    """Configure JSON structured logging for the application."""
+    return setup_structured_logging()
+
 logger = setup_structured_logging()

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 import { useNodes } from '../hooks/useNodes';
-import { useDashboardStats, useSystemHealth, useActiveAlerts } from '../hooks/useDashboard';
+import { useSystemHealth, useActiveAlerts } from '../hooks/useDashboard';
 import { useAuth } from '../context/AuthContext';
 import ErrorBoundary from '../components/ErrorBoundary';
 import api from '../services/api';
