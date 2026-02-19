@@ -183,7 +183,6 @@ function Dashboard() {
 
     // Data Hooks
     const { nodes, loading: nodesLoading, error: nodesError, refresh: refreshNodes } = useNodes(searchQuery);
-    const { data: stats, isLoading: statsLoading } = useDashboardStats();
     const { data: healthData } = useSystemHealth();
     const { data: recentAlerts = [] } = useActiveAlerts();
 
@@ -191,7 +190,7 @@ function Dashboard() {
     const [now] = useState(() => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
     const [isNavigating, setIsNavigating] = useState(false);
 
-    const loading = authLoading || nodesLoading || statsLoading;
+    const loading = authLoading || nodesLoading;
 
     if (loading) {
         return (
