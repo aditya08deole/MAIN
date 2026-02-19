@@ -11,6 +11,11 @@ export const adminService = {
         return response.data;
     },
 
+    async getCustomer(id: string) {
+        const response = await api.get(`/customers/${id}`);
+        return response.data;
+    },
+
     async getDistributors() {
         const response = await api.get('/distributors');
         return response.data;
@@ -21,8 +26,8 @@ export const adminService = {
         return response.data;
     },
 
-    async createCustomer(data: { name: string; email: string; community_id: string }) {
-        const response = await api.post('/customers', data);
+    async createCustomer(data: { name: string; email: string; community_id: string; password?: string; contact_number?: string }) {
+        const response = await api.post('/customers/onboard', data);
         return response.data;
     },
 

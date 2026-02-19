@@ -49,6 +49,7 @@ class CommunityResponse(CommunityBase):
     distributor_id: Optional[str] = None
     slug: Optional[str] = None
     created_at: datetime
+    node_count: Optional[int] = 0
     
     class Config:
         from_attributes = True
@@ -66,6 +67,9 @@ class CustomerBase(BaseModel):
 class CustomerCreate(CustomerBase):
     pass
 
+class CustomerOnboard(CustomerBase):
+    password: Optional[str] = None
+
 class CustomerResponse(CustomerBase):
     id: str
     supabase_user_id: Optional[str] = None
@@ -74,6 +78,20 @@ class CustomerResponse(CustomerBase):
     
     class Config:
         from_attributes = True
+
+class NodeSummary(BaseModel):
+    id: str
+    node_key: str = Field(..., alias="hardware_id")
+    label: str = Field(..., alias="device_label")
+    category: str = Field(..., alias="device_type")
+    analytics_type: str
+    status: str
+    
+    class Config:
+        from_attributes = True
+
+class CustomerDetail(CustomerResponse):
+    devices: List["NodeSummary"] = []
 
 # ─── NODE / DEVICE SCHEMAS ───
 class NodeBase(BaseModel):
@@ -96,6 +114,19 @@ class NodeCreate(NodeBase):
     
     # Telemetry Mapping
     thingspeak_mapping: Optional[Dict[str, Any]] = None
+
+    thingspeak_mapping: Optional[Dict[str, Any]] = None
+
+class NodeSummary(BaseModel):
+    id: str
+    node_key: str = Field(..., alias="hardware_id")
+    label: str = Field(..., alias="device_label")
+    category: str = Field(..., alias="device_type")
+    analytics_type: str
+    status: str
+    
+    class Config:
+        from_attributes = True
 
 class NodeResponse(NodeBase):
     id: str

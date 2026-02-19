@@ -109,6 +109,22 @@ class DistributorRepository(BaseRepository[Distributor]):
         super().__init__(Distributor, session)
 
 class CommunityRepository(BaseRepository[Community]):
+    async def get_with_counts(self, distributor_id: Optional[str] = None) -> List[Community]:
+        stmt = (
+            select(self.model, func.count(Node.id).label("node_count"))
+            .outerjoin(Node, Node.community_id == self.model.id)
+            .group_by(self.model.id)
+        )
+        if distributor_id:
+            stmt = stmt.filter(self.model.distributor_id == distributor_id)
+        
+        result = await self.session.execute(stmt)
+        items = []
+        for comm, count in result.unique().all():
+             comm.node_count = count
+             items.append(comm)
+        return items
+
     def __init__(self, session: AsyncSession):
         super().__init__(Community, session)
         
@@ -128,6 +144,14 @@ class CommunityRepository(BaseRepository[Community]):
 class CustomerRepository(BaseRepository[Customer]):
     def __init__(self, session: AsyncSession):
         super().__init__(Customer, session)
+
+    async def get_with_devices(self, id: Any) -> Optional[Customer]:
+        result = await self.session.execute(
+            select(self.model)
+            .options(selectinload(self.model.devices))
+            .filter(self.model.id == id)
+        )
+        return result.scalars().first()
 
 class PlanRepository(BaseRepository[Plan]):
     def __init__(self, session: AsyncSession):

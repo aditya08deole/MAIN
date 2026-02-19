@@ -45,7 +45,7 @@ class Community(Base):
     created_by: Mapped[str] = mapped_column(String, nullable=True)
     
     # Tenancy
-    distributor_id: Mapped[str] = mapped_column(ForeignKey("distributors.id"), nullable=True)
+    distributor_id: Mapped[str] = mapped_column(ForeignKey("distributors.id"), nullable=True, index=True)
     
     # Relationships
     distributor = relationship("Distributor", back_populates="communities")
@@ -66,9 +66,9 @@ class Customer(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
     # Foreign Keys
-    community_id: Mapped[str] = mapped_column(ForeignKey("communities.id"), nullable=True)
-    distributor_id: Mapped[str] = mapped_column(ForeignKey("distributors.id"), nullable=True)
-    plan_id: Mapped[str] = mapped_column(ForeignKey("plans.id"), nullable=True)
+    community_id: Mapped[str] = mapped_column(ForeignKey("communities.id"), nullable=True, index=True)
+    distributor_id: Mapped[str] = mapped_column(ForeignKey("distributors.id"), nullable=True, index=True)
+    plan_id: Mapped[str] = mapped_column(ForeignKey("plans.id"), nullable=True, index=True)
     
     # Relationships
     community = relationship("Community", back_populates="customers")
@@ -106,9 +106,9 @@ class Node(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
     # Tenancy
-    customer_id: Mapped[str] = mapped_column(ForeignKey("customers.id"), nullable=True)
-    community_id: Mapped[str] = mapped_column(ForeignKey("communities.id"), nullable=True)
-    distributor_id: Mapped[str] = mapped_column(ForeignKey("distributors.id"), nullable=True)
+    customer_id: Mapped[str] = mapped_column(ForeignKey("customers.id"), nullable=True, index=True)
+    community_id: Mapped[str] = mapped_column(ForeignKey("communities.id"), nullable=True, index=True)
+    distributor_id: Mapped[str] = mapped_column(ForeignKey("distributors.id"), nullable=True, index=True)
     
     customer = relationship("Customer", back_populates="devices")
     community = relationship("Community", back_populates="nodes")

@@ -89,7 +89,7 @@ const RegionCommunities = () => {
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-2 text-sm text-slate-600">
                                         <Wifi size={14} className="text-slate-400" />
-                                        {community.nodes?.length || 0} Nodes
+                                        {community.node_count || 0} Nodes
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">

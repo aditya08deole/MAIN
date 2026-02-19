@@ -59,7 +59,7 @@ async def read_communities(
 ):
     repo = CommunityRepository(db)
     dist_id = get_effective_distributor_id(user)
-    return await repo.get_all(distributor_id=dist_id)
+    return await repo.get_with_counts(distributor_id=dist_id)
 
 def generate_slug(name: str) -> str:
     return re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
@@ -142,6 +142,7 @@ async def create_customer(
     if result.scalars().first():
         raise HTTPException(status_code=400, detail="Email already registered")
     
+    
     # Optional: Automate Supabase Auth Creation
     auth_service = SupabaseAuthService()
     supabase_user = await auth_service.create_user(
@@ -181,6 +182,95 @@ async def create_customer(
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     return db_obj
+
+@router.post("/customers/onboard", response_model=schemas.CustomerResponse)
+async def onboard_customer(
+    customer_in: schemas.CustomerOnboard,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(RequirePermission(Permission.USER_MANAGE))
+):
+    """
+    Full Onboarding: Create Supabase Auth User + DB Customer Profile
+    """
+    # Enforce distributor_id if the user is a distributor
+    dist_id = get_effective_distributor_id(user)
+    if dist_id:
+        customer_in.distributor_id = dist_id
+
+    # Check duplicate email in DB
+    result = await db.execute(select(models.Customer).filter(models.Customer.email == customer_in.email))
+    if result.scalars().first():
+        raise HTTPException(status_code=400, detail="Email already registered in Database")
+    
+    # Create Supabase Auth User
+    auth_service = SupabaseAuthService()
+    metadata = {
+        "full_name": customer_in.full_name,
+        "role": "customer",
+        "community_id": customer_in.community_id
+    }
+    
+    try:
+        auth_response = await auth_service.create_user(
+            email=customer_in.email,
+            password=customer_in.password, 
+            user_metadata=metadata
+        )
+    except Exception as e:
+         raise HTTPException(status_code=500, detail=f"Auth Service Error: {str(e)}")
+
+    if not auth_response or 'id' not in auth_response:
+        raise HTTPException(status_code=400, detail="Failed to create Auth User. Email might be registered in Supabase but not in DB.")
+        
+    supabase_uid = auth_response['id']
+    
+    # Create DB Customer
+    db_obj = models.Customer(
+        id=str(uuid.uuid4()),
+        full_name=customer_in.full_name,
+        email=customer_in.email,
+        supabase_user_id=supabase_uid,
+        community_id=customer_in.community_id,
+        distributor_id=customer_in.distributor_id,
+        plan_id=customer_in.plan_id,
+        contact_number=customer_in.contact_number
+    )
+    db.add(db_obj)
+    
+    try:
+        await AuditService.log_action(
+            db, "ONBOARD_CUSTOMER", user.get("sub"), "customer", db_obj.id, {"email": db_obj.email}
+        )
+        await db.commit()
+        await db.refresh(db_obj)
+        
+        await NotificationService.send_welcome_email(
+            email=db_obj.email,
+            full_name=db_obj.full_name
+        )
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database commit failed: {str(e)}")
+        
+    return db_obj
+
+@router.get("/customers/{customer_id}", response_model=schemas.CustomerDetail)
+async def read_customer_detail(
+    customer_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(RequirePermission(Permission.USER_MANAGE))
+):
+    repo = CustomerRepository(db)
+    customer = await repo.get_with_devices(customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+        
+    # Security: Distributor can only see their own customers
+    dist_id = get_effective_distributor_id(user)
+    if dist_id and customer.distributor_id != dist_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this customer")
+        
+    return customer
 
 # ─── PLANS ───
 @router.get("/plans", response_model=List[schemas.PlanResponse])

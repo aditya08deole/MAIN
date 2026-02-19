@@ -12,15 +12,16 @@ const CustomerDetails = () => {
 
     useEffect(() => {
         const fetchData = async () => {
+            if (!customerId) return;
             try {
                 const [custData, commData] = await Promise.all([
-                    adminService.getCustomers(),
+                    adminService.getCustomer(customerId),
                     adminService.getCommunities()
                 ]);
-                const currentCust = custData.find((c: any) => c.id === customerId);
-                if (currentCust) {
-                    setCustomer(currentCust);
-                    const currentComm = commData.find((c: any) => c.id === currentCust.community_id);
+
+                if (custData) {
+                    setCustomer(custData);
+                    const currentComm = commData.find((c: any) => c.id === custData.community_id);
                     setCommunity(currentComm);
                 }
             } catch (error) {

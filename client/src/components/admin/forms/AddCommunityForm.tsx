@@ -49,17 +49,27 @@ export const AddCommunityForm = ({ onSubmit, onCancel }: { onSubmit: (data: any)
             </div>
             <div>
                 <label className={labelCls}>Region / Zone</label>
-                <select
-                    value={region}
-                    onChange={e => setRegion(e.target.value)}
-                    className={inputCls}
-                    disabled={loading}
-                >
-                    <option value="">Select Region</option>
-                    <option value="hyd-north">Hyderabad North</option>
-                    <option value="hyd-south">Hyderabad South</option>
-                    <option value="blr-east">Bangalore East</option>
-                </select>
+                <div className="relative">
+                    <input
+                        list="region-options"
+                        value={region}
+                        onChange={e => setRegion(e.target.value)}
+                        placeholder="Select or Type New Region"
+                        className={inputCls}
+                        disabled={loading}
+                    />
+                    <datalist id="region-options">
+                        <option value="Hyderabad North" />
+                        <option value="Hyderabad South" />
+                        <option value="Hyderabad West (Hitech)" />
+                        <option value="Bangalore East" />
+                        <option value="Bangalore South" />
+                        <option value="Visakhapatnam" />
+                    </datalist>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1 ml-1">
+                    * Type a new name to create a new region.
+                </p>
             </div>
 
             <div className="flex justify-end gap-3 pt-4">

@@ -3,7 +3,7 @@ import { adminService } from '../../../services/admin';
 import { Loader2 } from 'lucide-react';
 
 export const AddCustomerForm = ({ onSubmit, onCancel }: { onSubmit: (data: any) => void; onCancel: () => void }) => {
-    const [formData, setFormData] = useState({ name: '', email: '', phone: '', community: '' });
+    const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '', community: '' });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -20,7 +20,9 @@ export const AddCustomerForm = ({ onSubmit, onCancel }: { onSubmit: (data: any) 
             const result = await adminService.createCustomer({
                 name: formData.name,
                 email: formData.email,
-                community_id: formData.community
+                community_id: formData.community,
+                password: formData.password,
+                contact_number: formData.phone
             });
             onSubmit(result);
         } catch (err) {
@@ -59,6 +61,27 @@ export const AddCustomerForm = ({ onSubmit, onCancel }: { onSubmit: (data: any) 
                     value={formData.email}
                     onChange={e => handleChange('email', e.target.value)}
                     placeholder="client@example.com"
+                    className={inputCls}
+                    disabled={loading}
+                />
+            </div>
+            <div>
+                <label className={labelCls}>Temp Password</label>
+                <input
+                    type="password"
+                    value={formData.password}
+                    onChange={e => handleChange('password', e.target.value)}
+                    placeholder="••••••••"
+                    className={inputCls}
+                    disabled={loading}
+                />
+            </div>
+            <div>
+                <label className={labelCls}>Contact Number</label>
+                <input
+                    value={formData.phone}
+                    onChange={e => handleChange('phone', e.target.value)}
+                    placeholder="+91 98765 43210"
                     className={inputCls}
                     disabled={loading}
                 />
