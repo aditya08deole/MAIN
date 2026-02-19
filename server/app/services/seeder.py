@@ -1,6 +1,6 @@
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.all_models import User, TankNode, DeepNode, FlowNode, Pipeline, NodeAssignment, Organization, Region, Community, Node, DeviceThingSpeakMapping
+from app.models.all_models import User, Organization, Region, Community, Node, DeviceThingSpeakMapping
 from app.db.session import AsyncSessionLocal
 from app.core.config import get_settings
 from app.services.security import EncryptionService
@@ -105,7 +105,7 @@ async def seed_db(force: bool = True):
                 ts_mappings_added = 0
                 for n in INITIAL_NODES:
                     n_data = n.copy()
-                    ntype = n_data.pop("type")
+                    analytics_type = n_data.pop("type")  # EvaraTank, EvaraDeep, EvaraFlow
                     node_id = n_data["id"]
                     
                     # Extract ThingSpeak config before creating node
@@ -128,13 +128,10 @@ async def seed_db(force: bool = True):
 
                     n_data["organization_id"] = "org_evara_hq"
                     n_data["community_id"] = "comm_myhome"
+                    n_data["analytics_type"] = analytics_type  # Store analytics type in generic Node
                     
-                    if ntype == "EvaraTank":
-                        session.add(TankNode(analytics_type="EvaraTank", **n_data))
-                    elif ntype == "EvaraDeep":
-                        session.add(DeepNode(analytics_type="EvaraDeep", **n_data))
-                    elif ntype == "EvaraFlow":
-                        session.add(FlowNode(analytics_type="EvaraFlow", **n_data))
+                    # Use single Node model for all device types
+                    session.add(Node(**n_data))
                     nodes_added += 1
                     
                     # Create ThingSpeak mapping if credentials present (P7)

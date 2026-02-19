@@ -3,6 +3,10 @@ import { supabase } from '../lib/supabase';
 import api from '../services/api';
 import type { UserRole, UserPlan } from '../types/database';
 
+// Session key for localStorage (moved to module level)
+const SESSION_KEY = 'evara_session';
+const SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 hours
+
 /** Ensure backend has this user (creates/updates users_profiles). Call after login or session restore. */
 const syncWithBackend = async (): Promise<void> => {
     try {
@@ -57,8 +61,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     useEffect(() => {
         let mounted = true;
-        const SESSION_KEY = 'evara_session';
-        const SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 hours
 
         const initializeAuth = async () => {
             try {

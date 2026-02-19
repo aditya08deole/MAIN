@@ -225,11 +225,6 @@ function Dashboard() {
         );
     }
 
-    const systemHealth = stats?.system_health || 'Checking...';
-    // Use fallback values if stats not yet loaded (though loading check above handles most)
-    const totalNodes = stats?.total_nodes || nodes.length; // Fallback to nodes.length if stats delay
-    // const onlineNodes = stats?.online_nodes || 0; // Better to rely on nodes filter if stats missing?
-
     // Derived local stats from Nodes (Real-time fallback/companion)
     const tanks = nodes.filter(n => ['OHT', 'Sump', 'PumpHouse'].includes(n.category));
     const flow = nodes.filter(n => n.category === 'FlowMeter');
@@ -303,7 +298,7 @@ function Dashboard() {
                     >
                         <Activity size={20} />
                     </button>
-                    {(user?.app_metadata?.role === 'superadmin' || user?.app_metadata?.role === 'distributor') && (
+                    {(user?.role === 'superadmin' || user?.role === 'distributor') && (
                         <div className="flex gap-2">
                             <button
                                 onClick={() => navigate('/nodes')}
