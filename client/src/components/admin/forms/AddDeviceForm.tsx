@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { adminService } from '../../../services/admin';
-import { Loader2, Database, Wifi, MapPin, Settings2, User, ChevronRight, Check } from 'lucide-react';
+import { Loader2, Database, Wifi, MapPin, Settings2, User, ChevronRight } from 'lucide-react';
 
 interface AddDeviceFormProps {
     onSubmit: (data: any) => void;
