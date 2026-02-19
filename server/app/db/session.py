@@ -14,7 +14,10 @@ engine = create_async_engine(
     db_url,
     echo=False,
     future=True,
-    pool_pre_ping=True
+    pool_pre_ping=True,
+    pool_size=20,
+    max_overflow=10,
+    pool_timeout=30
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -38,9 +41,14 @@ async def create_tables():
     from app.models.all_models import Base as ModelsBase
     import asyncio
     try:
-        # Strict 5-second timeout to prevent startup hang on blocked networks
-        async with asyncio.timeout(5):
+        # Longer timeout for Supabase connection with better error handling
+        async with asyncio.timeout(10):
             async with engine.begin() as conn:
                 await conn.run_sync(ModelsBase.metadata.create_all)
-    except (asyncio.TimeoutError, Exception) as e:
-        print(f"⚠️ DATABASE UNREACHABLE (TIMEOUT): {e}")
+        print("✅ Database tables created/verified successfully")
+    except asyncio.TimeoutError:
+        print("⚠️ DATABASE CONNECTION TIMEOUT - This is normal if using Supabase with schema already deployed")
+    except Exception as e:
+        print(f"⚠️ DATABASE SETUP INFO: {e}")
+        print("💡 If using Supabase, ensure schema is deployed via Supabase SQL Editor")
+        # Don't raise error - allow app to start for development

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import MainLayout from './layouts/MainLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Home, Dashboard, AllNodes, Admin, NodeDetails, EvaraTank, EvaraDeep, EvaraFlow, Login } from './pages';
@@ -16,6 +18,18 @@ import CustomerDetails from './pages/admin/hierarchy/CustomerDetails';
 
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './components/ToastProvider';
+
+// Create a client
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            staleTime: 1000 * 60 * 5, // 5 minutes (Data stays fresh)
+            gcTime: 1000 * 60 * 30, // 30 minutes (Cache garbage collection)
+            retry: 1,
+            refetchOnWindowFocus: false, // Prevent multiple fetches on tab switch
+        },
+    },
+});
 
 const SplashScreen = ({ onDone }: { onDone: () => void }) => {
     const [phase, setPhase] = useState<'in' | 'hold' | 'out'>('in');
@@ -82,7 +96,7 @@ function App() {
     const [splashDone, setSplashDone] = useState(false);
 
     return (
-        <>
+        <QueryClientProvider client={queryClient}>
             {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
             {splashDone && (
                 <AuthProvider>
@@ -135,7 +149,8 @@ function App() {
                     </ToastProvider>
                 </AuthProvider>
             )}
-        </>
+            <ReactQueryDevtools initialIsOpen={false} />
+        </QueryClientProvider>
     );
 }
 

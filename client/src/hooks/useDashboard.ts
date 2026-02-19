@@ -1,0 +1,56 @@
+import { useQuery } from '@tanstack/react-query';
+import api from '../services/api';
+import type { AlertHistory } from '../services/alerts';
+
+export interface DashboardStats {
+    total_nodes: number;
+    online_nodes: number;
+    active_alerts: number;
+    system_health: string;
+}
+
+export interface SystemHealth {
+    status: string;
+    services: {
+        database: string;
+        thingspeak: string;
+    };
+}
+
+export const useDashboardStats = () => {
+    return useQuery({
+        queryKey: ['dashboard_stats'],
+        queryFn: async () => {
+            const { data } = await api.get<DashboardStats>('/dashboard/stats');
+            return data;
+        },
+        staleTime: 1000 * 60 * 2, // 2 minutes
+        refetchInterval: 1000 * 60 * 5, // Auto-refresh every 5 mins
+        retry: 1
+    });
+};
+
+export const useSystemHealth = () => {
+    return useQuery({
+        queryKey: ['system_health'],
+        queryFn: async () => {
+            const { data } = await api.get<SystemHealth>('/health');
+            return data;
+        },
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        retry: 1
+    });
+};
+
+export const useActiveAlerts = () => {
+    return useQuery({
+        queryKey: ['active_alerts'],
+        queryFn: async () => {
+            const { data } = await api.get<AlertHistory[]>('/dashboard/alerts');
+            return data; // Backend returns List[Dict] which matches AlertHistory[]
+        },
+        staleTime: 1000 * 30, // 30 seconds
+        refetchInterval: 1000 * 60, // Auto-refresh every 1 min
+        retry: 1
+    });
+};

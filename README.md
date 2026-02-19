@@ -1,83 +1,259 @@
 # EvaraTech IoT Platform
 
-Next-Gen Water Management System with AI-driven insights, multi-tenant architecture, and real-time telemetry.
+**Next-Generation Water Quality & Distribution Monitoring System**
 
-## 🌟 System Overview
+Real-time IoT telemetry, AI-driven insights, multi-tenant architecture, and predictive analytics for water management.
 
-EvaraTech is a comprehensive IoT platform designed for monitoring and managing water distribution networks. It features a robust backend for handling device telemetry, a modern React frontend for visualization, and an AI assistant for operational support.
+---
 
-### Key Features
-*   **Multi-Tenancy**: Hierarchical data model (Organization -> Region -> Community -> Customer).
-*   **Real-Time Telemetry**: Integation with ThingSpeak for live sensor data.
-*   **AI Analytics**: Predictive maintenance (days to empty) and anomaly detection.
-*   **Smart Alerts**: Customizable alert rules with multi-channel notifications.
-*   **Device Twin**: Digital twin capability with desired vs. reported state synchronization.
-*   **Secure Access**: Role-Based Access Control (RBAC) via Supabase Auth.
+## 🌟 Features
 
-## 🏗️ Architecture
+- **Multi-Tenant Architecture**: Hierarchical organization (Distributors → Communities → Customers → Devices)
+- **Real-Time Telemetry**: ThingSpeak integration with background polling (60s intervals)
+- **Smart Alerts**: Threshold-based + offline detection with auto-resolution
+- **Device Health Scoring**: Anomaly detection using Z-score analysis
+- **AI Assistant**: Query device data and get operational insights
+- **Role-Based Access Control**: Superadmin, Distributor, and Customer roles with RLS
+- **Analytics Dashboard**: Live stats, device status, consumption trends
+- **WebSocket Broadcasting**: Real-time UI updates on telemetry events
 
-*   **Frontend**: React, Vite, TailwindCSS (located in `client/`)
-*   **Backend**: Python, FastAPI, SQLAlchemy (located in `server/`)
-*   **Database**: PostgreSQL (Supabase)
-*   **Auth**: Supabase Auth (JWT)
-*   **IoT Broker**: ThingSpeak
-*   **Deployment**: Render (Dockerized Backend + Static Frontend)
+---
 
-## 🚀 Getting Started
+## 🏗️ Tech Stack
+
+### Backend
+- **Framework**: Python 3.10+ FastAPI (async/await)
+- **ORM**: SQLAlchemy 2.0 (async sessions)
+- **Database**: PostgreSQL (Supabase)
+- **Auth**: Supabase JWT
+- **Background Tasks**: asyncio loops (polling, cleanup, alerts)
+
+### Frontend
+- **Framework**: React 18 + TypeScript
+- **Build Tool**: Vite
+- **UI**: TailwindCSS + shadcn/ui
+- **State**: React Query + Context API
+- **Maps**: Leaflet
+
+### Infrastructure
+- **Hosting**: Render (Docker + Static Site)
+- **Database**: Supabase (PostgreSQL + Auth)
+- **IoT**: ThingSpeak (sensor data ingestion)
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
-*   Node.js v18+
-*   Python 3.10+
-*   PostgreSQL
-*   Supabase Account
-*   ThingSpeak Account
+- Node.js 18+
+- Python 3.10+
+- Supabase account (free tier works)
+- ThingSpeak account (optional, for IoT devices)
 
-### Local Development
+### 1. Clone Repository
+```bash
+git clone https://github.com/your-org/evaratech.git
+cd evaratech
+```
 
-1.  **Clone the Repository**
-    ```bash
-    git clone <repo-url>
-    cd evara-platform
-    ```
+### 2. Database Setup
+1. Create a Supabase project
+2. Go to **SQL Editor** and run:
+   ```sql
+   -- Copy and paste content from server/migrations/001_backend_excellence.sql
+   ```
+3. Go to **Authentication → Users** and set passwords for:
+   - `ritik@evaratech.com` → `evaratech@1010`
+   - `aditya@evaratech.com` → `evaratech@1010`
+   - `yasha@evaratech.com` → `evaratech@1010`
 
-2.  **Backend Setup**
-    ```bash
-    cd server
-    python -m venv venv
-    source venv/bin/activate  # or venv\Scripts\activate on Windows
-    pip install -r requirements.txt
-    
-    # Configure Environment
-    cp .env.example .env
-    # Edit .env with your credentials
-    
-    # Run Server
-    uvicorn main:app --reload
-    ```
-    API Docs available at: `http://localhost:8000/docs`
+### 3. Backend Setup
+```bash
+cd server
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
 
-3.  **Frontend Setup**
-    ```bash
-    cd client
-    npm install
-    
-    # Run Client
-    npm run dev
-    ```
-    App available at: `http://localhost:5173`
+# Configure environment
+cp .env.example .env
+# Edit .env with your Supabase credentials
 
-## ⚙️ Environment Variables
+# Start server
+uvicorn app.main:app --reload
+```
+API Docs: `http://localhost:8000/docs`
 
-Create a `.env` file in `server/` with the following:
+### 4. Frontend Setup
+```bash
+cd client
+npm install
 
-```ini
-# Core
-PROJECT_NAME="EvaraTech IoT"
-API_V1_STR="/api/v1"
-SECRET_KEY="your-super-secret-key"
+# Configure environment
+cp .env.example .env
+# Edit .env with your backend URL and Supabase keys
 
-# Database
-DATABASE_URL="postgresql+asyncpg://user:pass@host:5432/db"
+# Start dev server
+npm run dev
+```
+App: `http://localhost:5173`
+
+---
+
+## 📁 Project Structure
+
+```
+evaratech/
+├── client/                # React frontend
+│   ├── src/
+│   │   ├── components/   # Reusable UI components
+│   │   ├── pages/        # Route pages
+│   │   ├── services/     # API calls
+│   │   ├── context/      # React Context providers
+│   │   └── lib/          # Utilities (Supabase, etc.)
+│   └── .env.example
+├── server/               # Python FastAPI backend
+│   ├── app/
+│   │   ├── api/          # Endpoints
+│   │   ├── core/         # Config, security, background tasks
+│   │   ├── db/           # Database session, repository pattern
+│   │   ├── models/       # SQLAlchemy models
+│   │   ├── schemas/      # Pydantic schemas
+│   │   └── services/     # Business logic
+│   ├── migrations/       # SQL migration scripts
+│   │   └── 001_backend_excellence.sql  # ← Run this in Supabase
+│   ├── requirements.txt
+│   └── .env.example
+├── render.yaml           # Render.com deployment config
+└── README.md
+```
+
+---
+
+## 🔑 Environment Variables
+
+### Backend (`server/.env`)
+```bash
+ENVIRONMENT=development
+DATABASE_URL=postgresql+asyncpg://user:pass@host:6543/postgres
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_KEY=service_role_key
+SUPABASE_JWT_SECRET=jwt_secret
+SECRET_KEY=random_secret_key
+BACKEND_CORS_ORIGINS=http://localhost:5173
+```
+
+### Frontend (`client/.env`)
+```bash
+VITE_API_URL=http://localhost:8000
+VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_ANON_KEY=anon_public_key
+```
+
+---
+
+## 🚢 Deployment (Render)
+
+1. **Push to GitHub**
+   ```bash
+   git add .
+   git commit -m "Ready for deployment"
+   git push origin main
+   ```
+
+2. **Connect Render**
+   - Go to [Render Dashboard](https://dashboard.render.com)
+   - Click **New → Blueprint**
+   - Connect your GitHub repo
+   - Render will auto-detect `render.yaml`
+
+3. **Set Environment Variables** (in Render Dashboard)
+   - For `evara-backend`:
+     - `DATABASE_URL` → Your Supabase connection string
+     - `SUPABASE_URL` → Your Supabase project URL
+     - `SUPABASE_KEY` → Service role key
+     - `SUPABASE_JWT_SECRET` → JWT secret
+   - For `evara-frontend`:
+     - `VITE_SUPABASE_URL` → Same as backend
+     - `VITE_SUPABASE_ANON_KEY` → Anon public key
+
+4. **Deploy** → Render will build and deploy both services
+
+---
+
+## 🎯 Default Login
+
+After running the migration, use these credentials:
+- **Email**: `ritik@evaratech.com`
+- **Password**: `evaratech@1010`
+- **Role**: Superadmin
+
+---
+
+## 📊 API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/api/v1/auth/sync` | POST | Sync user with Supabase |
+| `/api/v1/nodes` | GET/POST | Node CRUD |
+| `/api/v1/dashboard/stats` | GET | Dashboard metrics |
+| `/api/v1/alerts` | GET | Alert history |
+| `/api/v1/ingest/readings` | POST | Sensor data ingestion |
+
+Full docs: `http://localhost:8000/docs`
+
+---
+
+## 🛠️ Development
+
+### Run Tests
+```bash
+cd server
+pytest
+```
+
+### Database Migrations
+All schema changes are in `server/migrations/001_backend_excellence.sql`.  
+Run it manually in Supabase SQL Editor.
+
+### Background Tasks
+The server runs 3 background loops:
+1. **ThingSpeak Polling** (60s) — Fetches sensor data
+2. **Data Cleanup** (24h) — Removes old readings/logs
+3. **Alert Evaluation** — Checks thresholds after each poll
+
+---
+
+## 📝 License
+
+[MIT License](LICENSE)
+
+---
+
+## 👥 Team
+
+- **Ritik** - ritik@evaratech.com
+- **Aditya** - aditya@evaratech.com
+- **Yasha** - yasha@evaratech.com
+
+---
+
+## 🐛 Troubleshooting
+
+**Backend won't start:**
+- Check `DATABASE_URL` format (must be `postgresql+asyncpg://...`)
+- Verify Supabase credentials
+- Run `pip install -r requirements.txt`
+
+**Frontend can't connect:**
+- Check `VITE_API_URL` in client `.env`
+- Ensure backend is running on port 8000
+- Check browser console for CORS errors
+
+**No data in dashboard:**
+- Verify migration ran successfully in Supabase
+- Check user is assigned to nodes (superadmin sees all)
+- Inspect network tab for API errors
 
 # Supabase
 SUPABASE_URL="https://xyz.supabase.co"

@@ -9,7 +9,7 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    timeout: 15000, // 15 seconds timeout
+    timeout: 10000, // 10 seconds global timeout
 });
 
 // Request Interceptor: Attach Supabase Token or Dev-Bypass Token
@@ -54,9 +54,17 @@ api.interceptors.request.use(
     (error: AxiosError) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle 401 (Optional)
+// Response Interceptor: Auto-unwrap StandardResponse & Handle Errors
 api.interceptors.response.use(
-    (response: AxiosResponse) => response,
+    (response: AxiosResponse) => {
+        // Standard Response Unwrapping (Envelope Pattern)
+        // If the backend returns { status: "success", data: ... }, we return the inner data
+        // to keep the rest of the app working with direct data access.
+        if (response.data && typeof response.data === 'object' && 'status' in response.data && 'data' in response.data) {
+            return { ...response, data: response.data.data, meta: response.data.meta };
+        }
+        return response;
+    },
     (error: AxiosError) => {
         if (error.response && error.response.status === 401) {
             // Redirect to login or refresh token

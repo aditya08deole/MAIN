@@ -1,39 +1,25 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import type { NodeRow } from '../types/database';
 
-export const useNodes = () => {
-    const [nodes, setNodes] = useState<NodeRow[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+export const useNodes = (searchQuery: string = '') => {
+    const queryClient = useQueryClient();
 
-    const fetchNodes = useCallback(async () => {
-        setLoading(true);
-        try {
-            const response = await api.get<NodeRow[]>('/nodes/');
-            setNodes(response.data);
-            setError(null);
-        } catch (err: any) {
-            const status = err.response?.status;
-            const detail = err.response?.data?.detail;
-            if (status === 401) {
-                const msg = typeof detail === "string" && detail.includes("not synchronized")
-                    ? "Your account is not synced with the backend. Please log out and log in again."
-                    : "Please log in again to view nodes.";
-                setError(msg);
-            } else {
-                setError(typeof detail === "string" ? detail : "Failed to fetch nodes");
-            }
-            console.error("Error fetching nodes:", err);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    const { data: nodes = [], isLoading, error, refetch } = useQuery<NodeRow[]>({
+        queryKey: ['nodes', searchQuery],
+        queryFn: async () => {
+            const params = searchQuery ? { q: searchQuery } : {};
+            const response = await api.get<NodeRow[]>('/nodes/', { params });
+            return response.data;
+        },
+        staleTime: 1000 * 60, // 1 minute stale time (background updates after this)
+        retry: 1, // Fail fast on error
+        placeholderData: (prev) => prev, // Keep showing old data while filtering (replaces keepPreviousData)
+    });
 
+    // ─── WebSocket Reactive Listener ───
     useEffect(() => {
-        fetchNodes();
-
-        // ─── WebSocket Reactive Listener ───
         const wsBase = import.meta.env.VITE_API_URL
             ? import.meta.env.VITE_API_URL.replace('http', 'ws')
             : 'ws://localhost:8000/api/v1';
@@ -41,27 +27,42 @@ export const useNodes = () => {
         const wsUrl = `${wsBase}/ws/ws`;
         console.log("Connecting to WebSocket:", wsUrl);
 
-        const socket = new WebSocket(wsUrl);
+        let socket: WebSocket | null = null;
+        let retryTimeout: any = null;
 
-        socket.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.event === "NODE_PROVISIONED" || data.event === "STATUS_UPDATE") {
-                    console.log(`🚀 ${data.event} signal received! Refreshing fleet...`);
-                    fetchNodes();
-                }
-            } catch (e) {
-                // Not JSON or non-standard message
+        const connect = () => {
+            socket = new WebSocket(wsUrl);
+
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.event === "NODE_PROVISIONED" || data.event === "STATUS_UPDATE") {
+                        console.log(`🚀 ${data.event} received! Invalidating cache...`);
+                        queryClient.invalidateQueries({ queryKey: ['nodes'] });
+                        // Also invalidate dashboard stats
+                        queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
+                    }
+                } catch { }
+            };
+
+            socket.onclose = () => {
+                console.log("WS Closed. Retrying...");
+                retryTimeout = setTimeout(connect, 3000);
             }
         };
 
-        socket.onclose = () => console.log("WS Disconnected");
-        socket.onerror = (err) => console.error("WS Error:", err);
+        connect();
 
         return () => {
-            socket.close();
+            if (socket) socket.close();
+            if (retryTimeout) clearTimeout(retryTimeout);
         };
-    }, [fetchNodes]);
+    }, [queryClient]);
 
-    return { nodes, loading, error, refresh: fetchNodes };
+    return {
+        nodes,
+        loading: isLoading,
+        error: error instanceof Error ? error.message : (error ? String(error) : null),
+        refresh: refetch
+    };
 };

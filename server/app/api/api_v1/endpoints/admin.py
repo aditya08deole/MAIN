@@ -501,3 +501,77 @@ async def read_system_stats(
         "total_communities": len(communities),
         "system_health": round(health, 1)
     }
+
+
+# P33: API Key Rotation
+@router.post("/admin/rotate-keys")
+async def rotate_encryption_keys(
+    db: AsyncSession = Depends(get_db),
+    user_payload: dict = Depends(RequirePermission(Permission.ADMIN_FULL))
+):
+    """
+    P33: Rotate encryption key and re-encrypt all ThingSpeak API keys.
+    Admin-only. Audit logged.
+    """
+    from sqlalchemy.orm import selectinload
+    
+    result = await db.execute(
+        select(models.Node).options(selectinload(models.Node.thingspeak_mapping))
+    )
+    nodes = result.scalars().all()
+    
+    re_encrypted = 0
+    for node in nodes:
+        if node.thingspeak_mapping and node.thingspeak_mapping.read_api_key:
+            # Decrypt with current key, re-encrypt
+            try:
+                decrypted = EncryptionService.decrypt(node.thingspeak_mapping.read_api_key)
+                node.thingspeak_mapping.read_api_key = EncryptionService.encrypt(decrypted)
+                re_encrypted += 1
+            except Exception as e:
+                print(f"Re-encryption failed for node {node.id}: {e}")
+    
+    await db.commit()
+    
+    user_id = user_payload.get("sub")
+    await AuditService.log_action(db, "admin.rotate_keys", user_id, "system", "encryption_keys", {"re_encrypted": re_encrypted})
+    
+    return {"status": "success", "re_encrypted_count": re_encrypted}
+
+
+# P45: System Status (Admin)
+@router.get("/admin/system-status")
+async def get_system_status(
+    db: AsyncSession = Depends(get_db),
+    user_payload: dict = Depends(RequirePermission(Permission.ADMIN_FULL))
+):
+    """
+    P45: Comprehensive operational status for admins.
+    """
+    from sqlalchemy import text, func
+    import time
+    
+    # DB latency
+    start = time.time()
+    await db.execute(text("SELECT 1"))
+    db_latency = round((time.time() - start) * 1000, 1)
+    
+    # Table counts
+    node_count = (await db.execute(select(func.count(models.Node.id)))).scalar()
+    alert_count = (await db.execute(
+        select(func.count(models.AlertHistory.id)).where(models.AlertHistory.resolved_at.is_(None))
+    )).scalar()
+    reading_count = (await db.execute(select(func.count(models.NodeReading.id)))).scalar()
+    
+    # Device states
+    state_count = (await db.execute(select(func.count(models.DeviceState.device_id)))).scalar()
+    
+    return {
+        "database": {"status": "ok", "latency_ms": db_latency},
+        "nodes": {"total": node_count},
+        "alerts": {"active": alert_count},
+        "readings": {"total_stored": reading_count},
+        "device_states": {"tracked": state_count},
+        "version": "2.0.0",
+    }
+

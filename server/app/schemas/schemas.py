@@ -115,8 +115,6 @@ class NodeCreate(NodeBase):
     # Telemetry Mapping
     thingspeak_mapping: Optional[Dict[str, Any]] = None
 
-    thingspeak_mapping: Optional[Dict[str, Any]] = None
-
 class NodeSummary(BaseModel):
     id: str
     node_key: str = Field(..., alias="hardware_id")

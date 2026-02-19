@@ -2,6 +2,7 @@ from sqlalchemy import Column, String, Integer, Float, ForeignKey, JSON, DateTim
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.db.base import Base
 from datetime import datetime
+import uuid
 
 # ─── TENANCY & HIERARCHY MODELS ───
 
@@ -76,15 +77,20 @@ class Customer(Base):
     plan = relationship("Plan", back_populates="customers")
     devices = relationship("Node", back_populates="customer")
 
-# ─── USER MODEL (LEGACY/ADMIN PROFILE) ───
+# ─── USER MODEL (MATCHES FRONTEND EXPECTATIONS) ───
 
 class User(Base):
     __tablename__ = "users_profiles"
     
-    id: Mapped[str] = mapped_column(String, primary_key=True) # Supabase UUID
+    id: Mapped[str] = mapped_column(String, primary_key=True)  # Supabase UUID
     email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     display_name: Mapped[str] = mapped_column(String, nullable=True)
-    role: Mapped[str] = mapped_column(String, default="customer") # superadmin, distributor, customer
+    role: Mapped[str] = mapped_column(String, default="customer")  # superadmin, distributor, customer
+    plan: Mapped[str] = mapped_column(String, default="base")       # base, plus, pro
+    created_by: Mapped[str] = mapped_column(String, nullable=True)
+    distributor_id: Mapped[str] = mapped_column(String, nullable=True)
+    community_id: Mapped[str] = mapped_column(String, nullable=True)  # Used for scoped dashboard queries
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
     # Relationships
     audit_logs = relationship("AuditLog", back_populates="user")
@@ -95,15 +101,19 @@ class Node(Base):
     __tablename__ = "nodes"
     
     id: Mapped[str] = mapped_column(String, primary_key=True)
-    node_key: Mapped[str] = mapped_column(String, unique=True, index=True, name="hardware_id")
-    label: Mapped[str] = mapped_column(String, name="device_label")
-    category: Mapped[str] = mapped_column(String, name="device_type") # tank, deep, flow, custom
-    analytics_type: Mapped[str] = mapped_column(String) # EvaraTank, EvaraDeep, EvaraFlow
-    
+    node_key: Mapped[str] = mapped_column(String, unique=True, index=True)
+    label: Mapped[str] = mapped_column(String)
+    category: Mapped[str] = mapped_column(String)  # OHT, Sump, Borewell, etc.
+    analytics_type: Mapped[str] = mapped_column(String)  # EvaraTank, EvaraDeep, EvaraFlow
+
     lat: Mapped[float] = mapped_column(Float, nullable=True)
-    lng: Mapped[float] = mapped_column(Float, nullable=True, name="long")
+    lng: Mapped[float] = mapped_column(Float, nullable=True)
+    location_name: Mapped[str] = mapped_column(String, nullable=True)
+    capacity: Mapped[str] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String, default="provisioning")
+    last_seen: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Tenancy
     customer_id: Mapped[str] = mapped_column(ForeignKey("customers.id"), nullable=True, index=True)
@@ -170,3 +180,164 @@ class AuditLog(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     
     user = relationship("User", back_populates="audit_logs")
+
+# ─── NODE ASSIGNMENTS MODEL ───
+
+class NodeAssignment(Base):
+    __tablename__ = "node_assignments"
+    
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    node_id: Mapped[str] = mapped_column(ForeignKey("nodes.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users_profiles.id"), nullable=False)
+    assigned_by: Mapped[str] = mapped_column(ForeignKey("users_profiles.id"), nullable=True)
+    assigned_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+# ─── PIPELINES MODEL ───
+
+class Pipeline(Base):
+    __tablename__ = "pipelines"
+    
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    color: Mapped[str] = mapped_column(String, default="#3b82f6")
+    positions: Mapped[dict] = mapped_column(JSON, nullable=False) # Array of [lat, lng] pairs
+    created_by: Mapped[str] = mapped_column(ForeignKey("users_profiles.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+# ─── ALERT MODELS (P19/P20) ───
+
+class AlertRule(Base):
+    __tablename__ = "alert_rules"
+    
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    node_id: Mapped[str] = mapped_column(ForeignKey("nodes.id"), nullable=False, index=True)
+    metric: Mapped[str] = mapped_column(String, nullable=False)  # field1, water_level, etc.
+    operator: Mapped[str] = mapped_column(String, nullable=False)  # >, <, ==
+    threshold: Mapped[float] = mapped_column(Float, nullable=False)
+    severity: Mapped[str] = mapped_column(String, default="warning")  # critical, warning, info
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    cooldown_minutes: Mapped[int] = mapped_column(Integer, default=15)  # De-dupe window
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class AlertHistory(Base):
+    __tablename__ = "alert_history"
+    
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    node_id: Mapped[str] = mapped_column(ForeignKey("nodes.id"), nullable=False, index=True)
+    rule_id: Mapped[str] = mapped_column(ForeignKey("alert_rules.id"), nullable=True)
+    
+    # P19: Rich alert context
+    severity: Mapped[str] = mapped_column(String, default="warning")  # critical, warning, info
+    category: Mapped[str] = mapped_column(String, nullable=True)  # threshold_exceeded, offline, maintenance_due
+    title: Mapped[str] = mapped_column(String, nullable=True)
+    message: Mapped[str] = mapped_column(String, nullable=True)
+    value_at_time: Mapped[float] = mapped_column(Float, nullable=True)
+    
+    # Lifecycle
+    triggered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    acknowledged_by: Mapped[str] = mapped_column(ForeignKey("users_profiles.id"), nullable=True)
+    acknowledged_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    resolved_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    resolve_comment: Mapped[str] = mapped_column(String, nullable=True)
+
+# ─── NODE READINGS (Telemetry Storage) ───
+
+class NodeReading(Base):
+    __tablename__ = "node_readings"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    node_id: Mapped[str] = mapped_column(ForeignKey("nodes.id"), nullable=False, index=True)
+    field_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    data: Mapped[dict] = mapped_column(JSON, default={})  # Optional full payload
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+# ─── NODE ANALYTICS MODEL ───
+
+class NodeAnalytics(Base):
+    __tablename__ = "node_analytics"
+    
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    node_id: Mapped[str] = mapped_column(ForeignKey("nodes.id"), nullable=False)
+    period_type: Mapped[str] = mapped_column(String, nullable=False) # hourly, daily, weekly, monthly
+    period_start: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    consumption_liters: Mapped[float] = mapped_column(Float, nullable=True)
+    avg_level_percent: Mapped[float] = mapped_column(Float, nullable=True)
+    peak_flow: Mapped[float] = mapped_column(Float, nullable=True)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default={})
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+# ─── DEVICE STATE CACHE (P13) ───
+
+class DeviceState(Base):
+    __tablename__ = "device_states"
+    
+    device_id: Mapped[str] = mapped_column(ForeignKey("nodes.id"), primary_key=True)
+    current_value: Mapped[float] = mapped_column(Float, nullable=True)
+    current_status: Mapped[str] = mapped_column(String, nullable=True)
+    health_score: Mapped[float] = mapped_column(Float, default=1.0)  # 0.0–1.0
+    confidence_score: Mapped[float] = mapped_column(Float, default=0.0)  # 0.0–1.0
+    anomaly_score: Mapped[float] = mapped_column(Float, nullable=True)
+    last_reading_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    readings_24h: Mapped[int] = mapped_column(Integer, default=0)
+    avg_value_24h: Mapped[float] = mapped_column(Float, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+# ─── DEVICE HEALTH HISTORY (P18) ───
+
+class DeviceHealthHistory(Base):
+    __tablename__ = "device_health_history"
+    
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    device_id: Mapped[str] = mapped_column(ForeignKey("nodes.id"), nullable=False, index=True)
+    date: Mapped[Date] = mapped_column(Date, nullable=False)
+    health_score: Mapped[float] = mapped_column(Float, nullable=False)
+    confidence_score: Mapped[float] = mapped_column(Float, nullable=False)
+    readings_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+# ─── DEVICE GROUP MODELS (P37) ───
+
+class DeviceGroup(Base):
+    __tablename__ = "device_groups"
+    
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(String, nullable=True)
+    community_id: Mapped[str] = mapped_column(ForeignKey("communities.id"), nullable=True)
+    created_by: Mapped[str] = mapped_column(ForeignKey("users_profiles.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class DeviceGroupMembership(Base):
+    __tablename__ = "device_group_memberships"
+    
+    group_id: Mapped[str] = mapped_column(ForeignKey("device_groups.id"), primary_key=True)
+    node_id: Mapped[str] = mapped_column(ForeignKey("nodes.id"), primary_key=True)
+
+# ─── MAINTENANCE WINDOWS (P38) ───
+
+class MaintenanceWindow(Base):
+    __tablename__ = "maintenance_windows"
+    
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    node_id: Mapped[str] = mapped_column(ForeignKey("nodes.id"), nullable=False, index=True)
+    start_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    end_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    reason: Mapped[str] = mapped_column(String, nullable=True)
+    created_by: Mapped[str] = mapped_column(ForeignKey("users_profiles.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+# ─── WEBHOOK SUBSCRIPTIONS (P42) ───
+
+class WebhookSubscription(Base):
+    __tablename__ = "webhook_subscriptions"
+    
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    url: Mapped[str] = mapped_column(String, nullable=False)
+    events: Mapped[dict] = mapped_column(JSON, default=[])  # ["alert.triggered", "device.offline"]
+    secret: Mapped[str] = mapped_column(String, nullable=True)  # HMAC signing secret
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by: Mapped[str] = mapped_column(ForeignKey("users_profiles.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -55,72 +55,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
 
-    // ─── SESSION PERSISTENCE CONSTANTS ───
-    const SESSION_KEY = 'evara_session';
-    const SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 hours
-
     useEffect(() => {
         let mounted = true;
+        const SESSION_KEY = 'evara_session';
+        const SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 hours
 
-        // 1. Check LocalStorage first for instant restore
-        const tryRestoreSession = () => {
+        const initializeAuth = async () => {
             try {
+                // Check localStorage first for instant restore (dev bypass)
                 const stored = localStorage.getItem(SESSION_KEY);
                 if (stored) {
                     const { user: storedUser, timestamp } = JSON.parse(stored);
                     const age = Date.now() - timestamp;
-                    if (age < SESSION_DURATION) {
-                        console.log('Restoring session from localStorage');
-                        setUser(storedUser);
-                        setLoading(false);
-                        return true; // Session restored
+                    if (age < SESSION_DURATION && storedUser?.id?.startsWith('dev-bypass-')) {
+                        if (mounted) {
+                            setUser(storedUser);
+                            setLoading(false);
+                            return; // Early return for dev bypass
+                        }
                     } else {
-                        console.log('Session expired, clearing localStorage');
                         localStorage.removeItem(SESSION_KEY);
                     }
                 }
-            } catch (e) {
-                console.error('Failed to restore session:', e);
-                localStorage.removeItem(SESSION_KEY);
-            }
-            return false;
-        };
 
-        // Attempt restore
-        const restored = tryRestoreSession();
-
-        // Safety timeout: if Supabase takes too long and we haven't restored, stop loading
-        const timer = setTimeout(() => {
-            if (mounted) setLoading(false);
-        }, 5000);
-
-        // 2. If not restored, listen to Supabase
-        if (!restored) {
-            supabase.auth.getSession().then(async ({ data: { session } }) => {
-                if (session?.user) {
-                    try {
-                        const u = await buildUser(session.user.id);
-                        if (mounted && u) {
-                            setUser(u);
-                            localStorage.setItem(SESSION_KEY, JSON.stringify({
-                                user: u,
-                                timestamp: Date.now()
-                            }));
-                            await syncWithBackend();
-                        }
-                    } catch (err) {
-                        console.error("Error building user:", err);
-                    }
-                }
-                if (mounted) setLoading(false);
-            });
-        }
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
-                if (session?.user) {
+                // Check Supabase session
+                const { data: { session } } = await supabase.auth.getSession();
+                
+                if (session?.user && mounted) {
                     const u = await buildUser(session.user.id);
-                    if (mounted && u) {
+                    if (u) {
                         setUser(u);
                         localStorage.setItem(SESSION_KEY, JSON.stringify({
                             user: u,
@@ -128,19 +91,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         }));
                         await syncWithBackend();
                     }
-                } else {
-                    // Only clear if we don't have a valid custom session (handled by logout)
-                    // But for strict supabase sync, we might want to clear. 
-                    // However, we want to persist "Dev Bypass" sessions which Supabase doesn't know about.
-                    // So we'll rely on explicit logout to clear the global state/storage.
                 }
-                if (mounted && !restored) setLoading(false);
+            } catch (err) {
+                console.error("Auth initialization error:", err);
+                localStorage.removeItem(SESSION_KEY);
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        };
+
+        initializeAuth();
+
+        // Listen for auth state changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (_event, session) => {
+                if (session?.user && mounted) {
+                    const u = await buildUser(session.user.id);
+                    if (u) {
+                        setUser(u);
+                        localStorage.setItem(SESSION_KEY, JSON.stringify({
+                            user: u,
+                            timestamp: Date.now()
+                        }));
+                        await syncWithBackend();
+                    }
+                } else if (!session?.user && mounted) {
+                    // Only clear for non-dev-bypass sessions
+                    const stored = localStorage.getItem(SESSION_KEY);
+                    if (stored) {
+                        const { user: storedUser } = JSON.parse(stored);
+                        if (!storedUser?.id?.startsWith('dev-bypass-')) {
+                            setUser(null);
+                            localStorage.removeItem(SESSION_KEY);
+                        }
+                    } else {
+                        setUser(null);
+                    }
+                }
             }
         );
 
         return () => {
             mounted = false;
-            clearTimeout(timer);
             subscription.unsubscribe();
         };
     }, []);

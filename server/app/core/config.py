@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: str | None = None
     SUPABASE_KEY: str | None = None # Service Role Key for backend admin actions
     SUPABASE_JWT_SECRET: str | None = None # For verifying frontend tokens locally
+    SUPABASE_WEBHOOK_SECRET: str | None = None # For verifying Supabase Auth Webhooks
     
     # ThingSpeak (Telemetry)
     THINGSPEAK_API_KEY: str | None = None

@@ -1,5 +1,5 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import deps
 from app.core import security_supabase
@@ -10,6 +10,9 @@ from app.services.analytics import NodeAnalyticsService
 from app.db.session import get_db
 from app.services.seeder import INITIAL_NODES
 from app.core.config import get_settings
+from app.schemas.response import StandardResponse
+from app.core.cache import memory_cache
+from app.services.search import search_service
 import asyncio
 import traceback
 
@@ -20,36 +23,68 @@ async def create_node(
     *,
     db: AsyncSession = Depends(get_db),
     node_in: schemas.NodeCreate,
-    current_user = Depends(deps.get_current_user),
+    user_payload: dict = Depends(security_supabase.RequirePermission(security_supabase.Permission.DEVICE_PROVISION))
 ) -> Any:
     """
     Create a new node.
     """
+    current_user_id = user_payload.get("sub")
     repo = NodeRepository(db)
     
     # Check if node_key already exists
     existing = await repo.get_by_key(node_in.node_key)
     if existing:
         raise HTTPException(status_code=400, detail="Node with this key already exists")
-        
-    node_data = node_in.dict()
-    node_data["created_by"] = current_user.id
     
-    node = await repo.create(node_data)
+    # P11: Verify ThingSpeak channel is accessible before saving
+    node_data_dict = node_in.dict()
+    ts_mapping = node_data_dict.get("thingspeak_mapping")
+    if ts_mapping and ts_mapping.get("channel_id"):
+        try:
+            import httpx
+            channel_id = ts_mapping["channel_id"]
+            read_key = ts_mapping.get("read_api_key", "")
+            url = f"https://api.thingspeak.com/channels/{channel_id}/feeds/last.json?api_key={read_key}"
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.get(url)
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=400, detail=f"ThingSpeak channel {channel_id} is unreachable (HTTP {resp.status_code}). Verify channel_id and api_key.")
+        except httpx.RequestError as e:
+            raise HTTPException(status_code=400, detail=f"Cannot reach ThingSpeak API: {e}")
+        except HTTPException:
+            raise
+        except Exception:
+            pass  # Don't block creation if verification itself fails
+    
+    node_data_dict["created_by"] = current_user_id
+    node = await repo.create(node_data_dict)
     return node
 
-@router.get("/", response_model=List[schemas.NodeResponse])
+@router.get("/", response_model=StandardResponse[List[schemas.NodeResponse]])
+@router.get("/", response_model=StandardResponse[List[schemas.NodeResponse]])
 async def read_nodes(
+    response: Response,
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    user_payload: dict = Depends(security_supabase.get_current_user_token) # Get Supabase Token
+    q: str = None, # Search query
+    user_payload: dict = Depends(security_supabase.RequirePermission(security_supabase.Permission.DEVICE_READ))
 ) -> Any:
     """
     Retrieve nodes.
     Restricted to User's Community unless Super Admin.
     """
     import asyncio
+    
+    # 1. Try Cache (only if no search)
+    user_id = user_payload.get("sub")
+    if not q:
+        cache_key = f"nodes:{user_id}:{skip}:{limit}"
+        cached_data = await memory_cache.get(cache_key)
+        if cached_data:
+            response.headers["X-Cache"] = "HIT"
+            return StandardResponse(data=cached_data, meta={"cached": True})
+        
     repo = NodeRepository(db)
     
     # Extract Access Context
@@ -88,43 +123,69 @@ async def read_nodes(
 
         # Fetch nodes with timeout
         async with asyncio.timeout(5):
-            if current_user.role == "superadmin":
-                # Super Admin sees all
-                nodes = await repo.get_all(skip=skip, limit=limit)
-            else:
-                all_nodes = await repo.get_all(skip=0, limit=1000)
+            all_nodes = await repo.get_all(skip=0, limit=2000) # Get all for memory filtering/search support
+            
+            # Filter by Community
+            if current_user.role != "superadmin":
                 nodes = [n for n in all_nodes if n.community_id == current_user.community_id]
+            else:
+                nodes = all_nodes
+
+            # Apply Search if needed
+            if q:
+                # Lazy-load index if empty (first run)
+                # Note: In prod, do this on startup
+                if not search_service.index:
+                    await search_service.rebuild_index(all_nodes)
                 
-        return nodes
+                # Get matching IDs
+                matched_ids = await search_service.search(q)
+                matched_set = set(matched_ids)
+                
+                # Filter in-memory
+                nodes = [n for n in nodes if str(n.id) in matched_set]
+            
+            # Apply Pagination manually if we fetched all
+            # (If we didn't search, we could have used DB limit, but for consistency...)
+            total = len(nodes)
+            nodes = nodes[skip : skip + limit]
+        
+        # Save to Cache (only if no search, or handle search cache differently)
+        if not q:
+            await memory_cache.set(cache_key, nodes, ttl=30)
+            
+        response.headers["X-Cache"] = "MISS"
+        
+        return StandardResponse(data=nodes, meta={"total": total, "search": q if q else None})
     except (asyncio.TimeoutError, Exception) as e:
         traceback.print_exc()
         
         settings = get_settings()
-        if settings.ENVIRONMENT == "development":
-            print(f"⚠️ PRO-FALLBACK: DB unreachable ({str(e)}). Serving mock nodes for {user_id}")
+        # FALLBACK STRATEGY: Always return mock data if DB fails to prevent UI freeze
+        print(f"⚠️ CRITICAL: Database unreachable or timed out for user {user_id}. ERROR: {str(e)}")
+        print(f"⚠️ ACTION: Serving cached/mock nodes to allow dashboard access.")
+        
+        mock_response = []
+        for n in INITIAL_NODES:
+            mock_node = {
+                "id": n.get("id", "mock-id"),
+                "node_key": n.get("node_key", "mock-key"),
+                "label": n.get("label", "Mock Node"),
+                "category": n.get("category", "General"),
+                "analytics_type": n.get("type", n.get("category", "EvaraFlow")),
+                "status": n.get("status", "Online"),
+                "lat": n.get("lat"),
+                "lng": n.get("lng"),
+                "location_name": n.get("location_name"),
+                "capacity": n.get("capacity"),
+                "thingspeak_channel_id": n.get("thingspeak_channel_id"),
+                "thingspeak_read_api_key": n.get("thingspeak_read_api_key"),
+                "assignments": []
+            }
+            mock_response.append(mock_node)
+        return StandardResponse(data=mock_response, meta={"is_mock": True, "error": str(e)})
             
-            mock_response = []
-            for n in INITIAL_NODES:
-                mock_node = {
-                    "id": n.get("id", "mock-id"),
-                    "node_key": n.get("node_key", "mock-key"),
-                    "label": n.get("label", "Mock Node"),
-                    "category": n.get("category", "General"),
-                    "analytics_type": n.get("type", n.get("category", "EvaraFlow")),
-                    "status": n.get("status", "Online"),
-                    "lat": n.get("lat"),
-                    "lng": n.get("lng"),
-                    "location_name": n.get("location_name"),
-                    "capacity": n.get("capacity"),
-                    "thingspeak_channel_id": n.get("thingspeak_channel_id"),
-                    "thingspeak_read_api_key": n.get("thingspeak_read_api_key"),
-                    "assignments": []
-                }
-                mock_response.append(mock_node)
-            return mock_response
-            
-        print(f"ERROR: Database failed while fetching nodes for {user_id}: {str(e)}")
-        raise HTTPException(status_code=503, detail="Database connection timed out or failed")
+        # raise HTTPException(status_code=503, detail="Database connection timed out or failed")
 
 @router.get("/{node_id}", response_model=schemas.NodeResponse)
 async def read_node_by_id(

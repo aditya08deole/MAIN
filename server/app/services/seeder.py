@@ -1,8 +1,9 @@
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.all_models import User, TankNode, DeepNode, FlowNode, Pipeline, NodeAssignment, Organization, Region, Community, Node
+from app.models.all_models import User, TankNode, DeepNode, FlowNode, Pipeline, NodeAssignment, Organization, Region, Community, Node, DeviceThingSpeakMapping
 from app.db.session import AsyncSessionLocal
 from app.core.config import get_settings
+from app.services.security import EncryptionService
 from datetime import datetime
 
 settings = get_settings()
@@ -101,14 +102,28 @@ async def seed_db(force: bool = True):
                 
                 # 3. Nodes (Linked to Org/Community)
                 nodes_added = 0
+                ts_mappings_added = 0
                 for n in INITIAL_NODES:
                     n_data = n.copy()
                     ntype = n_data.pop("type")
                     node_id = n_data["id"]
                     
+                    # Extract ThingSpeak config before creating node
+                    ts_channel_id = n_data.pop("thingspeak_channel_id", None)
+                    ts_read_key = n_data.pop("thingspeak_read_api_key", None)
+                    
                     existing_node = await session.get(Node, node_id)
                     if existing_node:
-                        # Node exists, skip without error
+                        # Node exists — but check if ThingSpeak mapping is missing
+                        if ts_channel_id and not existing_node.thingspeak_mapping:
+                            ts_mapping = DeviceThingSpeakMapping(
+                                device_id=node_id,
+                                channel_id=str(ts_channel_id),
+                                read_api_key=EncryptionService.encrypt(ts_read_key) if ts_read_key else None,
+                                field_mapping={"field1": "water_level", "field2": "tds", "field3": "temperature"}
+                            )
+                            session.add(ts_mapping)
+                            ts_mappings_added += 1
                         continue
 
                     n_data["organization_id"] = "org_evara_hq"
@@ -121,12 +136,24 @@ async def seed_db(force: bool = True):
                     elif ntype == "EvaraFlow":
                         session.add(FlowNode(analytics_type="EvaraFlow", **n_data))
                     nodes_added += 1
+                    
+                    # Create ThingSpeak mapping if credentials present (P7)
+                    if ts_channel_id:
+                        await session.flush()  # Ensure node exists before FK
+                        ts_mapping = DeviceThingSpeakMapping(
+                            device_id=node_id,
+                            channel_id=str(ts_channel_id),
+                            read_api_key=EncryptionService.encrypt(ts_read_key) if ts_read_key else None,
+                            field_mapping={"field1": "water_level", "field2": "tds", "field3": "temperature"}
+                        )
+                        session.add(ts_mapping)
+                        ts_mappings_added += 1
                 
                 await session.commit()
                 
                 from sqlalchemy import select, func
                 count = await session.scalar(select(func.count()).select_from(Node))
-                print(f"✅ Seeding Complete. Added {nodes_added} new nodes. Total Nodes: {count}")
+                print(f"✅ Seeding Complete. Added {nodes_added} new nodes, {ts_mappings_added} ThingSpeak mappings. Total Nodes: {count}")
     except (asyncio.TimeoutError, Exception) as e:
         print(f"⚠️ Seeding skipped: Database unreachable (TIMEOUT). ({e})")
 
