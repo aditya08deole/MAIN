@@ -13,7 +13,7 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: DATABASE_URL
-        value: postgresql://postgres.tihrvotigvaozizlcxse:evaratech@1010@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
+        value: postgresql+asyncpg://postgres.tihrvotigvaozizlcxse:evaratech@1010@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
       - key: SUPABASE_URL
         value: https://tihrvotigvaozizlcxse.supabase.co
       - key: SUPABASE_KEY
@@ -30,6 +30,24 @@ services:
   # React + Vite Frontend
   - type: web
     name: evara-frontend
+    env: static
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: ./client/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://evara-backend.onrender.com/api/v1
+      - key: VITE_SUPABASE_URL
+        value: https://tihrvotigvaozizlcxse.supabase.co
+      - key: VITE_SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpaHJ2b3RpZ3Zhb3ppemxjeHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcyNzAzODIsImV4cCI6MjA1Mjg0NjM4Mn0.PqzDAmKU8vY5WI6gHV4jXJ-mqc8jMjXCz1TaKDNH4KVg
+
+  # React + Vite Dashboard (same frontend, different deployment)
+  - type: web
+    name: evara-dashboard
     env: static
     buildCommand: cd client && npm install && npm run build
     staticPublishPath: ./client/dist
