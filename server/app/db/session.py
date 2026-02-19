@@ -12,8 +12,9 @@ if db_url and db_url.startswith("postgres://"):
 
 engine = create_async_engine(
     db_url,
-    echo=True, # Set to False in production
-    future=True
+    echo=False,
+    future=True,
+    pool_pre_ping=True
 )
 
 AsyncSessionLocal = async_sessionmaker(

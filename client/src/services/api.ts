@@ -9,6 +9,7 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
+    timeout: 15000, // 15 seconds timeout
 });
 
 // Request Interceptor: Attach Supabase Token or Dev-Bypass Token

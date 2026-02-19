@@ -51,10 +51,10 @@ async def rate_limit_middleware(request, call_next):
     from fastapi import Response
     
     # Only limit admin and auth endpoints
-    if request.url.path.startswith("/api/v1/admin") or request.url.path.startswith("/api/v1/auth"):
-        client_ip = request.client.host
-        if not await admin_limiter.is_allowed(client_ip):
-            return Response(content="Rate limit exceeded. Please try again in a minute.", status_code=429)
+    # if request.url.path.startswith("/api/v1/admin") or request.url.path.startswith("/api/v1/auth"):
+    #     client_ip = request.client.host
+    #     if not await admin_limiter.is_allowed(client_ip):
+    #         return Response(content="Rate limit exceeded. Please try again in a minute.", status_code=429)
             
     return await call_next(request)
 
