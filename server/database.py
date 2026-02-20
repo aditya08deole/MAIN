@@ -41,6 +41,7 @@ ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
 # Create PostgreSQL engine with optimal settings
+# Critical: Supabase pooler (pgbouncer) in transaction mode doesn't support prepared statements
 engine = create_async_engine(
     db_url,
     echo=False,
@@ -53,7 +54,11 @@ engine = create_async_engine(
         "server_settings": {"application_name": "evara_backend_simple"},
         "timeout": 30,
         "command_timeout": 60,
-        "prepared_statement_cache_size": 0,  # Disable prepared statements for Supabase pooler
+        "prepared_statement_cache_size": 0,  # Disable asyncpg prepared statement cache
+        "statement_cache_size": 0,  # Also disable statement cache
+    },
+    execution_options={
+        "compiled_cache": None,  # Disable SQLAlchemy compiled cache
     },
     pool_timeout=30
 )

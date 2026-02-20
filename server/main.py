@@ -243,7 +243,12 @@ async def health_check():
         # Add 5 second timeout for health check (compatible with Python 3.9+)
         async def check_db():
             async with engine.connect() as conn:
-                await conn.execute(text("SELECT 1"))
+                # Force no prepared statements for pooler compatibility
+                result = await conn.execute(
+                    text("SELECT 1"),
+                    execution_options={"compiled_cache": None}
+                )
+                await result.fetchone()
         
         await asyncio.wait_for(check_db(), timeout=5.0)
         
