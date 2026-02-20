@@ -1,12 +1,16 @@
 """
 Supabase JWT authentication.
 Verifies JWT tokens from Supabase Auth.
+
+⚠️ DEV-BYPASS MODE ENABLED: Accepts dev-bypass-id-{email} tokens.
+WARNING: Remove dev-bypass logic before production deployment!
 """
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from config import get_settings
 from typing import Dict, Any
+import time
 
 settings = get_settings()
 security = HTTPBearer()
@@ -17,6 +21,9 @@ async def get_current_user(
 ) -> Dict[str, Any]:
     """
     Verify Supabase JWT token and return user payload with comprehensive validation.
+    
+    ⚠️ DEV-BYPASS MODE: Accepts dev-bypass-id-{email} tokens for development.
+    WARNING: This is NOT production-safe. Remove before production deployment.
     
     Usage in endpoints:
         user_payload: dict = Depends(get_current_user)
@@ -34,6 +41,25 @@ async def get_current_user(
         HTTPException: If token is invalid or expired
     """
     token = credentials.credentials
+    
+    # ⚠️ DEV-BYPASS: Allow development bypass tokens (NOT PRODUCTION-SAFE)
+    if token and token.startswith("dev-bypass-id-"):
+        email = token.replace("dev-bypass-id-", "")
+        print(f"[DEV-BYPASS] ⚠️ Allowing dev-bypass token for: {email}")
+        
+        # Return mock JWT payload matching Supabase structure
+        return {
+            "sub": token,  # Use full dev-bypass-id as user ID
+            "email": email,
+            "role": "authenticated",
+            "aud": "authenticated",
+            "user_metadata": {
+                "role": "superadmin"  # Default dev role
+            },
+            "iss": "dev-bypass",
+            "iat": int(time.time()),
+            "exp": int(time.time()) + 86400  # 24 hours from now
+        }
     
     # Validate token format
     if not token or len(token) < 20:
@@ -66,7 +92,6 @@ async def get_current_user(
             )
         
         # Verify token is not expired (JWT library checks this, but let's be explicit)
-        import time
         exp = payload.get("exp")
         if exp and time.time() > exp:
             raise HTTPException(
