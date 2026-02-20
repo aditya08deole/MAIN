@@ -11,6 +11,7 @@ import {
 import { useNodes } from '../hooks/useNodes';
 import { useSystemHealth, useActiveAlerts } from '../hooks/useDashboard';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/ToastProvider';
 import ErrorBoundary from '../components/ErrorBoundary';
 import api from '../services/api';
 import { useTelemetry } from '../hooks/useTelemetry';
@@ -181,10 +182,26 @@ function Dashboard() {
     // Debounce logic could be added here, but for now passing directly to verify responsiveness
     // const debouncedQuery = useDebounce(searchQuery, 300); 
 
+    // Toast notifications
+    const { showToast } = useToast();
+
     // Data Hooks
     const { nodes, loading: nodesLoading, error: nodesError, refresh: refreshNodes } = useNodes(searchQuery);
     const { data: healthData } = useSystemHealth();
     const { data: recentAlerts = [] } = useActiveAlerts();
+
+    // Show toast notification if there's an error, but don't block UI
+    useEffect(() => {
+        if (nodesError) {
+            const isSyncError = typeof nodesError === 'string' && nodesError.toLowerCase().includes('not synced');
+            showToast(
+                isSyncError 
+                    ? 'Account sync required. Some features may be limited.' 
+                    : `Data fetch warning: ${nodesError}`,
+                'error'
+            );
+        }
+    }, [nodesError, showToast]);
 
     // Time state
     const [now] = useState(() => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
@@ -200,31 +217,11 @@ function Dashboard() {
         );
     }
 
-    const isSyncError = typeof nodesError === 'string' && nodesError.toLowerCase().includes('not synced');
-    if (nodesError) {
-        return (
-            <div className="h-screen w-screen flex items-center justify-center bg-slate-50 p-6">
-                <div className="max-w-md text-center bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
-                    <p className="text-red-600 font-medium mb-2">Could not load dashboard data</p>
-                    <p className="text-slate-600 text-sm mb-4">{nodesError}</p>
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                        {isSyncError && (
-                            <SyncAccountButton onSync={refreshNodes} />
-                        )}
-                        <button
-                            type="button"
-                            onClick={() => refreshNodes()}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                        >
-                            Retry
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    // REMOVED ERROR PANEL - Now shows toast notification instead and dashboard continues working
+    // Dashboard always shows even if there's an API error - graceful degradation
 
     // Derived local stats from Nodes (Real-time fallback/companion)
+    // If nodes is empty due to error, stats will show zeros gracefully
     const tanks = nodes.filter(n => ['OHT', 'Sump', 'PumpHouse'].includes(n.category));
     const flow = nodes.filter(n => n.category === 'FlowMeter');
     const borewells = nodes.filter(n => ['Borewell', 'GovtBorewell'].includes(n.category));

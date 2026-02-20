@@ -4,23 +4,102 @@
 -- from the existing HTML map to the Supabase database
 -- ============================================================
 
+-- ============================================================
+-- FIX AUDIT TRIGGER UUID CASTING ERROR (run this first!)
+-- ============================================================
+DO $$
+BEGIN
+    -- Drop existing audit triggers to recreate with proper UUID handling
+    DROP TRIGGER IF EXISTS audit_trigger ON nodes CASCADE;
+    DROP TRIGGER IF EXISTS audit_trigger ON communities CASCADE;
+    DROP TRIGGER IF EXISTS audit_trigger ON distributors CASCADE;
+    DROP TRIGGER IF EXISTS audit_trigger ON pipelines CASCADE;
+    DROP FUNCTION IF EXISTS audit_trigger_func() CASCADE;
+    
+    -- Create fixed audit trigger function
+    CREATE OR REPLACE FUNCTION audit_trigger_func() RETURNS TRIGGER AS $func$
+    DECLARE
+        v_user TEXT;
+    BEGIN
+        v_user := coalesce(current_setting('app.current_user_id', true), 'system');
+        
+        -- FIX: Use gen_random_uuid() WITHOUT ::text cast (audit_logs.id is UUID type)
+        IF TG_OP = 'INSERT' THEN
+            INSERT INTO audit_logs (id, action_type, performed_by, resource_type, resource_id, metadata, "timestamp")
+            VALUES (
+                gen_random_uuid(),  -- Already UUID, no cast
+                'INSERT',
+                v_user,
+                TG_TABLE_NAME,
+                NEW.id::text,  -- Cast resource_id to text
+                jsonb_build_object('new_data', row_to_json(NEW)),
+                NOW()
+            );
+        ELSIF TG_OP = 'UPDATE' THEN
+            INSERT INTO audit_logs (id, action_type, performed_by, resource_type, resource_id, metadata, "timestamp")
+            VALUES (
+                gen_random_uuid(),
+                'UPDATE',
+                v_user,
+                TG_TABLE_NAME,
+                NEW.id::text,
+                jsonb_build_object('old_data', row_to_json(OLD), 'new_data', row_to_json(NEW)),
+                NOW()
+            );
+        ELSIF TG_OP = 'DELETE' THEN
+            INSERT INTO audit_logs (id, action_type, performed_by, resource_type, resource_id, metadata, "timestamp")
+            VALUES (
+                gen_random_uuid(),
+                'DELETE',
+                v_user,
+                TG_TABLE_NAME,
+                OLD.id::text,
+                jsonb_build_object('old_data', row_to_json(OLD)),
+                NOW()
+            );
+        END IF;
+        
+        RETURN COALESCE(NEW, OLD);
+    END;
+    $func$ LANGUAGE plpgsql SECURITY DEFINER;
+    
+    -- Recreate triggers
+    CREATE TRIGGER audit_trigger AFTER INSERT OR UPDATE OR DELETE ON nodes
+    FOR EACH ROW EXECUTE FUNCTION audit_trigger_func();
+    
+    CREATE TRIGGER audit_trigger AFTER INSERT OR UPDATE OR DELETE ON communities
+    FOR EACH ROW EXECUTE FUNCTION audit_trigger_func();
+    
+    CREATE TRIGGER audit_trigger AFTER INSERT OR UPDATE OR DELETE ON distributors
+    FOR EACH ROW EXECUTE FUNCTION audit_trigger_func();
+    
+    RAISE NOTICE '✓ Audit triggers fixed - UUID casting error resolved';
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'Audit trigger fix skipped (may not exist yet): %', SQLERRM;
+END $$;
+
+-- ============================================================
+-- INSERT DISTRIBUTOR & COMMUNITY
+-- ============================================================
 -- First, ensure we have a default community and distributor
+-- Using proper UUIDs for PostgreSQL UUID columns
 INSERT INTO distributors (id, name, region, status, created_at)
-VALUES ('dist-iiit-hyd', 'IIIT Hyderabad', 'Telangana', 'active', NOW())
-ON CONFLICT (id) DO NOTHING;
+VALUES ('a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, 'IIIT Hyderabad', 'Telangana', 'active', NOW())
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, region = EXCLUDED.region;
 
 INSERT INTO communities (id, name, region, city, status, slug, distributor_id, created_at)
-VALUES ('comm-iiit-campus', 'IIIT Hyderabad Campus', 'Telangana', 'Hyderabad', 'active', 'iiit-campus', 'dist-iiit-hyd', NOW())
-ON CONFLICT (id) DO NOTHING;
+VALUES ('b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'IIIT Hyderabad Campus', 'Telangana', 'Hyderabad', 'active', 'iiit-campus', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW())
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, region = EXCLUDED.region, city = EXCLUDED.city;
 
 -- ============================================================
 -- INSERT PUMP HOUSES
 -- ============================================================
 INSERT INTO nodes (id, node_key, label, category, analytics_type, location_name, lat, lng, capacity, status, community_id, distributor_id, created_at) VALUES
-('pump-house-1', 'PH-01', 'Pump House 1', 'PumpHouse', 'EvaraFlow', 'ATM Gate', 17.4456, 78.3516, '4.98L L', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('pump-house-2', 'PH-02', 'Pump House 2', 'PumpHouse', 'EvaraFlow', 'Guest House', 17.44608, 78.34925, '75k L', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('pump-house-3', 'PH-03', 'Pump House 3', 'PumpHouse', 'EvaraFlow', 'Staff Qtrs', 17.4430, 78.3487, '55k L', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('pump-house-4', 'PH-04', 'Pump House 4', 'PumpHouse', 'EvaraFlow', 'Bakul', 17.4481, 78.3489, '2.00L L', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW())
+(gen_random_uuid(), 'PH-01', 'Pump House 1', 'PumpHouse', 'EvaraFlow', 'ATM Gate', 17.4456, 78.3516, '4.98L L', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'PH-02', 'Pump House 2', 'PumpHouse', 'EvaraFlow', 'Guest House', 17.44608, 78.34925, '75k L', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'PH-03', 'Pump House 3', 'PumpHouse', 'EvaraFlow', 'Staff Qtrs', 17.4430, 78.3487, '55k L', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'PH-04', 'Pump House 4', 'PumpHouse', 'EvaraFlow', 'Bakul', 17.4481, 78.3489, '2.00L L', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW())
 ON CONFLICT (node_key) DO UPDATE SET 
     label = EXCLUDED.label,
     lat = EXCLUDED.lat,
@@ -31,17 +110,17 @@ ON CONFLICT (node_key) DO UPDATE SET
 -- INSERT SUMPS
 -- ============================================================
 INSERT INTO nodes (id, node_key, label, category, analytics_type, location_name, lat, lng, capacity, status, community_id, distributor_id, created_at) VALUES
-('sump-s1', 'SUMP-S1', 'Sump S1', 'Sump', 'EvaraTank', 'Bakul', 17.448097, 78.349060, '2.00L L', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('sump-s2', 'SUMP-S2', 'Sump S2', 'Sump', 'EvaraTank', 'Palash', 17.444919, 78.346195, '1.10L L', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('sump-s3', 'SUMP-S3', 'Sump S3', 'Sump', 'EvaraTank', 'NBH', 17.446779, 78.346996, '1.00L L', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('sump-s4', 'SUMP-S4', 'Sump S4 (Main Sump)', 'Sump', 'EvaraTank', 'Central', 17.445630, 78.351593, '4.98L L', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('sump-s5', 'SUMP-S5', 'Sump S5', 'Sump', 'EvaraTank', 'Blk A&B', 17.444766, 78.350087, '55k L', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('sump-s6', 'SUMP-S6', 'Sump S6', 'Sump', 'EvaraTank', 'Guest House', 17.445498, 78.350202, '10k L', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('sump-s7', 'SUMP-S7', 'Sump S7', 'Sump', 'EvaraTank', 'Pump House', 17.44597, 78.34906, '43k L', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('sump-s8', 'SUMP-S8', 'Sump S8', 'Sump', 'EvaraTank', 'Football', 17.446683, 78.348995, '12k L', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('sump-s9', 'SUMP-S9', 'Sump S9', 'Sump', 'EvaraTank', 'Felicity', 17.446613, 78.346487, '15k L', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('sump-s10', 'SUMP-S10', 'Sump S10', 'Sump', 'EvaraTank', 'FSQ A&B', 17.443076, 78.348737, '34k+31k', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('sump-s11', 'SUMP-S11', 'Sump S11', 'Sump', 'EvaraTank', 'FSQ C,D,E', 17.444773, 78.347797, '1.5L+60k', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW())
+(gen_random_uuid(), 'SUMP-S1', 'Sump S1', 'Sump', 'EvaraTank', 'Bakul', 17.448097, 78.349060, '2.00L L', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'SUMP-S2', 'Sump S2', 'Sump', 'EvaraTank', 'Palash', 17.444919, 78.346195, '1.10L L', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'SUMP-S3', 'Sump S3', 'Sump', 'EvaraTank', 'NBH', 17.446779, 78.346996, '1.00L L', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'SUMP-S4', 'Sump S4 (Main Sump)', 'Sump', 'EvaraTank', 'Central', 17.445630, 78.351593, '4.98L L', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'SUMP-S5', 'Sump S5', 'Sump', 'EvaraTank', 'Blk A&B', 17.444766, 78.350087, '55k L', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'SUMP-S6', 'Sump S6', 'Sump', 'EvaraTank', 'Guest House', 17.445498, 78.350202, '10k L', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'SUMP-S7', 'Sump S7', 'Sump', 'EvaraTank', 'Pump House', 17.44597, 78.34906, '43k L', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'SUMP-S8', 'Sump S8', 'Sump', 'EvaraTank', 'Football', 17.446683, 78.348995, '12k L', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'SUMP-S9', 'Sump S9', 'Sump', 'EvaraTank', 'Felicity', 17.446613, 78.346487, '15k L', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'SUMP-S10', 'Sump S10', 'Sump', 'EvaraTank', 'FSQ A&B', 17.443076, 78.348737, '34k+31k', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'SUMP-S11', 'Sump S11', 'Sump', 'EvaraTank', 'FSQ C,D,E', 17.444773, 78.347797, '1.5L+60k', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW())
 ON CONFLICT (node_key) DO UPDATE SET 
     label = EXCLUDED.label,
     lat = EXCLUDED.lat,
@@ -52,20 +131,20 @@ ON CONFLICT (node_key) DO UPDATE SET
 -- INSERT OVERHEAD TANKS (OHT)
 -- ============================================================
 INSERT INTO nodes (id, node_key, label, category, analytics_type, location_name, lat, lng, capacity, status, community_id, distributor_id, created_at) VALUES
-('oht-1', 'OHT-1', 'Bakul OHT', 'OHT', 'EvaraTank', 'Bakul', 17.448045, 78.348438, '2 Units', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('oht-2', 'OHT-2', 'Parijat OHT', 'OHT', 'EvaraTank', 'Parijat', 17.447547, 78.347752, '2 Units', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('oht-3', 'OHT-3', 'Kadamba OHT', 'OHT', 'EvaraTank', 'Kadamba', 17.446907, 78.347178, '2 Units', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('oht-4', 'OHT-4', 'NWH Block C OHT', 'OHT', 'EvaraTank', 'NWH Block C', 17.447675, 78.347430, '1 Unit', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('oht-5', 'OHT-5', 'NWH Block B OHT', 'OHT', 'EvaraTank', 'NWH Block B', 17.447391, 78.347172, '1 Unit', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('oht-6', 'OHT-6', 'NWH Block A OHT', 'OHT', 'EvaraTank', 'NWH Block A', 17.447081, 78.346884, '1 Unit', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('oht-7', 'OHT-7', 'Palash Nivas OHT', 'OHT', 'EvaraTank', 'Palash Nivas', 17.445096, 78.345966, '4 Units', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('oht-8', 'OHT-8', 'Anand Nivas OHT', 'OHT', 'EvaraTank', 'Anand Nivas', 17.443976, 78.348432, '2 Units', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('oht-9', 'OHT-9', 'Budha Nivas OHT', 'OHT', 'EvaraTank', 'Budha Nivas', 17.443396, 78.348500, '2 Units', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('oht-10', 'OHT-10', 'C Block OHT', 'OHT', 'EvaraTank', 'C Block', 17.443387, 78.347834, '3 Units', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('oht-11', 'OHT-11', 'D Block OHT', 'OHT', 'EvaraTank', 'D Block', 17.443914, 78.347773, '3 Units', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('oht-12', 'OHT-12', 'E Block OHT', 'OHT', 'EvaraTank', 'E Block', 17.444391, 78.347958, '3 Units', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('oht-13', 'OHT-13', 'Vindhya OHT', 'OHT', 'EvaraTank', 'Vindhya', 17.44568, 78.34973, '4 Units', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('oht-14', 'OHT-14', 'Himalaya OHT', 'OHT', 'EvaraTank', 'Himalaya (KRB)', 17.44525, 78.34966, '1 Unit', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW())
+(gen_random_uuid(), 'OHT-1', 'Bakul OHT', 'OHT', 'EvaraTank', 'Bakul', 17.448045, 78.348438, '2 Units', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'OHT-2', 'Parijat OHT', 'OHT', 'EvaraTank', 'Parijat', 17.447547, 78.347752, '2 Units', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'OHT-3', 'Kadamba OHT', 'OHT', 'EvaraTank', 'Kadamba', 17.446907, 78.347178, '2 Units', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'OHT-4', 'NWH Block C OHT', 'OHT', 'EvaraTank', 'NWH Block C', 17.447675, 78.347430, '1 Unit', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'OHT-5', 'NWH Block B OHT', 'OHT', 'EvaraTank', 'NWH Block B', 17.447391, 78.347172, '1 Unit', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'OHT-6', 'NWH Block A OHT', 'OHT', 'EvaraTank', 'NWH Block A', 17.447081, 78.346884, '1 Unit', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'OHT-7', 'Palash Nivas OHT', 'OHT', 'EvaraTank', 'Palash Nivas', 17.445096, 78.345966, '4 Units', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'OHT-8', 'Anand Nivas OHT', 'OHT', 'EvaraTank', 'Anand Nivas', 17.443976, 78.348432, '2 Units', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'OHT-9', 'Budha Nivas OHT', 'OHT', 'EvaraTank', 'Budha Nivas', 17.443396, 78.348500, '2 Units', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'OHT-10', 'C Block OHT', 'OHT', 'EvaraTank', 'C Block', 17.443387, 78.347834, '3 Units', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'OHT-11', 'D Block OHT', 'OHT', 'EvaraTank', 'D Block', 17.443914, 78.347773, '3 Units', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'OHT-12', 'E Block OHT', 'OHT', 'EvaraTank', 'E Block', 17.444391, 78.347958, '3 Units', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'OHT-13', 'Vindhya OHT', 'OHT', 'EvaraTank', 'Vindhya', 17.44568, 78.34973, '4 Units', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'OHT-14', 'Himalaya OHT', 'OHT', 'EvaraTank', 'Himalaya (KRB)', 17.44525, 78.34966, '1 Unit', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW())
 ON CONFLICT (node_key) DO UPDATE SET 
     label = EXCLUDED.label,
     lat = EXCLUDED.lat,
@@ -76,20 +155,18 @@ ON CONFLICT (node_key) DO UPDATE SET
 -- INSERT IIIT BOREWELLS
 -- ============================================================
 INSERT INTO nodes (id, node_key, label, category, analytics_type, location_name, lat, lng, capacity, status, community_id, distributor_id, created_at) VALUES
-('bore-p1', 'BW-P1', 'Borewell P1', 'Borewell', 'EvaraDeep', 'Block C,D,E', 17.443394, 78.348117, '5 HP', 'Offline', '
-
-comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('bore-p2', 'BW-P2', 'Borewell P2', 'Borewell', 'EvaraDeep', 'Agri Farm', 17.443093, 78.348936, '12.5 HP', 'Offline', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('bore-p3', 'BW-P3', 'Borewell P3', 'Borewell', 'EvaraDeep', 'Palash', 17.444678, 78.347234, '5 HP', 'Offline', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('bore-p4', 'BW-P4', 'Borewell P4', 'Borewell', 'EvaraDeep', 'Vindhya', 17.446649, 78.350578, 'N/A', 'Offline', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('bore-p5', 'BW-P5', 'Borewell P5', 'Borewell', 'EvaraDeep', 'Nilgiri', 17.447783, 78.349040, '5 HP', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('bore-p6', 'BW-P6', 'Borewell P6', 'Borewell', 'EvaraDeep', 'Bakul', 17.448335, 78.348594, '5/7.5 HP', 'Offline', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('bore-p7', 'BW-P7', 'Borewell P7', 'Borewell', 'EvaraDeep', 'Volleyball', 17.445847, 78.346416, 'N/A', 'Offline', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('bore-p8', 'BW-P8', 'Borewell P8', 'Borewell', 'EvaraDeep', 'Palash', 17.445139, 78.345277, '7.5 HP', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('bore-p9', 'BW-P9', 'Borewell P9', 'Borewell', 'EvaraDeep', 'Girls Blk A', 17.446922, 78.346699, '7.5 HP', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('bore-p10', 'BW-P10', 'Borewell P10', 'Borewell', 'EvaraDeep', 'Parking NW', 17.443947, 78.350139, '5 HP', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('bore-p10a', 'BW-P10A', 'Borewell P10A', 'Borewell', 'EvaraDeep', 'Agri Farm', 17.443451, 78.349635, 'N/A', 'Offline', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('bore-p11', 'BW-P11', 'Borewell P11', 'Borewell', 'EvaraDeep', 'Blk C,D,E', 17.444431, 78.347649, '5 HP', 'Offline', 'comm-iiit-campus', 'dist-iiit-hyd', NOW())
+(gen_random_uuid(), 'BW-P1', 'Borewell P1', 'Borewell', 'EvaraDeep', 'Block C,D,E', 17.443394, 78.348117, '5 HP', 'Offline', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-P2', 'Borewell P2', 'Borewell', 'EvaraDeep', 'Agri Farm', 17.443093, 78.348936, '12.5 HP', 'Offline', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-P3', 'Borewell P3', 'Borewell', 'EvaraDeep', 'Palash', 17.444678, 78.347234, '5 HP', 'Offline', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-P4', 'Borewell P4', 'Borewell', 'EvaraDeep', 'Vindhya', 17.446649, 78.350578, 'N/A', 'Offline', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-P5', 'Borewell P5', 'Borewell', 'EvaraDeep', 'Nilgiri', 17.447783, 78.349040, '5 HP', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-P6', 'Borewell P6', 'Borewell', 'EvaraDeep', 'Bakul', 17.448335, 78.348594, '5/7.5 HP', 'Offline', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-P7', 'Borewell P7', 'Borewell', 'EvaraDeep', 'Volleyball', 17.445847, 78.346416, 'N/A', 'Offline', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-P8', 'Borewell P8', 'Borewell', 'EvaraDeep', 'Palash', 17.445139, 78.345277, '7.5 HP', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-P9', 'Borewell P9', 'Borewell', 'EvaraDeep', 'Girls Blk A', 17.446922, 78.346699, '7.5 HP', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-P10', 'Borewell P10', 'Borewell', 'EvaraDeep', 'Parking NW', 17.443947, 78.350139, '5 HP', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-P10A', 'Borewell P10A', 'Borewell', 'EvaraDeep', 'Agri Farm', 17.443451, 78.349635, 'N/A', 'Offline', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-P11', 'Borewell P11', 'Borewell', 'EvaraDeep', 'Blk C,D,E', 17.444431, 78.347649, '5 HP', 'Offline', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW())
 ON CONFLICT (node_key) DO UPDATE SET 
     label = EXCLUDED.label,
     lat = EXCLUDED.lat,
@@ -100,13 +177,13 @@ ON CONFLICT (node_key) DO UPDATE SET
 -- INSERT GOVERNMENT BOREWELLS
 -- ============================================================
 INSERT INTO nodes (id, node_key, label, category, analytics_type, location_name, lat, lng, capacity, status, community_id, distributor_id, created_at) VALUES
-('govt-bore-1', 'BW-G1', 'Borewell 1 (Govt)', 'GovtBorewell', 'EvaraDeep', 'Palash', 17.444601, 78.345459, '5 HP', 'Offline', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('govt-bore-2', 'BW-G2', 'Borewell 2 (Govt)', 'GovtBorewell', 'EvaraDeep', 'Palash', 17.445490, 78.346838, '1.5 HP', 'Offline', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('govt-bore-3', 'BW-G3', 'Borewell 3 (Govt)', 'GovtBorewell', 'EvaraDeep', 'Vindhaya C4', 17.446188, 78.350067, '5 HP', 'Online', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('govt-bore-4', 'BW-G4', 'Borewell 4 (Govt)', 'GovtBorewell', 'EvaraDeep', 'Entrance', 17.447111, 78.350151, 'N/A', 'Offline', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('govt-bore-5', 'BW-G5', 'Borewell 5 (Govt)', 'GovtBorewell', 'EvaraDeep', 'Entrance', 17.446311, 78.351042, 'N/A', 'Offline', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('govt-bore-6', 'BW-G6', 'Borewell 6 (Govt)', 'GovtBorewell', 'EvaraDeep', 'Bamboo House', 17.445584, 78.347148, 'N/A', 'Offline', 'comm-iiit-campus', 'dist-iiit-hyd', NOW()),
-('govt-bore-7', 'BW-G7', 'Borewell 7 (Govt)', 'GovtBorewell', 'EvaraDeep', 'Football', 17.446115, 78.348536, 'N/A', 'Offline', 'comm-iiit-campus', 'dist-iiit-hyd', NOW())
+(gen_random_uuid(), 'BW-G1', 'Borewell 1 (Govt)', 'GovtBorewell', 'EvaraDeep', 'Palash', 17.444601, 78.345459, '5 HP', 'Offline', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-G2', 'Borewell 2 (Govt)', 'GovtBorewell', 'EvaraDeep', 'Palash', 17.445490, 78.346838, '1.5 HP', 'Offline', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-G3', 'Borewell 3 (Govt)', 'GovtBorewell', 'EvaraDeep', 'Vindhaya C4', 17.446188, 78.350067, '5 HP', 'Online', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-G4', 'Borewell 4 (Govt)', 'GovtBorewell', 'EvaraDeep', 'Entrance', 17.447111, 78.350151, 'N/A', 'Offline', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-G5', 'Borewell 5 (Govt)', 'GovtBorewell', 'EvaraDeep', 'Entrance', 17.446311, 78.351042, 'N/A', 'Offline', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-G6', 'Borewell 6 (Govt)', 'GovtBorewell', 'EvaraDeep', 'Bamboo House', 17.445584, 78.347148, 'N/A', 'Offline', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW()),
+(gen_random_uuid(), 'BW-G7', 'Borewell 7 (Govt)', 'GovtBorewell', 'EvaraDeep', 'Football', 17.446115, 78.348536, 'N/A', 'Offline', 'b1c2d3e4-f5a6-7890-bcde-ef1234567891'::uuid, 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'::uuid, NOW())
 ON CONFLICT (node_key) DO UPDATE SET 
     label = EXCLUDED.label,
     lat = EXCLUDED.lat,

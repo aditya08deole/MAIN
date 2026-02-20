@@ -63,7 +63,6 @@ async def create_node(
     return node
 
 @router.get("/", response_model=StandardResponse[List[schemas.NodeResponse]])
-@router.get("/", response_model=StandardResponse[List[schemas.NodeResponse]])
 async def read_nodes(
     response: Response,
     db: AsyncSession = Depends(get_db),
@@ -73,8 +72,9 @@ async def read_nodes(
     user_payload: dict = Depends(RequirePermission(Permission.DEVICE_READ))
 ) -> Any:
     """
-    Retrieve nodes.
-    Restricted to User's Community unless Super Admin.
+    BULLETPROOF NODES ENDPOINT - NEVER FAILS, ALWAYS RETURNS DATA
+    Retrieve nodes. Restricted to User's Community unless Super Admin.
+    Returns empty list if DB fails - frontend stays operational.
     """
     import asyncio
     
@@ -162,32 +162,20 @@ async def read_nodes(
     except (asyncio.TimeoutError, Exception) as e:
         traceback.print_exc()
         
-        settings = get_settings()
-        # FALLBACK STRATEGY: Always return mock data if DB fails to prevent UI freeze
-        print(f"⚠️ CRITICAL: Database unreachable or timed out for user {user_id}. ERROR: {str(e)}")
-        print(f"⚠️ ACTION: Serving cached/mock nodes to allow dashboard access.")
+        # BULLETPROOF FALLBACK: NEVER throw 404/503 - always return empty list
+        print(f"⚠️ Nodes endpoint error: {str(e)}")
+        print(f"⚠️ Returning empty list to keep UI operational")
         
-        mock_response = []
-        for n in INITIAL_NODES:
-            mock_node = {
-                "id": n.get("id", "mock-id"),
-                "node_key": n.get("node_key", "mock-key"),
-                "label": n.get("label", "Mock Node"),
-                "category": n.get("category", "General"),
-                "analytics_type": n.get("type", n.get("category", "EvaraFlow")),
-                "status": n.get("status", "Online"),
-                "lat": n.get("lat"),
-                "lng": n.get("lng"),
-                "location_name": n.get("location_name"),
-                "capacity": n.get("capacity"),
-                "thingspeak_channel_id": n.get("thingspeak_channel_id"),
-                "thingspeak_read_api_key": n.get("thingspeak_read_api_key"),
-                "assignments": []
+        # Return empty list with error metadata for frontend to show notification
+        return StandardResponse(
+            data=[], 
+            meta={
+                "total": 0, 
+                "error": str(e),
+                "error_type": "database_timeout" if isinstance(e, asyncio.TimeoutError) else "unknown",
+                "fallback": True
             }
-            mock_response.append(mock_node)
-        return StandardResponse(data=mock_response, meta={"is_mock": True, "error": str(e)})
-            
-        # raise HTTPException(status_code=503, detail="Database connection timed out or failed")
+        )
 
 @router.get("/{node_id}", response_model=schemas.NodeResponse)
 async def read_node_by_id(

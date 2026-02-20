@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Filter, Droplets, Waves, Gauge, MapPin, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { useNodes } from '../hooks/useNodes';
+import { useToast } from '../components/ToastProvider';
 import type { NodeCategory, AnalyticsType } from '../types/database';
 
 // TODO(fake-data): ALL_NODES was hardcoded array, now using useNodes() Supabase hook
@@ -131,7 +132,15 @@ const AllNodes = () => {
     const [analyticsFilter, setAnalyticsFilter] = useState<AnalyticsType | 'all'>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'Online' | 'Offline'>('all');
 
+    const { showToast } = useToast();
     const { nodes, loading, error } = useNodes();
+
+    // Show toast notification if there's an error, but don't block UI
+    useEffect(() => {
+        if (error) {
+            showToast(`Unable to fetch some nodes: ${error}`, 'error');
+        }
+    }, [error, showToast]);
 
     const filtered = nodes.filter(n => {
         const matchAnalytics = analyticsFilter === 'all' || n.analytics_type === analyticsFilter;
@@ -153,17 +162,15 @@ const AllNodes = () => {
                         <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">All Nodes</h1>
                         {loading ? (
                             <p className="text-sm text-slate-500 mt-0.5">Loading nodes...</p>
-                        ) : error ? (
-                            <p className="text-sm text-red-600 mt-0.5">Error: {error}</p>
                         ) : (
                             <p className="text-sm text-slate-500 mt-0.5">
-                                All infrastructure assets deployed on campus — {nodes.length} total
+                                All infrastructure assets deployed on campus — {nodes.length} total {error ? '(limited data)' : ''}
                             </p>
                         )}
                     </div>
 
                     {/* Stats */}
-                    {!loading && !error && (
+                    {!loading && (
                         <div className="flex items-center gap-3">
                             <div className="flex items-center gap-2 bg-green-50 border border-green-200 px-4 py-2 rounded-xl">
                                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
@@ -286,14 +293,6 @@ const AllNodes = () => {
                     <div className="flex flex-col items-center justify-center py-24 text-center">
                         <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                         <p className="text-slate-500 font-medium mt-4">Loading nodes...</p>
-                    </div>
-                ) : error ? (
-                    <div className="flex flex-col items-center justify-center py-24 text-center bg-red-50 rounded-2xl border border-red-200">
-                        <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mb-4">
-                            <span className="text-2xl text-red-600">!</span>
-                        </div>
-                        <h3 className="text-red-600 font-semibold mb-1">Failed to load nodes</h3>
-                        <p className="text-red-500 text-sm">{error}</p>
                     </div>
                 ) : filtered.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
