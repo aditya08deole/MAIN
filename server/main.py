@@ -147,3 +147,69 @@ async def get_feature_flags():
     return {
         "flags": FeatureFlags.get_all_flags()
     }
+
+
+@app.get("/api/v1/debug/routes", tags=["debug"])
+async def debug_routes():
+    """
+    DEBUG: List all registered routes
+    """
+    routes = []
+    for route in app.routes:
+        if hasattr(route, "methods") and hasattr(route, "path"):
+            routes.append({
+                "path": route.path,
+                "methods": list(route.methods),
+                "name": route.name
+            })
+    return {"total_routes": len(routes), "routes": routes}
+
+
+@app.get("/api/v1/debug/db-status", tags=["debug"])
+async def debug_db_status():
+    """
+    DEBUG: Check database connection and table status
+    """
+    from app.db.session import AsyncSessionLocal
+    from sqlalchemy import text
+    
+    try:
+        async with AsyncSessionLocal() as db:
+            # Test basic connection
+            result = await db.execute(text("SELECT 1 as test"))
+            connection_test = result.scalar()
+            
+            # Check if tables exist
+            tables_query = text("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                ORDER BY table_name
+            """)
+            tables_result = await db.execute(tables_query)
+            tables = [row[0] for row in tables_result.fetchall()]
+            
+            # Count nodes
+            nodes_count_result = await db.execute(text("SELECT COUNT(*) FROM nodes"))
+            nodes_count = nodes_count_result.scalar()
+            
+            # Count users
+            users_count_result = await db.execute(text("SELECT COUNT(*) FROM users_profiles"))
+            users_count = users_count_result.scalar()
+            
+            return {
+                "status": "ok",
+                "connection_test": connection_test,
+                "tables_count": len(tables),
+                "tables": tables,
+                "data_counts": {
+                    "nodes": nodes_count,
+                    "users": users_count
+                }
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "type": type(e).__name__
+        }
