@@ -10,7 +10,7 @@ A clean, maintainable FastAPI backend with:
 
 All routes in one file for simplicity and clarity.
 """
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,6 +45,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Create API Router for versioned endpoints
+api_router = APIRouter()
 
 # Configure CORS
 app.add_middleware(
@@ -265,7 +268,7 @@ async def health_check():
 # DASHBOARD ENDPOINTS
 # ============================================================================
 
-@app.get("/dashboard/stats", tags=["dashboard"])
+@api_router.get("/dashboard/stats", tags=["dashboard"])
 async def get_dashboard_stats(
     user_payload: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -305,7 +308,7 @@ async def get_dashboard_stats(
 # AUTHENTICATION ENDPOINTS
 # ============================================================================
 
-@app.post("/auth/sync", response_model=UserResponse, tags=["authentication"])
+@api_router.post("/auth/sync", response_model=UserResponse, tags=["authentication"])
 async def sync_user_profile(
     user_payload: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -345,7 +348,7 @@ async def sync_user_profile(
     return user
 
 
-@app.get("/auth/me", response_model=UserResponse, tags=["authentication"])
+@api_router.get("/auth/me", response_model=UserResponse, tags=["authentication"])
 async def get_current_user_profile(
     user_payload: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -369,7 +372,7 @@ async def get_current_user_profile(
 # DEVICE MANAGEMENT ENDPOINTS
 # ============================================================================
 
-@app.get("/devices", response_model=List[DeviceResponse], tags=["devices"])
+@api_router.get("/devices", response_model=List[DeviceResponse], tags=["devices"])
 async def list_devices(
     user_payload: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -387,7 +390,7 @@ async def list_devices(
     return devices
 
 
-@app.post("/devices", response_model=DeviceResponse, status_code=status.HTTP_201_CREATED, tags=["devices"])
+@api_router.post("/devices", response_model=DeviceResponse, status_code=status.HTTP_201_CREATED, tags=["devices"])
 async def create_device(
     device_in: DeviceCreate,
     user_payload: dict = Depends(get_current_user),
@@ -424,7 +427,7 @@ async def create_device(
     return device
 
 
-@app.get("/devices/{device_id}", response_model=DeviceResponse, tags=["devices"])
+@api_router.get("/devices/{device_id}", response_model=DeviceResponse, tags=["devices"])
 async def get_device(
     device_id: str,
     user_payload: dict = Depends(get_current_user),
@@ -447,7 +450,7 @@ async def get_device(
     return device
 
 
-@app.put("/devices/{device_id}", response_model=DeviceResponse, tags=["devices"])
+@api_router.put("/devices/{device_id}", response_model=DeviceResponse, tags=["devices"])
 async def update_device(
     device_id: str,
     device_in: DeviceUpdate,
@@ -483,7 +486,7 @@ async def update_device(
     return device
 
 
-@app.delete("/devices/{device_id}", status_code=status.HTTP_200_OK, tags=["devices"])
+@api_router.delete("/devices/{device_id}", status_code=status.HTTP_200_OK, tags=["devices"])
 async def delete_device(
     device_id: str,
     user_payload: dict = Depends(get_current_user),
@@ -516,7 +519,7 @@ async def delete_device(
 # Frontend uses /nodes/ terminology
 # ============================================================================
 
-@app.get("/nodes", response_model=List[DeviceResponse], tags=["nodes"])
+@api_router.get("/nodes", response_model=List[DeviceResponse], tags=["nodes"])
 async def list_nodes(
     user_payload: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -528,7 +531,7 @@ async def list_nodes(
     return await list_devices(user_payload=user_payload, db=db)
 
 
-@app.get("/nodes/{node_id}", response_model=DeviceResponse, tags=["nodes"])
+@api_router.get("/nodes/{node_id}", response_model=DeviceResponse, tags=["nodes"])
 async def get_node(
     node_id: str,
     user_payload: dict = Depends(get_current_user),
@@ -541,7 +544,7 @@ async def get_node(
     return await get_device(device_id=node_id, user_payload=user_payload, db=db)
 
 
-@app.post("/nodes", response_model=DeviceResponse, status_code=status.HTTP_201_CREATED, tags=["nodes"])
+@api_router.post("/nodes", response_model=DeviceResponse, status_code=status.HTTP_201_CREATED, tags=["nodes"])
 async def create_node(
     device_in: DeviceCreate,
     user_payload: dict = Depends(get_current_user),
@@ -554,7 +557,7 @@ async def create_node(
     return await create_device(device_in=device_in, user_payload=user_payload, db=db)
 
 
-@app.patch("/nodes/{node_id}", response_model=DeviceResponse, tags=["nodes"])
+@api_router.patch("/nodes/{node_id}", response_model=DeviceResponse, tags=["nodes"])
 async def update_node(
     node_id: str,
     device_in: DeviceUpdate,
@@ -568,7 +571,7 @@ async def update_node(
     return await update_device(device_id=node_id, device_in=device_in, user_payload=user_payload, db=db)
 
 
-@app.delete("/nodes/{node_id}", status_code=status.HTTP_200_OK, tags=["nodes"])
+@api_router.delete("/nodes/{node_id}", status_code=status.HTTP_200_OK, tags=["nodes"])
 async def delete_node(
     node_id: str,
     user_payload: dict = Depends(get_current_user),
@@ -585,7 +588,7 @@ async def delete_node(
 # THINGSPEAK TELEMETRY ENDPOINTS
 # ============================================================================
 
-@app.get("/devices/{device_id}/telemetry/latest", response_model=TelemetryResponse, tags=["telemetry"])
+@api_router.get("/devices/{device_id}/telemetry/latest", response_model=TelemetryResponse, tags=["telemetry"])
 async def get_latest_telemetry(
     device_id: str,
     user_payload: dict = Depends(get_current_user),
@@ -649,7 +652,7 @@ async def get_latest_telemetry(
     )
 
 
-@app.get("/devices/{device_id}/telemetry/history", tags=["telemetry"])
+@api_router.get("/devices/{device_id}/telemetry/history", tags=["telemetry"])
 async def get_telemetry_history(
     device_id: str,
     results: int = 100,
@@ -697,6 +700,14 @@ async def get_telemetry_history(
         )
     
     return data
+
+
+# ============================================================================
+# INCLUDE API ROUTER WITH VERSION PREFIX
+# ============================================================================
+
+# Mount all API routes under /api/v1
+app.include_router(api_router, prefix="/api/v1")
 
 
 # ============================================================================
