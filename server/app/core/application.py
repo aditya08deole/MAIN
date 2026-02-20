@@ -240,11 +240,21 @@ class ApplicationConfigurator:
         self.logger.info("Exception handlers configured")
     
     def configure_routes(self) -> None:
-        """Register API routes."""
+        """Register API routes at both /api/v1 and / for compatibility.
+        
+        The frontend may or may not include /api/v1 prefix depending on
+        whether VITE_API_URL was properly injected during the Render build.
+        By mounting at both prefixes, requests work regardless.
+        """
         from app.api.api_v1.api import api_router
         
+        # Primary mount at /api/v1 (canonical)
         self.app.include_router(api_router, prefix="/api/v1")
-        self.logger.info("Routes configured")
+        
+        # Fallback mount at / (for when VITE_API_URL doesn't include /api/v1)
+        self.app.include_router(api_router, prefix="")
+        
+        self.logger.info("Routes configured (dual-mount: /api/v1 + /)")
 
 
 class ApplicationFactory:

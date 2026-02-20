@@ -17,9 +17,14 @@ engine = create_async_engine(
     echo=False,
     future=True,
     pool_pre_ping=True,
-    pool_size=20,
-    max_overflow=10,
-    pool_timeout=30
+    pool_size=5,          # Reduced for Supabase free tier (max ~10 connections)
+    max_overflow=3,        # Conservative overflow
+    pool_timeout=30,
+    pool_recycle=300,      # Recycle connections every 5 min (Supabase may close idle)
+    connect_args={
+        "server_settings": {"application_name": "evara_backend"},
+        "command_timeout": 10,
+    }
 )
 
 AsyncSessionLocal = async_sessionmaker(
