@@ -201,7 +201,26 @@ async def root():
         "version": "1.0.0",
         "environment": settings.ENVIRONMENT,
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
+        "api_prefix": "/api/v1"
+    }
+
+
+@app.get("/config-check", tags=["root"])
+async def config_check():
+    """
+    Check if critical environment variables are configured.
+    Does NOT expose sensitive values - only shows if they exist.
+    """
+    import os
+    return {
+        "database_url_set": bool(os.getenv("DATABASE_URL")),
+        "supabase_url_set": bool(os.getenv("SUPABASE_URL")),
+        "supabase_jwt_secret_set": bool(os.getenv("SUPABASE_JWT_SECRET")),
+        "supabase_key_set": bool(os.getenv("SUPABASE_KEY")),
+        "cors_origins_set": bool(os.getenv("CORS_ORIGINS")),
+        "environment": settings.ENVIRONMENT,
+        "note": "If any value is false, add it to Render environment variables"
     }
 
 
