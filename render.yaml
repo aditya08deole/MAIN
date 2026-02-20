@@ -25,29 +25,11 @@ services:
       - key: PORT
         value: 8000
       - key: BACKEND_CORS_ORIGINS
-        value: https://evara-frontend.onrender.com,https://evara-dashboard.onrender.com,https://evara-backend-412x.onrender.com,http://localhost:5173,http://localhost:8080
+        value: https://evara-frontend.onrender.com,http://localhost:5173,http://localhost:8080
 
   # React + Vite Frontend
   - type: web
     name: evara-frontend
-    env: static
-    buildCommand: cd client && npm install && npm run build
-    staticPublishPath: ./client/dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: VITE_API_URL
-        value: https://evara-backend-412x.onrender.com/api/v1
-      - key: VITE_SUPABASE_URL
-        value: https://tihrvotigvaozizlcxse.supabase.co
-      - key: VITE_SUPABASE_ANON_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpaHJ2b3RpZ3Zhb3ppemxjeHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMDk1MjcsImV4cCI6MjA4Njg4NTUyN30.z8zgCfNjeDq68_HuinnvT_efI4B5nPNBY3XCTSNwKVg
-
-  # React + Vite Dashboard (same frontend, different deployment)
-  - type: web
-    name: evara-dashboard
     env: static
     buildCommand: cd client && npm install && npm run build
     staticPublishPath: ./client/dist
