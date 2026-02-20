@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.db.session import get_db
 from app.models import all_models as models
 from app.schemas import schemas
-from app.db.repository import DistributorRepository, CommunityRepository, CustomerRepository, NodeRepository, PlanRepository
+from app.db.repository import DistributorRepository, CommunityRepository, CustomerRepository, NodeRepository, PlanRepository, AuditLogRepository
 import uuid
 import re
 from datetime import datetime

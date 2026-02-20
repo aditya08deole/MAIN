@@ -11,10 +11,13 @@ export interface DashboardStats {
 
 export interface SystemHealth {
     status: string;
-    services: {
-        database: string;
-        thingspeak: string;
+    database: {
+        status: string;
+        latency_ms: number | null;
     };
+    uptime_seconds: number;
+    startup_checks?: Record<string, string>;
+    version: string;
 }
 
 export const useDashboardStats = () => {
