@@ -21,7 +21,7 @@ export const adminService = {
         return response.data;
     },
 
-    async createCommunity(data: { name: string; region: string }) {
+    async createCommunity(data: { name: string; region: string; city?: string }) {
         const response = await api.post('/communities', data);
         return response.data;
     },
