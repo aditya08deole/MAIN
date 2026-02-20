@@ -99,7 +99,40 @@ App: `http://localhost:5173`
 
 ---
 
-## 📁 Project Structure
+## � Documentation
+
+Comprehensive technical documentation is organized in the [`documents/`](documents/) directory:
+
+### Architecture & Design
+- [System Architecture](documents/architecture/SYSTEM_ARCHITECTURE.md) - Complete system overview, components, and data flow
+- [Architectural Masterplan Part 1: System Overview](documents/architecture/ARCHITECTURAL_MASTERPLAN_PART_1_SYSTEM_OVERVIEW.md)
+- [Architectural Masterplan Part 2: Performance & API Design](documents/architecture/ARCHITECTURAL_MASTERPLAN_PART_2_PERFORMANCE_API_DESIGN.md)
+- [Architectural Masterplan Part 3: ThingSpeak & Real-Time](documents/architecture/ARCHITECTURAL_MASTERPLAN_PART_3_THINGSPEAK_REALTIME.md)
+- [Architectural Masterplan Part 4: Scalability & Reliability](documents/architecture/ARCHITECTURAL_MASTERPLAN_PART_4_SCALABILITY_RELIABILITY.md)
+- [Architectural Masterplan Part 5: Deployment & Maintainability](documents/architecture/ARCHITECTURAL_MASTERPLAN_PART_5_DEPLOYMENT_MAINTAINABILITY.md)
+
+### Implementation Logs
+- [Phase 1: Backend Structural Refactoring](documents/implementation/PHASE_1_IMPLEMENTATION_LOG.md)
+- [Phase 2: Database Optimization](documents/implementation/PHASE_2_IMPLEMENTATION_LOG.md)
+- [Phase 3: ThingSpeak Integration Refactor](documents/implementation/PHASE_3_IMPLEMENTATION_LOG.md)
+- [Phase 4: Performance & Real-Time Enhancements](documents/implementation/PHASE_4_IMPLEMENTATION_LOG.md)
+- [Backend Restructuring Plan](documents/implementation/BACKEND_RESTRUCTURING_PLAN.md)
+
+### Guides & References
+- [Testing Guide](documents/guides/TESTING_GUIDE.md) - Test execution and validation
+- [Troubleshooting Guide](documents/guides/TROUBLESHOOTING.md) - Common issues and solutions
+- [Security Guide](documents/guides/SECURITY.md) - Security policies and best practices
+- [Pipeline Installation Guide](documents/guides/PIPELINE_INSTALLATION_GUIDE.md) - Pipeline feature setup
+
+### Project Status
+- [Changelog](documents/CHANGELOG.md) - Version 2.0.0 release notes
+- [Final Validation Report](documents/FINAL_VALIDATION_REPORT.md) - Production readiness validation
+- [Fixes Applied](documents/FIXES_APPLIED.md) - Bug fixes and improvements log
+- [Fixes Summary](documents/FIXES_SUMMARY.md) - Quick reference for all fixes
+
+---
+
+## �📁 Project Structure
 
 ```
 evaratech/
@@ -113,17 +146,25 @@ evaratech/
 │   └── .env.example
 ├── server/               # Python FastAPI backend
 │   ├── app/
-│   │   ├── api/          # Endpoints
-│   │   ├── core/         # Config, security, background tasks
+│   │   ├── api/          # REST API endpoints
+│   │   ├── core/         # Config, security, caching, background jobs
 │   │   ├── db/           # Database session, repository pattern
-│   │   ├── models/       # SQLAlchemy models
-│   │   ├── schemas/      # Pydantic schemas
-│   │   └── services/     # Business logic
+│   │   ├── models/       # SQLAlchemy ORM models
+│   │   ├── schemas/      # Pydantic request/response schemas
+│   │   └── services/     # Business logic layer (DI-based)
 │   ├── migrations/       # SQL migration scripts
-│   │   └── 001_backend_excellence.sql  # ← Run this in Supabase
+│   ├── tests/            # Comprehensive test suite (65+ tests)
 │   ├── requirements.txt
 │   └── .env.example
-├── render.yaml           # Render.com deployment config
+├── documents/            # Technical documentation
+│   ├── architecture/    # System design & architectural plans
+│   ├── implementation/  # Phase-by-phase implementation logs
+│   ├── guides/          # Testing, security, troubleshooting guides
+│   ├── CHANGELOG.md     # Version history
+│   └── FINAL_VALIDATION_REPORT.md
+├── .github/
+│   └── workflows/       # CI/CD pipelines
+├── render.yaml          # Render.com deployment config
 └── README.md
 ```
 
@@ -240,46 +281,15 @@ The server runs 3 background loops:
 
 ## 🐛 Troubleshooting
 
-**Backend won't start:**
-- Check `DATABASE_URL` format (must be `postgresql+asyncpg://...`)
-- Verify Supabase credentials
-- Run `pip install -r requirements.txt`
+For detailed troubleshooting steps, see the [Troubleshooting Guide](documents/guides/TROUBLESHOOTING.md).
 
-**Frontend can't connect:**
-- Check `VITE_API_URL` in client `.env`
-- Ensure backend is running on port 8000
-- Check browser console for CORS errors
-
-**No data in dashboard:**
-- Verify migration ran successfully in Supabase
-- Check user is assigned to nodes (superadmin sees all)
-- Inspect network tab for API errors
-
-# Supabase
-SUPABASE_URL="https://xyz.supabase.co"
-SUPABASE_KEY="your-anon-key"
-SUPABASE_JWT_SECRET="your-jwt-secret"
-
-# ThingSpeak
-THINGSPEAK_API_KEY="your-api-key"
-
-# Logging
-LOG_LEVEL="INFO"
-```
-
-## 📦 Deployment (Render)
-
-The project is configured for Render.com via `render.yaml`.
-1.  Connect your GitHub repository to Render.
-2.  Select "Blueprints" and pick this repo.
-3.  Render will automatically deploy the Backend (Docker) and Frontend (Static Site).
-
-## 🔒 Security
-
-*   **RBAC**: Strict role enforcement (Super Admin, Region Admin, Community Admin).
-*   **RLS**: Row-Level Security logic implemented in API layer.
-*   **Audit Logs**: All critical actions are logged.
-*   **Rate Limiting**: Public endpoints are protected.
+**Quick Checks:**
+- Verify environment variables in `.env` files
+- Check Supabase credentials and database connectivity
+- Ensure all dependencies are installed (`pip install -r requirements.txt`, `npm install`)
+- Review [Testing Guide](documents/guides/TESTING_GUIDE.md) for validation steps
+- Check [Security Guide](documents/guides/SECURITY.md) for auth issues
 
 ---
-© 2024 EvaraTech. All Rights Reserved.
+
+© 2026 EvaraTech. All Rights Reserved.

@@ -4,7 +4,6 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core import security
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.all_models import User
@@ -22,7 +21,7 @@ async def get_current_user(
 ) -> User:
     try:
         payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
+            token, settings.SECRET_KEY, algorithms=["HS256"]
         )
         token_data = payload.get("sub")
         if token_data is None:

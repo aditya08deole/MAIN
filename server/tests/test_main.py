@@ -1,12 +1,16 @@
 from fastapi.testclient import TestClient
-from server.main import app
+from main import app
 
 client = TestClient(app)
 
 def test_read_main():
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"message": "Welcome to EvaraTech Backend API. Docs at /docs"}
+    data = response.json()
+    assert "message" in data
+    assert "documentation" in data
+    assert "version" in data
+    assert data["documentation"] == "/docs"
 
 def test_health_check():
     response = client.get("/health")

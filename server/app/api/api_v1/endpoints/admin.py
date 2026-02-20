@@ -10,7 +10,7 @@ import re
 from datetime import datetime
 from typing import List, Optional
 
-from app.core import security, security_supabase
+from app.core import security_supabase
 from app.core.permissions import Permission
 from app.core.security_supabase import RequirePermission
 from app.services.supabase_auth_service import SupabaseAuthService

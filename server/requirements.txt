@@ -16,3 +16,4 @@ gunicorn
 aiosqlite
 pytest
 pytest-asyncio
+redis[asyncio]

@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     THINGSPEAK_API_KEY: str | None = None
     THINGSPEAK_CHANNEL_ID: str | None = None
     
+    # Redis (Optional - for distributed caching)
+    USE_REDIS_CACHE: bool = False
+    REDIS_URL: str = "redis://localhost:6379/0"
+    
     # Security
     SECRET_KEY: str = "YOUR_SUPER_SECRET_KEY_HERE_CHANGE_IN_PROD"
     ALGORITHM: str = "HS256"

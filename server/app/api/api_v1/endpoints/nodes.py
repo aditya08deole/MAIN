@@ -1,17 +1,15 @@
 from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.api import deps
 from app.core import security_supabase
 from app.core.permissions import Permission
 from app.core.security_supabase import RequirePermission
+from app.core.dependencies import get_current_user
 from app.schemas import schemas
-from app.db.repository import NodeRepository, UserRepository
+from app.db.repository import NodeRepository
 from app.models.all_models import User
 from app.services.analytics import NodeAnalyticsService
 from app.db.session import get_db
-from app.services.seeder import INITIAL_NODES
-from app.core.config import get_settings
 from app.schemas.response import StandardResponse
 from app.core.cache import memory_cache
 from app.services.search import search_service
@@ -69,17 +67,22 @@ async def read_nodes(
     skip: int = 0,
     limit: int = 100,
     q: str = None, # Search query
+    current_user: User = Depends(get_current_user),
     user_payload: dict = Depends(RequirePermission(Permission.DEVICE_READ))
 ) -> Any:
     """
     BULLETPROOF NODES ENDPOINT - NEVER FAILS, ALWAYS RETURNS DATA
+    
+    REFACTORED: Now uses centralized dependency injection (Phase 1).
+    Maintains exact same response format for backward compatibility.
+    
     Retrieve nodes. Restricted to User's Community unless Super Admin.
     Returns empty list if DB fails - frontend stays operational.
     """
     import asyncio
     
     # 1. Try Cache (only if no search)
-    user_id = user_payload.get("sub")
+    user_id = current_user.id
     if not q:
         cache_key = f"nodes:{user_id}:{skip}:{limit}"
         cached_data = await memory_cache.get(cache_key)
@@ -89,40 +92,9 @@ async def read_nodes(
         
     repo = NodeRepository(db)
     
-    # Extract Access Context
-    user_metadata = user_payload.get("user_metadata", {})
-    role = user_metadata.get("role", "customer")
-    user_id = user_payload.get("sub")
-    
-    print(f"DEBUG: Processing read_nodes for user {user_id} (Role: {role})")
+    print(f"DEBUG: Processing read_nodes for user {user_id} (Role: {current_user.role})")
     
     try:
-        # BETTER APPROACH: Query the local DB user to get the latest permissions/community
-        user_repo = UserRepository(db)
-        
-        # 5s timeout to prevent hanging on blocked nodes
-        async with asyncio.timeout(5):
-            current_user = await user_repo.get(user_id)
-            
-            if not current_user and user_id.startswith("dev-bypass-"):
-                # Auto-create dev user if missing
-                print(f"Auto-creating dev user profile for {user_id}")
-                current_user = User(
-                    id=user_id,
-                    email=user_payload.get("email"),
-                    display_name=user_payload.get("user_metadata", {}).get("display_name", "Dev User"),
-                    role=user_payload.get("user_metadata", {}).get("role", "superadmin"),
-                    community_id="comm_myhome",
-                    organization_id="org_evara_hq"
-                )
-                db.add(current_user)
-                await db.commit()
-                await db.refresh(current_user)
-
-        if not current_user:
-            print(f"ERROR: User {user_id} not found in local profiles table. Please run synchronization.")
-            raise HTTPException(status_code=401, detail=f"User {user_id} not synchronized")
-
         # Fetch nodes with timeout
         async with asyncio.timeout(5):
             all_nodes = await repo.get_all(skip=0, limit=2000) # Get all for memory filtering/search support
@@ -181,8 +153,14 @@ async def read_nodes(
 async def read_node_by_id(
     node_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(deps.get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Any:
+    """
+    Get node by ID or node_key.
+    
+    REFACTORED: Now uses centralized dependency injection (Phase 1).
+    Maintains exact same response format for backward compatibility.
+    """
     repo = NodeRepository(db)
     # Try by UUID first
     try:
