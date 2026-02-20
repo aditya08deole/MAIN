@@ -26,22 +26,38 @@ async def get_current_user(
         token_data = payload.get("sub")
         if token_data is None:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
             )
     except (JWTError, ValidationError):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     
-    repo = UserRepository(db)
-    user = await repo.get(token_data)
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    return user
+    try:
+        repo = UserRepository(db)
+        user = await repo.get(token_data)
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found - invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        return user
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Database connection error - log and return clear error
+        print(f"❌ Auth error: Database unreachable - {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service temporarily unavailable - database connection failed",
+        )
 
 def get_current_active_superuser(
     current_user: User = Depends(get_current_user),

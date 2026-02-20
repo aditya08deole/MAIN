@@ -61,31 +61,50 @@ async def health_check():
     """
     Comprehensive system health check endpoint.
     Returns detailed status of all system components.
+    Compatible with frontend SystemHealth interface.
     """
     from app.db.session import engine
+    import httpx
     
-    # Database connectivity and latency check
-    db_status = "ok"
-    db_latency_ms = None
+    # Initialize status
+    db_status = "unknown"
+    thingspeak_status = "unknown"
+    overall_status = "ok"
+    
+    # 1. Database connectivity check
     try:
         start = time.time()
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
-        db_latency_ms = round((time.time() - start) * 1000, 1)
+        db_status = "ok"
     except Exception as e:
-        db_status = f"error: {str(e)}"
+        db_status = "error"
+        overall_status = "critical"
         logger.error(f"Health check database error: {e}")
     
-    # Get application state
+    # 2. ThingSpeak connectivity check
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("https://api.thingspeak.com/channels/public.json", timeout=2.0)
+            if resp.status_code == 200:
+                thingspeak_status = "ok"
+            else:
+                thingspeak_status = "degraded"
+    except Exception as e:
+        thingspeak_status = "error"
+        logger.warning(f"ThingSpeak health check failed: {e}")
+    
+    # 3. Get application state
     health_summary = app_state.get_health_summary()
     
+    # Return structure matching frontend SystemHealth interface
     return {
-        "status": health_summary["status"],
+        "status": overall_status if db_status == "ok" else "critical",
         "version": "2.0.0",
         "uptime_seconds": health_summary["uptime_seconds"],
-        "database": {
-            "status": db_status,
-            "latency_ms": db_latency_ms
+        "services": {
+            "database": db_status,
+            "thingspeak": thingspeak_status
         },
         "startup_checks": health_summary["startup_checks"]
     }

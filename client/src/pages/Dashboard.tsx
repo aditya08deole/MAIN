@@ -331,14 +331,14 @@ function Dashboard() {
                             <div className="mt-4 flex flex-col gap-1 text-xs text-slate-500">
                                 <div className="flex justify-between">
                                     <span>DB:</span>
-                                    <span className={healthData?.services.database === 'ok' ? 'text-green-600' : 'text-green-600'}>
-                                        {healthData?.services.database || 'OK'}
+                                    <span className={healthData?.services?.database === 'ok' ? 'text-green-600' : 'text-red-600'}>
+                                        {healthData?.services?.database || 'Unknown'}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span>IoT Broker:</span>
-                                    <span className={healthData?.services.thingspeak === 'ok' ? 'text-green-600' : 'text-green-600'}>
-                                        {healthData?.services.thingspeak || 'OK'}
+                                    <span className={healthData?.services?.thingspeak === 'ok' ? 'text-green-600' : 'text-red-600'}>
+                                        {healthData?.services?.thingspeak || 'Unknown'}
                                     </span>
                                 </div>
                             </div>
