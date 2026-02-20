@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -162,14 +162,18 @@ function Dashboard() {
     const { data: healthData } = useSystemHealth();
     const { data: recentAlerts = [] } = useActiveAlerts();
 
-    // Show toast notification if there's an error, but don't block UI
+    // Track shown errors to prevent notification spam
+    const shownErrorsRef = useRef<Set<string>>(new Set());
+
+    // Show toast notification ONCE per unique error - prevents flooding
     useEffect(() => {
-        if (nodesError) {
+        if (nodesError && !shownErrorsRef.current.has(nodesError)) {
+            shownErrorsRef.current.add(nodesError);
             const isSyncError = typeof nodesError === 'string' && nodesError.toLowerCase().includes('not synced');
             showToast(
                 isSyncError 
                     ? 'Account sync required. Some features may be limited.' 
-                    : `Data fetch warning: ${nodesError}`,
+                    : `Unable to fetch nodes: ${nodesError}`,
                 'error'
             );
         }

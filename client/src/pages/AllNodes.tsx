@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, Filter, Droplets, Waves, Gauge, MapPin, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
@@ -134,11 +134,15 @@ const AllNodes = () => {
 
     const { showToast } = useToast();
     const { nodes, loading, error } = useNodes();
+    
+    // Track shown errors to prevent notification spam
+    const shownErrorsRef = useRef<Set<string>>(new Set());
 
-    // Show toast notification if there's an error, but don't block UI
+    // Show toast notification ONCE per unique error - prevents flooding
     useEffect(() => {
-        if (error) {
-            showToast(`Unable to fetch some nodes: ${error}`, 'error');
+        if (error && !shownErrorsRef.current.has(error)) {
+            shownErrorsRef.current.add(error);
+            showToast(`Unable to fetch nodes: ${error}`, 'error');
         }
     }, [error, showToast]);
 
