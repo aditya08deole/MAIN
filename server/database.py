@@ -53,6 +53,7 @@ engine = create_async_engine(
         "server_settings": {"application_name": "evara_backend_simple"},
         "timeout": 30,
         "command_timeout": 60,
+        "prepared_statement_cache_size": 0,  # Disable prepared statements for Supabase pooler
     },
     pool_timeout=30
 )
