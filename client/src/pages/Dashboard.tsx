@@ -13,36 +13,8 @@ import { useSystemHealth, useActiveAlerts } from '../hooks/useDashboard';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastProvider';
 import ErrorBoundary from '../components/ErrorBoundary';
-import api from '../services/api';
 import { useTelemetry } from '../hooks/useTelemetry';
 import type { NodeRow } from '../types/database';
-
-function SyncAccountButton({ onSync }: { onSync: () => void }) {
-    const [syncing, setSyncing] = useState(false);
-
-    const handleSync = async () => {
-        setSyncing(true);
-        try {
-            await api.post('/auth/sync');
-            onSync();
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setSyncing(false);
-        }
-    };
-
-    return (
-        <button
-            type="button"
-            onClick={handleSync}
-            disabled={syncing}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
-        >
-            {syncing ? 'Syncing...' : 'Sync Account'}
-        </button>
-    );
-}
 
 // Custom Icons (Leaflet)
 const createIcon = (color: string) => L.divIcon({
