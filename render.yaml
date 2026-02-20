@@ -13,11 +13,11 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: DATABASE_URL
-        value: postgresql+asyncpg://postgres.tihrvotigvaozizlcxse:evaratech@1010@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
+        value: postgresql+asyncpg://postgres.tihrvotigvaozizlcxse:evaratech%401010@db.tihrvotigvaozizlcxse.supabase.co:5432/postgres
       - key: SUPABASE_URL
         value: https://tihrvotigvaozizlcxse.supabase.co
       - key: SUPABASE_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpaHJ2b3RpZ3Zhb3ppemxjeHNlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNzI3MDM4MiwiZXhwIjoyMDUyODQ2MzgyfQ.2qxmIeC6CRGPLQMaMn62h3dCZ2Lf4xY9g-0-v-J0ZNg
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpaHJ2b3RpZ3Zhb3ppemxjeHNlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTMwOTUyNywiZXhwIjoyMDg2ODg1NTI3fQ.zTcjoRCoo8AQHd0X8CFGuHh-WUHwXPDfeQeQKts3JJI
       - key: SUPABASE_JWT_SECRET
         value: fzxLrpyummk6rZjWJbrC63jZmwrgThygVoHF3K0jdJE2F3sUhuVxH7HUGUk5r67NWsjtYCb4x9iEJdKikyhS4A==
       - key: SECRET_KEY
@@ -25,7 +25,7 @@ services:
       - key: PORT
         value: 8000
       - key: BACKEND_CORS_ORIGINS
-        value: https://evara-frontend.onrender.com,https://evara-dashboard.onrender.com,http://localhost:5173,http://localhost:8080
+        value: https://evara-frontend.onrender.com,https://evara-dashboard.onrender.com,https://evara-backend-412x.onrender.com,http://localhost:5173,http://localhost:8080
 
   # React + Vite Frontend
   - type: web
@@ -39,11 +39,11 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        value: https://evara-backend.onrender.com/api/v1
+        value: https://evara-backend-412x.onrender.com/api/v1
       - key: VITE_SUPABASE_URL
         value: https://tihrvotigvaozizlcxse.supabase.co
       - key: VITE_SUPABASE_ANON_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpaHJ2b3RpZ3Zhb3ppemxjeHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcyNzAzODIsImV4cCI6MjA1Mjg0NjM4Mn0.PqzDAmKU8vY5WI6gHV4jXJ-mqc8jMjXCz1TaKDNH4KVg
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpaHJ2b3RpZ3Zhb3ppemxjeHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMDk1MjcsImV4cCI6MjA4Njg4NTUyN30.z8zgCfNjeDq68_HuinnvT_efI4B5nPNBY3XCTSNwKVg
 
   # React + Vite Dashboard (same frontend, different deployment)
   - type: web
@@ -57,8 +57,8 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        value: https://evara-backend.onrender.com/api/v1
+        value: https://evara-backend-412x.onrender.com/api/v1
       - key: VITE_SUPABASE_URL
         value: https://tihrvotigvaozizlcxse.supabase.co
       - key: VITE_SUPABASE_ANON_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpaHJ2b3RpZ3Zhb3ppemxjeHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcyNzAzODIsImV4cCI6MjA1Mjg0NjM4Mn0.PqzDAmKU8vY5WI6gHV4jXJ-mqc8jMjXCz1TaKDNH4KVg
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpaHJ2b3RpZ3Zhb3ppemxjeHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMDk1MjcsImV4cCI6MjA4Njg4NTUyN30.z8zgCfNjeDq68_HuinnvT_efI4B5nPNBY3XCTSNwKVg
