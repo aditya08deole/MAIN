@@ -66,7 +66,6 @@ export const useActiveAlerts = () => {
                 return [];
             }
         },
-        },
         staleTime: 1000 * 30, // 30 seconds
         refetchInterval: 1000 * 60, // Auto-refresh every 1 min
         retry: 1
