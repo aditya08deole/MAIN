@@ -4,6 +4,7 @@ Follows SOLID principles and dependency injection patterns.
 """
 from typing import Dict, Optional
 import time
+import asyncio
 from fastapi import FastAPI
 from app.core.logging import setup_logging
 from app.core.config import get_settings
@@ -84,8 +85,17 @@ class ApplicationLifecycle:
         Execute all startup procedures in proper order.
         Implements startup sequence with error handling.
         """
-        self.logger.info("Starting EvaraTech Backend...")
+        self.logger.info("=" * 80)
+        self.logger.info("🚀 STARTING EVARATECH BACKEND")
+        self.logger.info("=" * 80)
         self.app_state.set_startup_time(time.time())
+        
+        # Print configuration summary
+        from app.core.config import get_settings
+        settings = get_settings()
+        self.logger.info(f"Environment: {settings.ENVIRONMENT}")
+        self.logger.info(f"Database: {settings.DATABASE_URL[:50]}..." if len(settings.DATABASE_URL) > 50 else f"Database: {settings.DATABASE_URL}")
+        self.logger.info(f"CORS Origins: {len(settings.cors_origins)} configured")
         
         # Initialize health check service
         self.app_state.health_check_service = HealthCheckService()
@@ -102,7 +112,13 @@ class ApplicationLifecycle:
         # Start background tasks
         await self._start_background_tasks()
         
-        self.logger.info("EvaraTech Backend startup complete")
+        self.logger.info("=" * 80)
+        self.logger.info("✅ EVARATECH BACKEND STARTUP COMPLETE")
+        self.logger.info("   Health Check: /health")
+        self.logger.info("   API Docs: /docs")
+        self.logger.info("   Debug Routes: /api/v1/debug/routes")
+        self.logger.info("   DB Status: /api/v1/debug/db-status")
+        self.logger.info("=" * 80)
     
     async def shutdown(self) -> None:
         """
@@ -134,14 +150,36 @@ class ApplicationLifecycle:
         self.logger.info("=============================")
     
     async def _initialize_database(self) -> None:
-        """Initialize database tables and connections."""
-        try:
-            from app.db.session import create_tables
-            await create_tables()
-            self.logger.info("Database tables initialized")
-        except Exception as e:
-            self.logger.error(f"Database initialization failed: {e}")
-            raise
+        """Initialize database tables and connections with retry logic."""
+        max_retries = 3
+        retry_delay = 2  # Start with 2 seconds
+        
+        for attempt in range(1, max_retries + 1):
+            try:
+                from app.db.session import create_tables, engine
+                from sqlalchemy import text
+                
+                # First, test basic connectivity
+                async with engine.connect() as conn:
+                    await conn.execute(text("SELECT 1"))
+                    self.logger.info(f"Database connection test successful (attempt {attempt}/{max_retries})")
+                
+                # Then create tables
+                await create_tables()
+                self.logger.info("Database tables initialized successfully")
+                return  # Success, exit retry loop
+                
+            except Exception as e:
+                self.logger.error(f"Database initialization failed (attempt {attempt}/{max_retries}): {e}")
+                
+                if attempt < max_retries:
+                    self.logger.info(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    # Final attempt failed - log critical error but don't crash
+                    self.logger.critical("Database initialization failed after all retries. Application starting in degraded mode.")
+                    # Don't raise - allow app to start for health check visibility
     
     async def _seed_database(self) -> None:
         """Seed initial data if needed."""
@@ -153,7 +191,13 @@ class ApplicationLifecycle:
             self.logger.warning(f"Database seeding failed (may be expected): {e}")
     
     async def _start_background_tasks(self) -> None:
-        """Start background processing tasks."""
+        """Start background processing tasks with health check validation."""
+        # First, verify database connectivity before starting tasks
+        db_healthy = await self._verify_db_health()
+        
+        if not db_healthy:
+            self.logger.warning("Database unhealthy - background tasks will start with limited functionality")
+        
         try:
             from app.core.background import start_background_tasks
             await start_background_tasks()
@@ -161,27 +205,42 @@ class ApplicationLifecycle:
         except Exception as e:
             self.logger.error(f"Background task startup failed: {e}")
         
-        # Initialize enhanced alert engine
-        try:
-            from app.db.session import AsyncSessionLocal
-            async with AsyncSessionLocal() as db:
-                from app.services.alert_engine import AlertEngine
-                alert_engine = AlertEngine(db)
-                await alert_engine.initialize()
-                self.logger.info(f"Alert engine initialized: {alert_engine.active_tracker.size()} active alerts")
-        except Exception as e:
-            self.logger.error(f"Alert engine initialization failed: {e}")
+        # Initialize enhanced alert engine (only if DB healthy)
+        if db_healthy:
+            try:
+                from app.db.session import AsyncSessionLocal
+                async with AsyncSessionLocal() as db:
+                    from app.services.alert_engine import AlertEngine
+                    alert_engine = AlertEngine(db)
+                    await alert_engine.initialize()
+                    self.logger.info(f"Alert engine initialized: {alert_engine.active_tracker.size()} active alerts")
+            except Exception as e:
+                self.logger.error(f"Alert engine initialization failed: {e}")
         
-        # Start telemetry batch processor
+        # Start telemetry batch processor (only if DB healthy)
+        if db_healthy:
+            try:
+                from app.db.session import AsyncSessionLocal
+                async with AsyncSessionLocal() as db:
+                    from app.services.telemetry_processor import TelemetryProcessor
+                    telemetry_processor = TelemetryProcessor(db)
+                    await telemetry_processor.start_batch_processor()
+                    self.logger.info("Telemetry batch processor started")
+            except Exception as e:
+                self.logger.error(f"Telemetry batch processor startup failed: {e}")
+    
+    async def _verify_db_health(self) -> bool:
+        """Verify database health before starting dependent services."""
         try:
-            from app.db.session import AsyncSessionLocal
-            async with AsyncSessionLocal() as db:
-                from app.services.telemetry_processor import TelemetryProcessor
-                telemetry_processor = TelemetryProcessor(db)
-                await telemetry_processor.start_batch_processor()
-                self.logger.info("Telemetry batch processor started")
+            from app.db.session import engine
+            from sqlalchemy import text
+            
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            return True
         except Exception as e:
-            self.logger.error(f"Telemetry batch processor startup failed: {e}")
+            self.logger.warning(f"Database health check failed: {e}")
+            return False
 
 
 class ApplicationConfigurator:

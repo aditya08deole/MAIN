@@ -148,12 +148,13 @@ async def poll_thingspeak_loop():
     P9: Tracks consecutive failures per node (3 strikes → offline).
     P12: Uses asyncio.gather with semaphore for parallel polling.
     P34: Optimized with batched broadcasts and cache invalidations.
+    Enhanced with circuit breaker and exponential backoff for DB failures.
     """
-    from app.db.session import AsyncSessionLocal
+    from app.db.session import AsyncSessionLocal, engine
     from app.services.telemetry.thingspeak import ThingSpeakTelemetryService
     from app.services.telemetry_processor import TelemetryProcessor
     from app.models import all_models as models
-    from sqlalchemy import select
+    from sqlalchemy import select, text
     from sqlalchemy.orm import joinedload
     from app.services.websockets import manager
     import json
@@ -163,10 +164,44 @@ async def poll_thingspeak_loop():
     FAILURE_THRESHOLD = 3  # Mark offline after 3 consecutive failures
     semaphore = asyncio.Semaphore(10)  # P12: Max 10 concurrent ThingSpeak calls
     
-    print("🚀 Telemetry Polling Service Started (Optimized)")
+    # Circuit breaker state
+    consecutive_db_failures = 0
+    MAX_DB_FAILURES = 5
+    degraded_mode = False
+    
+    print("🚀 Telemetry Polling Service Started (Optimized with Circuit Breaker)")
     
     while True:
+        retry_delay = 60  # Default poll interval
+        
         try:
+            # Pre-flight database health check
+            try:
+                async with engine.connect() as conn:
+                    await conn.execute(text("SELECT 1"))
+                consecutive_db_failures = 0  # Reset on successful connection
+                if degraded_mode:
+                    print("✅ Database recovered - exiting degraded mode")
+                    degraded_mode = False
+            except Exception as db_check_error:
+                consecutive_db_failures += 1
+                print(f"⚠️ Database health check failed (attempt {consecutive_db_failures}/{MAX_DB_FAILURES}): {db_check_error}")
+                
+                if consecutive_db_failures >= MAX_DB_FAILURES:
+                    if not degraded_mode:
+                        print("🔴 Entering degraded mode - pausing polling due to persistent DB failures")
+                        degraded_mode = True
+                    retry_delay = 300  # Wait 5 minutes in degraded mode
+                    await asyncio.sleep(retry_delay)
+                    continue
+                else:
+                    # Exponential backoff for DB reconnection attempts
+                    retry_delay = min(60 * (2 ** (consecutive_db_failures - 1)), 300)
+                    print(f"🔄 Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    continue
+            
+            # Proceed with normal polling if DB is healthy
             async with AsyncSessionLocal() as db:
                 # 1. Get all nodes with ThingSpeak config
                 result = await db.execute(
@@ -268,7 +303,18 @@ async def poll_thingspeak_loop():
                     job_manager.stats["polls_completed"] += 1
                         
         except Exception as e:
-            print(f"❌ Error in Polling Loop: {e}")
+            consecutive_db_failures += 1
+            print(f"❌ Error in Polling Loop (failure {consecutive_db_failures}/{MAX_DB_FAILURES}): {e}")
             
-        # Wait 60 seconds
-        await asyncio.sleep(60)
+            # Exponential backoff on errors
+            if consecutive_db_failures >= MAX_DB_FAILURES:
+                retry_delay = 300  # 5 minutes in degraded mode
+                if not degraded_mode:
+                    print("🔴 Entering degraded mode due to persistent errors")
+                    degraded_mode = True
+            else:
+                retry_delay = min(60 * (2 ** (consecutive_db_failures - 1)), 300)
+                print(f"🔄 Backing off: retrying in {retry_delay} seconds...")
+            
+        # Wait before next poll
+        await asyncio.sleep(retry_delay)

@@ -213,3 +213,45 @@ async def debug_db_status():
             "error": str(e),
             "type": type(e).__name__
         }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CUSTOM ERROR HANDLERS
+# ═══════════════════════════════════════════════════════════════════════════
+
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.requests import Request as StarletteRequest
+
+@app.exception_handler(404)
+async def custom_404_handler(request: StarletteRequest, exc: StarletteHTTPException):
+    """
+    Enhanced 404 handler with helpful navigation hints.
+    Provides guidance when users access incorrect paths.
+    """
+    path = request.url.path
+    
+    # Suggest correct debug endpoints if user tried common wrong paths
+    hints = []
+    if "db-status" in path or "db_status" in path:
+        hints.append("Try: /api/v1/debug/db-status")
+    if "routes" in path:
+        hints.append("Try: /api/v1/debug/routes")
+    if not hints and not path.startswith("/api/v1"):
+        hints.append("Most API endpoints are under /api/v1")
+    
+    return JSONResponse(
+        status_code=404,
+        content={
+            "status": "error",
+            "code": 404,
+            "message": f"Not Found: {path}",
+            "hints": hints if hints else [
+                "View all routes: /api/v1/debug/routes",
+                "API documentation: /docs",
+                "Health check: /health"
+            ],
+            "meta": {
+                "correlation_id": "1d7e927b-737e-4a4a-ba9d-9c6ceb394fad"
+            }
+        }
+    )
