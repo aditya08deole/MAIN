@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from app.core.config import get_settings
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+import ssl
 
 settings = get_settings()
 
@@ -13,32 +13,24 @@ if db_url and db_url.startswith("postgres://"):
 elif db_url and db_url.startswith("postgresql://") and "+asyncpg" not in db_url:
     db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-# Ensure sslmode=require is present for Supabase connections
-if db_url and "postgresql+asyncpg://" in db_url and "supabase.co" in db_url:
-    parsed = urlparse(db_url)
-    query_params = parse_qs(parsed.query)
-    
-    # Add sslmode if not present
-    if 'sslmode' not in query_params:
-        query_params['sslmode'] = ['require']
-        new_query = urlencode(query_params, doseq=True)
-        db_url = urlunparse((
-            parsed.scheme,
-            parsed.netloc,
-            parsed.path,
-            parsed.params,
-            new_query,
-            parsed.fragment
-        ))
-        print(f"✅ Auto-configured SSL mode for Supabase connection")
-    
-    # Verify using port 6543 (pooler) not 5432 (direct)
+# Clean URL - remove any ssl/sslmode query parameters (asyncpg doesn't support them in URL)
+if "?" in db_url:
+    base_url = db_url.split("?")[0]
+    print(f"ℹ️  Cleaned URL query parameters (SSL configured in connect_args)")
+    db_url = base_url
+
+# Verify using port 6543 (pooler) not 5432 (direct)
+if db_url and "supabase.co" in db_url:
     if ":5432/" in db_url:
         print(f"⚠️  WARNING: DATABASE_URL uses port 5432 (direct connection)")
         print(f"   Supabase requires port 6543 (connection pooler) for external access")
-        print(f"   Current: {db_url}")
     elif ":6543/" in db_url:
         print(f"✅ Using Supabase connection pooler (port 6543)")
+
+# Configure SSL context for Supabase
+ssl_context = ssl.create_default_context()
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
 
 engine = create_async_engine(
     db_url,
@@ -50,6 +42,7 @@ engine = create_async_engine(
     pool_timeout=30,
     pool_recycle=300,      # Recycle connections every 5 min (Supabase may close idle)
     connect_args={
+        "ssl": ssl_context,  # SSL configuration for asyncpg
         "server_settings": {"application_name": "evara_backend"},
         "command_timeout": 10,
     }

@@ -13,7 +13,7 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: DATABASE_URL
-        value: postgresql+asyncpg://postgres.tihrvotigvaozizlcxse:evaratech%401010@db.tihrvotigvaozizlcxse.supabase.co:6543/postgres?sslmode=require
+        value: postgresql+asyncpg://postgres.tihrvotigvaozizlcxse:evaratech%401010@db.tihrvotigvaozizlcxse.supabase.co:6543/postgres
       - key: SUPABASE_URL
         value: https://tihrvotigvaozizlcxse.supabase.co
       - key: SUPABASE_KEY
