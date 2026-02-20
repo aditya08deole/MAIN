@@ -240,10 +240,12 @@ async def health_check():
         import asyncio
         start_time = time.time()
         
-        # Add 5 second timeout for health check
-        async with asyncio.timeout(5):
+        # Add 5 second timeout for health check (compatible with Python 3.9+)
+        async def check_db():
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
+        
+        await asyncio.wait_for(check_db(), timeout=5.0)
         
         response_time = round((time.time() - start_time) * 1000, 2)  # ms
         
