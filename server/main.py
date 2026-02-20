@@ -244,11 +244,8 @@ async def health_check():
         async def check_db():
             async with engine.connect() as conn:
                 # Force no prepared statements for pooler compatibility
-                result = await conn.execute(
-                    text("SELECT 1"),
-                    execution_options={"compiled_cache": None}
-                )
-                await result.fetchone()
+                result = await conn.execute(text("SELECT 1"))
+                result.fetchone()  # Don't await - fetchone() is synchronous
         
         await asyncio.wait_for(check_db(), timeout=5.0)
         
