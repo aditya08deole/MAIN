@@ -16,16 +16,16 @@ elif db_url and db_url.startswith("postgresql://") and "+asyncpg" not in db_url:
 # Clean URL - remove any ssl/sslmode query parameters (asyncpg doesn't support them in URL)
 if "?" in db_url:
     base_url = db_url.split("?")[0]
-    print(f"ℹ️  Cleaned URL query parameters (SSL configured in connect_args)")
+    print("[INFO] Cleaned URL query parameters (SSL configured in connect_args)")
     db_url = base_url
 
 # Verify using port 6543 (pooler) not 5432 (direct)
 if db_url and "supabase.co" in db_url:
     if ":5432/" in db_url:
-        print(f"⚠️  WARNING: DATABASE_URL uses port 5432 (direct connection)")
-        print(f"   Supabase requires port 6543 (connection pooler) for external access")
+        print("[WARNING] DATABASE_URL uses port 5432 (direct connection)")
+        print("   Supabase requires port 6543 (connection pooler) for external access")
     elif ":6543/" in db_url:
-        print(f"✅ Using Supabase connection pooler (port 6543)")
+        print("[OK] Using Supabase connection pooler (port 6543)")
 
 # Configure SSL context for Supabase
 ssl_context = ssl.create_default_context()
