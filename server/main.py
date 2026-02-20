@@ -121,7 +121,16 @@ async def startup_event():
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
             print("[OK] Database connection verified")
-            print(f"[OK] Connection pool: size={engine.pool.size()}, checked_out={engine.pool.checkedout()}")
+            
+            # Show pool stats (PostgreSQL only)
+            try:
+                if hasattr(engine.pool, 'size'):
+                    print(f"[OK] Connection pool: size={engine.pool.size()}, checked_out={engine.pool.checkedout()}")
+                else:
+                    print("[OK] Using SQLite (no connection pooling)")
+            except:
+                pass  # Ignore pool stats errors
+                
         except Exception as e:
             startup_errors.append(f"Database connection test failed: {e}")
             print(f"[ERROR] Database connection test failed: {e}")
@@ -217,8 +226,16 @@ async def health_check():
         response_time = round((time.time() - start_time) * 1000, 2)  # ms
         
         details["database_response_time_ms"] = response_time
-        details["connection_pool_size"] = engine.pool.size()
-        details["connection_pool_checked_out"] = engine.pool.checkedout()
+        
+        # Connection pool stats (PostgreSQL only, SQLite uses NullPool)
+        try:
+            if hasattr(engine.pool, 'size'):
+                details["connection_pool_size"] = engine.pool.size()
+                details["connection_pool_checked_out"] = engine.pool.checkedout()
+            else:
+                details["database_type"] = "SQLite (no connection pool)"
+        except:
+            pass  # Ignore pool stats errors
         
         if response_time > 1000:
             db_status = "slow"

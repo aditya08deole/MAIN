@@ -1,6 +1,6 @@
 """
 Database connection and session management.
-Simple async PostgreSQL connection with proper SSL configuration for Supabase.
+Production-ready PostgreSQL connection for Supabase.
 """
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
@@ -22,33 +22,39 @@ if "?" in db_url:
     print("[INFO] Cleaned URL query parameters (SSL configured in connect_args)")
 
 # Verify Supabase connection pooler usage
-if "supabase.co" in db_url:
+if "supabase.co" in db_url or "pooler.supabase.com" in db_url:
     if ":5432/" in db_url:
         print("[WARNING] DATABASE_URL uses port 5432 (direct connection)")
         print("          Supabase requires port 6543 (connection pooler) for external access")
     elif ":6543/" in db_url:
         print("[OK] Using Supabase connection pooler (port 6543)")
+        
+        # Detect region from URL
+        if "aws-1-ap-northeast-2" in db_url:
+            print("[OK] Region: Seoul (ap-northeast-2)")
+        elif "aws-0-ap-south-1" in db_url:
+            print("[OK] Region: Mumbai (ap-south-1)")
 
-# Configure SSL for Supabase
+# Configure SSL for Supabase (required for all connections)
 ssl_context = ssl.create_default_context()
 ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
-# Create async engine
+# Create PostgreSQL engine with optimal settings
 engine = create_async_engine(
     db_url,
-    echo=False,  # Set to True for SQL query logging
+    echo=False,
     pool_size=5,
     max_overflow=2,
-    pool_pre_ping=True,  # Verify connections before using
-    pool_recycle=300,  # Recycle connections every 5 minutes
+    pool_pre_ping=True,
+    pool_recycle=300,
     connect_args={
         "ssl": ssl_context,
         "server_settings": {"application_name": "evara_backend_simple"},
-        "timeout": 30,  # Connection timeout (30 seconds)
-        "command_timeout": 60,  # Query timeout (60 seconds)
+        "timeout": 30,
+        "command_timeout": 60,
     },
-    pool_timeout=30  # How long to wait for a connection from the pool
+    pool_timeout=30
 )
 
 # Create session factory
