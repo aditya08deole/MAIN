@@ -21,8 +21,19 @@ export const useDashboardStats = () => {
     return useQuery({
         queryKey: ['dashboard_stats'],
         queryFn: async () => {
-            const { data } = await api.get<DashboardStats>('/dashboard/stats');
-            return data;
+            try {
+                const { data } = await api.get<DashboardStats>('/dashboard/stats');
+                return data;
+            } catch (error: any) {
+                // Return zeros if endpoint fails (graceful degradation)
+                console.warn('Dashboard stats failed, returning zeros:', error.message);
+                return {
+                    total_nodes: 0,
+                    online_nodes: 0,
+                    active_alerts: 0,
+                    system_health: 'Unknown'
+                };
+            }
         },
         staleTime: 1000 * 60 * 2, // 2 minutes
         refetchInterval: 1000 * 60 * 5, // Auto-refresh every 5 mins
@@ -46,8 +57,15 @@ export const useActiveAlerts = () => {
     return useQuery({
         queryKey: ['active_alerts'],
         queryFn: async () => {
-            const { data } = await api.get<AlertHistory[]>('/dashboard/alerts');
-            return data; // Backend returns List[Dict] which matches AlertHistory[]
+            try {
+                const { data } = await api.get<AlertHistory[]>('/dashboard/alerts');
+                return data; // Backend returns List[Dict] which matches AlertHistory[]
+            } catch (error: any) {
+                // Return empty array if endpoint fails
+                console.warn('Dashboard alerts failed, returning empty:', error.message);
+                return [];
+            }
+        },
         },
         staleTime: 1000 * 30, // 30 seconds
         refetchInterval: 1000 * 60, // Auto-refresh every 1 min

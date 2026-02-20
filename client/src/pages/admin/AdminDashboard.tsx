@@ -255,7 +255,7 @@ const AdminDashboard = () => {
                 <AddCustomerForm onSubmit={handleSubmit} onCancel={handleClose} />
             </Modal>
 
-            <Modal isOpen={activeModal === 'device'} onClose={handleClose} title="Provision New Node">
+            <Modal isOpen={activeModal === 'device'} onClose={handleClose} title="Provision New Node" size="xl">
                 <AddDeviceForm
                     onSubmit={handleSubmit}
                     onCancel={handleClose}

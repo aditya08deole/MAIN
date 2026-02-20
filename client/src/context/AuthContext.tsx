@@ -9,11 +9,14 @@ const SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 hours
 
 /** Ensure backend has this user (creates/updates users_profiles). Call after login or session restore. */
 const syncWithBackend = async (): Promise<void> => {
-    try {
-        await api.post('/auth/sync');
-    } catch (err) {
-        console.warn('Backend sync failed (user may still work):', err);
-    }
+    // Run in background, don't block login
+    setTimeout(async () => {
+        try {
+            await api.post('/auth/sync');
+        } catch (err) {
+            console.warn('Backend sync failed (user may still work):', err);
+        }
+    }, 100); // Defer to next tick
 };
 
 // Re-export so existing imports from AuthContext continue to work
