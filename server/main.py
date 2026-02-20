@@ -14,7 +14,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text
+from sqlalchemy import select, text, func
 from typing import List
 from datetime import datetime
 import uuid
@@ -209,8 +209,8 @@ async def health_check():
     Tests database connectivity and returns detailed system status.
     """
     db_status = "ok"
+    thingspeak_status = "ok"
     overall_status = "ok"
-    details = {}
     
     # Database health check with timeout
     try:
@@ -225,18 +225,6 @@ async def health_check():
         
         response_time = round((time.time() - start_time) * 1000, 2)  # ms
         
-        details["database_response_time_ms"] = response_time
-        
-        # Connection pool stats (PostgreSQL only, SQLite uses NullPool)
-        try:
-            if hasattr(engine.pool, 'size'):
-                details["connection_pool_size"] = engine.pool.size()
-                details["connection_pool_checked_out"] = engine.pool.checkedout()
-            else:
-                details["database_type"] = "SQLite (no connection pool)"
-        except:
-            pass  # Ignore pool stats errors
-        
         if response_time > 1000:
             db_status = "slow"
             overall_status = "degraded"
@@ -244,18 +232,73 @@ async def health_check():
     except asyncio.TimeoutError:
         db_status = "error: timeout"
         overall_status = "critical"
-        details["database_error"] = "Database connection timeout (5s)"
+        thingspeak_status = "unknown"
         
     except Exception as e:
         db_status = f"error: {str(e)[:100]}"
         overall_status = "critical"
-        details["database_error"] = str(e)[:200]
+        thingspeak_status = "unknown"
+    
+    # ThingSpeak health check (lightweight)
+    try:
+        # Just check if client can be initialized, don't make actual API call
+        thingspeak = get_thingspeak_client()
+        if thingspeak:
+            thingspeak_status = "ok"
+        else:
+            thingspeak_status = "not_initialized"
+    except Exception:
+        thingspeak_status = "error"
     
     return HealthResponse(
         status=overall_status,
         database=db_status,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.utcnow(),
+        services={
+            "database": db_status,
+            "thingspeak": thingspeak_status
+        }
     )
+
+
+# ============================================================================
+# DASHBOARD ENDPOINTS
+# ============================================================================
+
+@app.get("/dashboard/stats", tags=["dashboard"])
+async def get_dashboard_stats(
+    user_payload: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get dashboard overview statistics.
+    Returns total nodes, online nodes, and active alerts count.
+    """
+    user_id = get_user_id(user_payload)
+    
+    # Count total nodes for this user
+    total_result = await db.execute(
+        select(func.count(Device.id)).where(Device.user_id == user_id)
+    )
+    total_nodes = total_result.scalar() or 0
+    
+    # Count online nodes (status = 'online')
+    online_result = await db.execute(
+        select(func.count(Device.id)).where(
+            Device.user_id == user_id,
+            Device.status == 'online'
+        )
+    )
+    online_nodes = online_result.scalar() or 0
+    
+    # TODO: Implement alerts system
+    active_alerts = 0
+    
+    return {
+        "total_nodes": total_nodes,
+        "online_nodes": online_nodes,
+        "active_alerts": active_alerts
+    }
 
 
 # ============================================================================
@@ -466,6 +509,76 @@ async def delete_device(
     
     print(f"[INFO] Deleted device: {device.label} ({device.node_key})")
     return {"message": "Device deleted successfully", "device_id": device_id}
+
+
+# ============================================================================
+# NODE ENDPOINTS (Aliases for /devices endpoints)
+# Frontend uses /nodes/ terminology
+# ============================================================================
+
+@app.get("/nodes", response_model=List[DeviceResponse], tags=["nodes"])
+async def list_nodes(
+    user_payload: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List all nodes (alias for list_devices).
+    Frontend compatibility endpoint.
+    """
+    return await list_devices(user_payload=user_payload, db=db)
+
+
+@app.get("/nodes/{node_id}", response_model=DeviceResponse, tags=["nodes"])
+async def get_node(
+    node_id: str,
+    user_payload: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a single node by ID (alias for get_device).
+    Frontend compatibility endpoint.
+    """
+    return await get_device(device_id=node_id, user_payload=user_payload, db=db)
+
+
+@app.post("/nodes", response_model=DeviceResponse, status_code=status.HTTP_201_CREATED, tags=["nodes"])
+async def create_node(
+    device_in: DeviceCreate,
+    user_payload: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new node (alias for create_device).
+    Frontend compatibility endpoint.
+    """
+    return await create_device(device_in=device_in, user_payload=user_payload, db=db)
+
+
+@app.patch("/nodes/{node_id}", response_model=DeviceResponse, tags=["nodes"])
+async def update_node(
+    node_id: str,
+    device_in: DeviceUpdate,
+    user_payload: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update a node (alias for update_device).
+    Frontend compatibility endpoint.
+    """
+    return await update_device(device_id=node_id, device_in=device_in, user_payload=user_payload, db=db)
+
+
+@app.delete("/nodes/{node_id}", status_code=status.HTTP_200_OK, tags=["nodes"])
+async def delete_node(
+    node_id: str,
+    user_payload: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Delete a node (alias for delete_device).
+    Frontend compatibility endpoint.
+    """
+    return await delete_device(device_id=node_id, user_payload=user_payload, db=db)
 
 
 # ============================================================================

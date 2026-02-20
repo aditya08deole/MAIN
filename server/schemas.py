@@ -88,3 +88,4 @@ class HealthResponse(BaseModel):
     status: str
     database: str
     timestamp: datetime
+    services: Optional[Dict[str, str]] = None
