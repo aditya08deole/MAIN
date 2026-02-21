@@ -22,7 +22,7 @@ import uuid
 # Local imports
 from config import get_settings
 from database import get_db, init_db, engine
-from models import User, Device, Pipeline
+from models import User, Device, Pipeline, Region, Community
 from schemas import (
     UserResponse,
     DeviceCreate,
@@ -35,7 +35,11 @@ from schemas import (
     AuditLogCreate,
     AuditLogResponse,
     FrontendErrorCreate,
-    FrontendErrorResponse
+    FrontendErrorResponse,
+    RegionResponse,
+    CommunityCreate,
+    CommunityResponse,
+    CustomerCreate
 )
 from supabase_auth import get_current_user, get_user_id, get_user_email
 from thingspeak import get_thingspeak_client
@@ -430,6 +434,195 @@ async def get_current_user_profile(
         )
     
     return user
+
+
+# ============================================================================
+# REGION & COMMUNITY ENDPOINTS
+# ============================================================================
+
+@api_router.get("/regions", response_model=List[RegionResponse], tags=["regions"])
+async def list_regions(db: AsyncSession = Depends(get_db)):
+    """
+    List all available regions (cities).
+    No authentication required - public data.
+    Returns regions sorted alphabetically by name.
+    """
+    result = await db.execute(
+        select(Region).order_by(Region.name.asc())
+    )
+    regions = result.scalars().all()
+    return regions
+
+
+@api_router.post("/communities", response_model=CommunityResponse, status_code=status.HTTP_201_CREATED, tags=["communities"])
+async def create_community(
+    community: CommunityCreate,
+    user_payload: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new community within a region.
+    Requires authentication. Only superadmin can create communities.
+    """
+    user_id = get_user_id(user_payload)
+    
+    # Get user role
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user or user.role != "superadmin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only superadmin users can create communities"
+        )
+    
+    # Validate region exists
+    result = await db.execute(select(Region).where(Region.id == community.region_id))
+    region = result.scalar_one_or_none()
+    
+    if not region:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Region with ID {community.region_id} not found"
+        )
+    
+    # Create community
+    new_community = Community(
+        id=str(uuid.uuid4()),
+        name=community.name,
+        region_id=community.region_id,
+        address=community.address,
+        contact_email=community.contact_email,
+        contact_phone=community.contact_phone
+    )
+    
+    db.add(new_community)
+    await db.commit()
+    await db.refresh(new_community)
+    
+    return new_community
+
+
+@api_router.get("/communities", response_model=List[CommunityResponse], tags=["communities"])
+async def list_communities(
+    region_id: str = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List all communities, optionally filtered by region.
+    No authentication required - public data.
+    """
+    query = select(Community)
+    
+    if region_id:
+        query = query.where(Community.region_id == region_id)
+    
+    query = query.order_by(Community.name.asc())
+    result = await db.execute(query)
+    communities = result.scalars().all()
+    
+    return communities
+
+
+@api_router.get("/communities/{community_id}", response_model=CommunityResponse, tags=["communities"])
+async def get_community(
+    community_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get a single community by ID.
+    No authentication required - public data.
+    """
+    result = await db.execute(select(Community).where(Community.id == community_id))
+    community = result.scalar_one_or_none()
+    
+    if not community:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Community with ID {community_id} not found"
+        )
+    
+    return community
+
+
+@api_router.post("/customers", response_model=UserResponse, status_code=status.HTTP_201_CREATED, tags=["customers"])
+async def create_customer(
+    customer: CustomerCreate,
+    user_payload: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new customer with Supabase authentication.
+    Requires authentication. Only superadmin can create customers.
+    
+    This endpoint:
+    1. Creates user in Supabase Auth
+    2. Creates user record in local database with community link
+    """
+    from supabase import create_client, Client
+    
+    user_id = get_user_id(user_payload)
+    
+    # Get user role - only superadmin can create customers
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user or user.role != "superadmin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only superadmin users can create customers"
+        )
+    
+    # Validate community exists
+    result = await db.execute(select(Community).where(Community.id == customer.community_id))
+    community = result.scalar_one_or_none()
+    
+    if not community:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Community with ID {customer.community_id} not found"
+        )
+    
+    # Create user in Supabase (admin API)
+    try:
+        supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+        
+        # Create user in Supabase Auth
+        auth_response = supabase.auth.admin.create_user({
+            "email": customer.email,
+            "password": customer.password,
+            "email_confirm": True  # Auto-confirm email
+        })
+        
+        if not auth_response.user:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create user in Supabase Auth"
+            )
+        
+        supabase_user_id = auth_response.user.id
+        
+    except Exception as e:
+        logger.error(f"Failed to create Supabase user: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create user in Supabase: {str(e)}"
+        )
+    
+    # Create user in local database with community link
+    new_user = User(
+        id=supabase_user_id,
+        email=customer.email,
+        display_name=customer.display_name,
+        role=customer.role,
+        community_id=customer.community_id
+    )
+    
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    
+    return new_user
 
 
 # ============================================================================

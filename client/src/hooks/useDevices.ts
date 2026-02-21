@@ -6,12 +6,17 @@ export interface Device {
     name: string;
     asset_type: string;  // pump, sump, tank, bore, govt
     asset_category?: string;
+    device_type?: string;  // tank, deep, flow - determines analytics page
+    physical_category?: string;
+    analytics_template?: string;  // EvaraTank, EvaraDeep, EvaraFlow
     latitude: number;
     longitude: number;
     capacity?: string;
     specifications?: string;
     status: string;
     is_active: string;
+    community_id?: string;
+    thingspeak_write_key?: string;
     created_at?: string;
     updated_at?: string;
 }

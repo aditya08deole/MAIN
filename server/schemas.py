@@ -24,6 +24,55 @@ class UserResponse(BaseModel):
 
 
 # ============================================================================
+# REGION & COMMUNITY SCHEMAS
+# ============================================================================
+
+class RegionResponse(BaseModel):
+    """Region response."""
+    id: str
+    name: str
+    state: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class CommunityCreate(BaseModel):
+    """Create new community."""
+    name: str
+    region_id: str  # References Region.id
+    address: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+
+
+class CommunityResponse(BaseModel):
+    """Community response."""
+    id: str
+    name: str
+    region_id: str
+    address: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class CustomerCreate(BaseModel):
+    """Create new customer (user with community link)."""
+    email: EmailStr
+    display_name: str
+    password: str  # Will be used for Supabase Auth
+    community_id: str  # References Community.id
+    role: Optional[str] = "user"  # Default role
+
+
+# ============================================================================
 # DEVICE SCHEMAS
 # ============================================================================
 
@@ -35,6 +84,9 @@ class DeviceCreate(BaseModel):
     name: Optional[str] = None  # Display name for map
     asset_type: Optional[str] = None  # pump, sump, tank, bore, govt, pipeline, sensor
     asset_category: Optional[str] = None  # Subcategory
+    device_type: Optional[str] = None  # tank, deep, flow - determines analytics page
+    physical_category: Optional[str] = None  # Physical classification
+    analytics_template: Optional[str] = None  # EvaraTank, EvaraDeep, EvaraFlow
     capacity: Optional[str] = None  # e.g., "4.98L L", "5 HP"
     specifications: Optional[str] = None  # Technical specs
     status: Optional[str] = "active"  # Status of device
@@ -44,8 +96,10 @@ class DeviceCreate(BaseModel):
     lat: Optional[float] = None  # Legacy compatibility
     lng: Optional[float] = None  # Legacy compatibility
     location_name: Optional[str] = None
+    community_id: Optional[str] = None  # References Community.id
     thingspeak_channel_id: Optional[str] = None
     thingspeak_read_key: Optional[str] = None
+    thingspeak_write_key: Optional[str] = None
     field_mapping: Optional[Dict[str, str]] = {}
 
 
@@ -56,6 +110,9 @@ class DeviceUpdate(BaseModel):
     name: Optional[str] = None
     asset_type: Optional[str] = None
     asset_category: Optional[str] = None
+    device_type: Optional[str] = None
+    physical_category: Optional[str] = None
+    analytics_template: Optional[str] = None
     capacity: Optional[str] = None
     specifications: Optional[str] = None
     status: Optional[str] = None
@@ -65,8 +122,10 @@ class DeviceUpdate(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     location_name: Optional[str] = None
+    community_id: Optional[str] = None
     thingspeak_channel_id: Optional[str] = None
     thingspeak_read_key: Optional[str] = None
+    thingspeak_write_key: Optional[str] = None
     field_mapping: Optional[Dict[str, str]] = None
 
 
@@ -79,6 +138,9 @@ class DeviceResponse(BaseModel):
     name: Optional[str] = None
     asset_type: Optional[str] = None
     asset_category: Optional[str] = None
+    device_type: Optional[str] = None
+    physical_category: Optional[str] = None
+    analytics_template: Optional[str] = None
     capacity: Optional[str] = None
     specifications: Optional[str] = None
     status: str
@@ -88,7 +150,9 @@ class DeviceResponse(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     location_name: Optional[str] = None
+    community_id: Optional[str] = None
     thingspeak_channel_id: Optional[str] = None
+    thingspeak_write_key: Optional[str] = None
     user_id: str
     created_at: datetime
     updated_at: datetime

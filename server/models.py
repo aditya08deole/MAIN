@@ -8,6 +8,31 @@ from datetime import datetime
 import uuid
 
 
+class Region(Base):
+    """Geographic regions (cities) for organizing communities."""
+    __tablename__ = "regions"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, unique=True, nullable=False, index=True)
+    state = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Community(Base):
+    """Communities within regions where devices are deployed."""
+    __tablename__ = "communities"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)
+    region_id = Column(String, nullable=False, index=True)  # References Region.id
+    address = Column(String, nullable=True)
+    contact_email = Column(String, nullable=True)
+    contact_phone = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class User(Base):
     """User profile synchronized from Supabase Auth."""
     __tablename__ = "users"
@@ -16,6 +41,7 @@ class User(Base):
     email = Column(String, unique=True, nullable=False, index=True)
     display_name = Column(String, nullable=True)
     role = Column(String, default="customer")  # customer, distributor, superadmin
+    community_id = Column(String, nullable=True, index=True)  # References Community.id
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -32,6 +58,11 @@ class Device(Base):
     name = Column(String, nullable=True)  # Display name (e.g., "Pump House 1", "Borewell P5")
     asset_type = Column(String, nullable=True)  # pump, sump, tank, bore, govt, pipeline, sensor
     asset_category = Column(String, nullable=True)  # Subcategory (e.g., "Primary Hub", "IIIT Bore")
+    
+    # Device Classification
+    device_type = Column(String, nullable=True)  # tank, deep, flow - determines analytics page
+    physical_category = Column(String, nullable=True)  # Physical classification for display
+    analytics_template = Column(String, nullable=True)  # EvaraTank, EvaraDeep, EvaraFlow
     
     # Legacy category field (kept for backwards compatibility)
     category = Column(String)  # Tank, Borewell, Flow, etc.
@@ -58,7 +89,11 @@ class Device(Base):
     # ThingSpeak Integration
     thingspeak_channel_id = Column(String, nullable=True)
     thingspeak_read_key = Column(String, nullable=True)
+    thingspeak_write_key = Column(String, nullable=True)
     field_mapping = Column(JSON, default={})  # {"field1": "water_level", "field2": "temperature"}
+    
+    # Community Link
+    community_id = Column(String, nullable=True, index=True)  # References Community.id
     
     # Ownership
     user_id = Column(String, nullable=False, index=True)  # Owner (references User.id)
