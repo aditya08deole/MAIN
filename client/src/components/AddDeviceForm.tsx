@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X, Cpu, MapPin, Building2, Key, Gauge } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { X, Cpu, MapPin, Building2, Key, Gauge, Loader2, AlertCircle } from 'lucide-react';
 import { useCommunities } from '../hooks/useCommunities';
 import { useRegions } from '../hooks/useRegions';
 import { useToast } from './ToastProvider';
@@ -28,6 +28,11 @@ export default function AddDeviceForm({ onClose, onSuccess }: AddDeviceFormProps
 
     const [selectedRegion, setSelectedRegion] = useState<string>('');
     const { communities, isLoading: loadingCommunities } = useCommunities(selectedRegion || undefined);
+
+    // Sort regions alphabetically
+    const sortedRegions = useMemo(() => {
+        return regions ? [...regions].sort((a, b) => a.name.localeCompare(b.name)) : [];
+    }, [regions]);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -176,230 +181,305 @@ export default function AddDeviceForm({ onClose, onSuccess }: AddDeviceFormProps
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        {/* Device Name */}
-                        <div className="md:col-span-2">
-                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-                                <Cpu size={16} />
-                                Device Name *
-                            </label>
-                            <input
-                                type="text"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                placeholder="e.g., Tank A - Block 1"
-                                className={`w-full px-4 py-3 rounded-xl border ${errors.name ? 'border-red-300 bg-red-50' : 'border-slate-200'} focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all`}
-                            />
-                            {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
+                    {/* Loading State */}
+                    {loadingRegions && (
+                        <div className="flex items-center justify-center py-8">
+                            <Loader2 className="animate-spin text-purple-600" size={32} />
+                            <span className="ml-3 text-slate-600">Loading data...</span>
                         </div>
+                    )}
 
-                        {/* Device Type */}
-                        <div>
-                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-                                <Gauge size={16} />
-                                Device Type *
-                            </label>
-                            <select
-                                value={formData.device_type}
-                                onChange={(e) => handleDeviceTypeChange(e.target.value)}
-                                className={`w-full px-4 py-3 rounded-xl border ${errors.device_type ? 'border-red-300 bg-red-50' : 'border-slate-200'} focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all`}
-                            >
-                                <option value="">Select device type</option>
-                                {DEVICE_TYPES.map((type) => (
-                                    <option key={type.value} value={type.value}>{type.label}</option>
-                                ))}
-                            </select>
-                            {errors.device_type && <p className="text-xs text-red-600 mt-1">{errors.device_type}</p>}
-                        </div>
+                    {!loadingRegions && (
+                        <div className="space-y-6">
+                            {/* SECTION: Basic Information */}
+                            <div>
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Basic Information</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    {/* Device Name */}
+                                    <div className="md:col-span-2">
+                                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                                            <Cpu size={16} className="text-purple-600" />
+                                            Device Name *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            placeholder="e.g., Tank A - Block 1"
+                                            className={`w-full px-4 py-3 rounded-xl border ${errors.name ? 'border-red-300 bg-red-50' : 'border-slate-200'} focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all`}
+                                        />
+                                        {errors.name && (
+                                            <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                                                <AlertCircle size={12} />
+                                                {errors.name}
+                                            </p>
+                                        )}
+                                    </div>
 
-                        {/* Analytics Template */}
-                        <div>
-                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-                                Analytics Template *
-                            </label>
-                            <select
-                                value={formData.analytics_template}
-                                onChange={(e) => setFormData({ ...formData, analytics_template: e.target.value })}
-                                className={`w-full px-4 py-3 rounded-xl border ${errors.analytics_template ? 'border-red-300 bg-red-50' : 'border-slate-200'} focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all`}
-                            >
-                                <option value="">Select template</option>
-                                {ANALYTICS_TEMPLATES.map((template) => (
-                                    <option key={template} value={template}>{template}</option>
-                                ))}
-                            </select>
-                            {errors.analytics_template && <p className="text-xs text-red-600 mt-1">{errors.analytics_template}</p>}
-                        </div>
+                                    {/* Device Type */}
+                                    <div>
+                                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                                            <Gauge size={16} className="text-purple-600" />
+                                            Device Type *
+                                        </label>
+                                        <select
+                                            value={formData.device_type}
+                                            onChange={(e) => handleDeviceTypeChange(e.target.value)}
+                                            className={`w-full px-4 py-3 rounded-xl border ${errors.device_type ? 'border-red-300 bg-red-50' : 'border-slate-200'} focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all`}
+                                        >
+                                            <option value="">Select device type</option>
+                                            {DEVICE_TYPES.map((type) => (
+                                                <option key={type.value} value={type.value}>{type.label}</option>
+                                            ))}
+                                        </select>
+                                        {errors.device_type && (
+                                            <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                                                <AlertCircle size={12} />
+                                                {errors.device_type}
+                                            </p>
+                                        )}
+                                    </div>
 
-                        {/* Physical Category */}
-                        <div>
-                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-                                Physical Category
-                            </label>
-                            <input
-                                type="text"
-                                value={formData.physical_category}
-                                onChange={(e) => setFormData({ ...formData, physical_category: e.target.value })}
-                                placeholder="e.g., Underground, Rooftop"
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-                            />
-                        </div>
+                                    {/* Analytics Template */}
+                                    <div>
+                                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                                            Analytics Template *
+                                        </label>
+                                        <select
+                                            value={formData.analytics_template}
+                                            onChange={(e) => setFormData({ ...formData, analytics_template: e.target.value })}
+                                            className={`w-full px-4 py-3 rounded-xl border ${errors.analytics_template ? 'border-red-300 bg-red-50' : 'border-slate-200'} focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all`}
+                                        >
+                                            <option value="">Select template</option>
+                                            {ANALYTICS_TEMPLATES.map((template) => (
+                                                <option key={template} value={template}>{template}</option>
+                                            ))}
+                                        </select>
+                                        {errors.analytics_template && (
+                                            <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                                                <AlertCircle size={12} />
+                                                {errors.analytics_template}
+                                            </p>
+                                        )}
+                                        {formData.device_type && formData.analytics_template && (
+                                            <p className="text-xs text-purple-600 mt-1.5">✓ Auto-suggested based on type</p>
+                                        )}
+                                    </div>
 
-                        {/* Region */}
-                        <div>
-                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-                                <MapPin size={16} />
-                                Region
-                            </label>
-                            <select
-                                value={selectedRegion}
-                                onChange={(e) => {
-                                    setSelectedRegion(e.target.value);
-                                    setFormData({ ...formData, community_id: '' });
-                                }}
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-                                disabled={loadingRegions}
-                            >
-                                <option value="">All Regions</option>
-                                {regions?.map((region) => (
-                                    <option key={region.id} value={region.id}>{region.name}, {region.state}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Community */}
-                        <div className="md:col-span-2">
-                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-                                <Building2 size={16} />
-                                Community *
-                            </label>
-                            <select
-                                value={formData.community_id}
-                                onChange={(e) => setFormData({ ...formData, community_id: e.target.value })}
-                                className={`w-full px-4 py-3 rounded-xl border ${errors.community_id ? 'border-red-300 bg-red-50' : 'border-slate-200'} focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all`}
-                                disabled={loadingCommunities}
-                            >
-                                <option value="">Select community</option>
-                                {communities?.map((community) => (
-                                    <option key={community.id} value={community.id}>{community.name}</option>
-                                ))}
-                            </select>
-                            {errors.community_id && <p className="text-xs text-red-600 mt-1">{errors.community_id}</p>}
-                        </div>
-
-                        {/* Latitude */}
-                        <div>
-                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-                                Latitude *
-                            </label>
-                            <input
-                                type="text"
-                                value={formData.latitude}
-                                onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                                placeholder="17.3850"
-                                className={`w-full px-4 py-3 rounded-xl border ${errors.latitude ? 'border-red-300 bg-red-50' : 'border-slate-200'} focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all`}
-                            />
-                            {errors.latitude && <p className="text-xs text-red-600 mt-1">{errors.latitude}</p>}
-                        </div>
-
-                        {/* Longitude */}
-                        <div>
-                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-                                Longitude *
-                            </label>
-                            <input
-                                type="text"
-                                value={formData.longitude}
-                                onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                                placeholder="78.4867"
-                                className={`w-full px-4 py-3 rounded-xl border ${errors.longitude ? 'border-red-300 bg-red-50' : 'border-slate-200'} focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all`}
-                            />
-                            {errors.longitude && <p className="text-xs text-red-600 mt-1">{errors.longitude}</p>}
-                        </div>
-
-                        {/* Capacity */}
-                        <div>
-                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-                                Capacity
-                            </label>
-                            <input
-                                type="text"
-                                value={formData.capacity}
-                                onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-                                placeholder="e.g., 10000 L"
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-                            />
-                        </div>
-
-                        {/* Specifications */}
-                        <div>
-                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
-                                Specifications
-                            </label>
-                            <input
-                                type="text"
-                                value={formData.specifications}
-                                onChange={(e) => setFormData({ ...formData, specifications: e.target.value })}
-                                placeholder="Technical details"
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-                            />
-                        </div>
-
-                        {/* ThingSpeak Section */}
-                        <div className="md:col-span-2 border-t pt-5 mt-2">
-                            <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-                                <Key size={16} />
-                                ThingSpeak Integration (Optional)
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-600 mb-1 block">Channel ID</label>
-                                    <input
-                                        type="text"
-                                        value={formData.thingspeak_channel_id}
-                                        onChange={(e) => setFormData({ ...formData, thingspeak_channel_id: e.target.value })}
-                                        placeholder="2719876"
-                                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    />
+                                    {/* Physical Category */}
+                                    <div className="md:col-span-2">
+                                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                                            Physical Category (Optional)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.physical_category}
+                                            onChange={(e) => setFormData({ ...formData, physical_category: e.target.value })}
+                                            placeholder="e.g., Underground, Rooftop, Ground Level"
+                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                                        />
+                                        <p className="text-xs text-slate-500 mt-1.5">Physical installation type or location category</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-600 mb-1 block">Read API Key</label>
-                                    <input
-                                        type="text"
-                                        value={formData.thingspeak_read_key}
-                                        onChange={(e) => setFormData({ ...formData, thingspeak_read_key: e.target.value })}
-                                        placeholder="ABC123XYZ"
-                                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    />
+                            </div>
+
+                            {/* SECTION: Location & Community */}
+                            <div className="border-t pt-6">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Location & Community</h3>
+                                <div className="space-y-4">
+                                    {/* Region Filter */}
+                                    <div>
+                                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                                            <MapPin size={16} className="text-purple-600" />
+                                            Filter by Region (Optional)
+                                        </label>
+                                        <select
+                                            value={selectedRegion}
+                                            onChange={(e) => {
+                                                setSelectedRegion(e.target.value);
+                                                setFormData({ ...formData, community_id: '' });
+                                            }}
+                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                                            disabled={loadingRegions}
+                                        >
+                                            <option value="">All Regions</option>
+                                            {sortedRegions.map((region) => (
+                                                <option key={region.id} value={region.id}>{region.name}, {region.state}</option>
+                                            ))}
+                                        </select>
+                                        <p className="text-xs text-slate-500 mt-1.5">
+                                            {sortedRegions.length} regions available
+                                        </p>
+                                    </div>
+
+                                    {/* Community */}
+                                    <div>
+                                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                                            <Building2 size={16} className="text-purple-600" />
+                                            Community *
+                                        </label>
+                                        <select
+                                            value={formData.community_id}
+                                            onChange={(e) => setFormData({ ...formData, community_id: e.target.value })}
+                                            className={`w-full px-4 py-3 rounded-xl border ${errors.community_id ? 'border-red-300 bg-red-50' : 'border-slate-200'} focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all`}
+                                            disabled={loadingCommunities}
+                                        >
+                                            <option value="">Select community</option>
+                                            {loadingCommunities && <option disabled>Loading communities...</option>}
+                                            {!loadingCommunities && communities && communities.length === 0 && (
+                                                <option disabled>No communities available - create one first</option>
+                                            )}
+                                            {communities?.map((community) => (
+                                                <option key={community.id} value={community.id}>{community.name}</option>
+                                            ))}
+                                        </select>
+                                        {errors.community_id && (
+                                            <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                                                <AlertCircle size={12} />
+                                                {errors.community_id}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Coordinates Grid */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {/* Latitude */}
+                                        <div>
+                                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                                                Latitude *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.latitude}
+                                                onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                                                placeholder="17.3850"
+                                                className={`w-full px-4 py-3 rounded-xl border ${errors.latitude ? 'border-red-300 bg-red-50' : 'border-slate-200'} focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all`}
+                                            />
+                                            {errors.latitude && (
+                                                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                                                    <AlertCircle size={12} />
+                                                    {errors.latitude}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* Longitude */}
+                                        <div>
+                                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                                                Longitude *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.longitude}
+                                                onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                                                placeholder="78.4867"
+                                                className={`w-full px-4 py-3 rounded-xl border ${errors.longitude ? 'border-red-300 bg-red-50' : 'border-slate-200'} focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all`}
+                                            />
+                                            {errors.longitude && (
+                                                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                                                    <AlertCircle size={12} />
+                                                    {errors.longitude}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Additional Specs Grid */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {/* Capacity */}
+                                        <div>
+                                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                                                Capacity (Optional)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.capacity}
+                                                onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
+                                                placeholder="e.g., 10000 L"
+                                                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                                            />
+                                        </div>
+
+                                        {/* Specifications */}
+                                        <div>
+                                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-2">
+                                                Specifications (Optional)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.specifications}
+                                                onChange={(e) => setFormData({ ...formData, specifications: e.target.value })}
+                                                placeholder="Technical details"
+                                                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-600 mb-1 block">Write API Key</label>
-                                    <input
-                                        type="text"
-                                        value={formData.thingspeak_write_key}
-                                        onChange={(e) => setFormData({ ...formData, thingspeak_write_key: e.target.value })}
-                                        placeholder="DEF456UVW"
-                                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    />
+                            </div>
+
+                            {/* SECTION: ThingSpeak Integration */}
+                            <div className="border-t pt-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                            <Key size={14} />
+                                            ThingSpeak Integration
+                                        </h3>
+                                        <p className="text-xs text-slate-400 mt-1">Optional - Connect to ThingSpeak for real-time data</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="text-xs font-semibold text-slate-600 mb-2 block">Channel ID</label>
+                                        <input
+                                            type="text"
+                                            value={formData.thingspeak_channel_id}
+                                            onChange={(e) => setFormData({ ...formData, thingspeak_channel_id: e.target.value })}
+                                            placeholder="2719876"
+                                            className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold text-slate-600 mb-2 block">Read API Key</label>
+                                        <input
+                                            type="text"
+                                            value={formData.thingspeak_read_key}
+                                            onChange={(e) => setFormData({ ...formData, thingspeak_read_key: e.target.value })}
+                                            placeholder="ABC123XYZ"
+                                            className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold text-slate-600 mb-2 block">Write API Key</label>
+                                        <input
+                                            type="text"
+                                            value={formData.thingspeak_write_key}
+                                            onChange={(e) => setFormData({ ...formData, thingspeak_write_key: e.target.value })}
+                                            placeholder="DEF456UVW"
+                                            className="w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Actions */}
                     <div className="flex gap-3 pt-6 mt-6 border-t">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-6 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition-colors"
+                            className="flex-1 px-6 py-3 rounded-xl border-2 border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition-all"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            disabled={validatingThingSpeak}
-                            className="flex-1 px-6 py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            disabled={validatingThingSpeak || loadingRegions}
+                            className="flex-1 px-6 py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2"
                         >
-                            {validatingThingSpeak ? 'Validating...' : 'Create Device'}
+                            {validatingThingSpeak && <Loader2 className="animate-spin" size={18} />}
+                            {validatingThingSpeak ? 'Validating ThingSpeak...' : 'Create Device'}
                         </button>
                     </div>
                 </form>
