@@ -382,7 +382,27 @@ const SuperAdminOverview = () => {
                             <StatCard icon={User} label="Customers" count={customerCount} accent="border-pink-200" />
                             <StatCard icon={Network} label="Nodes" count={totalNodes} accent="border-amber-200" />
                         </div>
-
+                        {/* Quick Actions Bar */}
+                        <div className="flex gap-3 mb-6">
+                            <button
+                                onClick={() => { setShowCommunityForm(true); addAudit('Opening community form', 'info'); }}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all hover:shadow-lg"
+                            >
+                                <Plus size={18} /> Add Community
+                            </button>
+                            <button
+                                onClick={() => { setShowCustomerForm(true); addAudit('Opening customer form', 'info'); }}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-all hover:shadow-lg"
+                            >
+                                <Plus size={18} /> Add Customer
+                            </button>
+                            <button
+                                onClick={() => { setShowDeviceForm(true); addAudit('Opening device form', 'info'); }}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white text-sm font-bold rounded-xl hover:bg-purple-700 transition-all hover:shadow-lg"
+                            >
+                                <Plus size={18} /> Add Device
+                            </button>
+                        </div>
                         {/* ── Site Administration ── */}
                         <div className="mb-2">
                             <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Site Administration</p>
@@ -403,7 +423,7 @@ const SuperAdminOverview = () => {
                                 <RowItem
                                     label="Customers"
                                     actions={<>
-                                        <BtnAdd onClick={() => addAudit('Customer add initiated', 'info')} />
+                                        <BtnAdd onClick={() => { setShowCustomerForm(true); addAudit('Opening customer form', 'info'); }} />
                                         <BtnView />
                                     </>}
                                 />
@@ -430,7 +450,7 @@ const SuperAdminOverview = () => {
                                             key={c.id}
                                             label={c.name}
                                             actions={<>
-                                                <BtnAdd onClick={() => setView('addNode')} />
+                                                <BtnAdd onClick={() => { setShowDeviceForm(true); addAudit(`Opening device form for ${c.name}`, 'info'); }} />
                                                 <span className="text-[10px] text-slate-300">|</span>
                                                 <BtnView />
                                                 <span className="text-[10px] text-slate-300">|</span>
