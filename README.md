@@ -1,295 +1,399 @@
 # EvaraTech IoT Platform
 
-**Next-Generation Water Quality & Distribution Monitoring System**
+**Modern IoT Device Management & Telemetry System**
 
-Real-time IoT telemetry, AI-driven insights, multi-tenant architecture, and predictive analytics for water management.
-
----
-
-## 🌟 Features
-
-- **Multi-Tenant Architecture**: Hierarchical organization (Distributors → Communities → Customers → Devices)
-- **Real-Time Telemetry**: ThingSpeak integration with background polling (60s intervals)
-- **Smart Alerts**: Threshold-based + offline detection with auto-resolution
-- **Device Health Scoring**: Anomaly detection using Z-score analysis
-- **AI Assistant**: Query device data and get operational insights
-- **Role-Based Access Control**: Superadmin, Distributor, and Customer roles with RLS
-- **Analytics Dashboard**: Live stats, device status, consumption trends
-- **WebSocket Broadcasting**: Real-time UI updates on telemetry events
+Clean, production-ready platform for managing IoT devices with real-time telemetry from ThingSpeak.
 
 ---
 
-## 🏗️ Tech Stack
+## ✨ Features
 
-### Backend
-- **Framework**: Python 3.10+ FastAPI (async/await)
-- **ORM**: SQLAlchemy 2.0 (async sessions)
-- **Database**: PostgreSQL (Supabase)
-- **Auth**: Supabase JWT
-- **Background Tasks**: asyncio loops (polling, cleanup, alerts)
+- 🔐 **Supabase Authentication** - JWT-based secure user authentication
+- 📊 **Device Management** - Full CRUD operations for IoT devices
+- 📡 **ThingSpeak Integration** - Real-time telemetry data retrieval
+- 🗺️ **Geographic Mapping** - Device location visualization with Leaflet
+- ⚡ **Performance** - Connection pooling, retry logic, caching
+- 🎯 **RESTful API** - Complete OpenAPI/Swagger documentation
+- 🚀 **Production Ready** - Error handling, logging, health checks
+
+---
+
+## 🏗️ Architecture
+
+### Backend - Simplified Structure (8 Files, ~800 Lines)
+
+```
+server/
+├── config.py          # Environment configuration (Pydantic)
+├── database.py        # PostgreSQL connection & pooling
+├── models.py          # SQLAlchemy ORM (User, Device)
+├── schemas.py         # Pydantic request/response schemas
+├── supabase_auth.py   # JWT verification
+├── thingspeak.py      # ThingSpeak API client
+├── main.py            # FastAPI app + all routes
+└── requirements.txt   # 9 dependencies
+```
+
+**Stack:**
+- FastAPI (async web framework)
+- SQLAlchemy 2.0 (async ORM)
+- PostgreSQL (Supabase, Seoul region)
+- AsyncPG (database adapter)
+- Python-JOSE (JWT)
 
 ### Frontend
-- **Framework**: React 18 + TypeScript
-- **Build Tool**: Vite
-- **UI**: TailwindCSS + shadcn/ui
-- **State**: React Query + Context API
-- **Maps**: Leaflet
 
-### Infrastructure
-- **Hosting**: Render (Docker + Static Site)
-- **Database**: Supabase (PostgreSQL + Auth)
-- **IoT**: ThingSpeak (sensor data ingestion)
+- React 18 + TypeScript
+- Vite (build tool)
+- TailwindCSS + shadcn/ui
+- Axios (API client with interceptors)
+- Leaflet (interactive maps)
+
+### Deployment
+
+- **Backend**: Render Web Service
+- **Frontend**: Render Static Site
+- **Database**: Supabase (pooler port 6543, SSL enabled)
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Node.js 18+
 - Python 3.10+
-- Supabase account (free tier works)
-- ThingSpeak account (optional, for IoT devices)
+- Supabase account
 
 ### 1. Clone Repository
+
 ```bash
-git clone https://github.com/your-org/evaratech.git
-cd evaratech
+git clone https://github.com/aditya08deole/MAIN.git
+cd MAIN
 ```
 
-### 2. Database Setup
-1. Create a Supabase project
-2. Go to **SQL Editor** and run:
-   ```sql
-   -- Copy and paste content from server/migrations/001_backend_excellence.sql
-   ```
-3. Go to **Authentication → Users** and set passwords for:
-   - `ritik@evaratech.com` → `evaratech@1010`
-   - `aditya@evaratech.com` → `evaratech@1010`
-   - `yasha@evaratech.com` → `evaratech@1010`
+### 2. Backend Setup
 
-### 3. Backend Setup
 ```bash
 cd server
+
+# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Activate (Windows)
+venv\Scripts\activate
+# Activate (macOS/Linux)
+source venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your Supabase credentials
-
-# Start server
-uvicorn app.main:app --reload
 ```
-API Docs: `http://localhost:8000/docs`
 
-### 4. Frontend Setup
+**Create `server/.env`:**
+
+```env
+DATABASE_URL=postgresql+asyncpg://postgres.xxx:password@xxx.pooler.supabase.com:6543/postgres
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_JWT_SECRET=your_jwt_secret
+SUPABASE_KEY=your_service_role_key
+CORS_ORIGINS=http://localhost:5173
+ENVIRONMENT=development
+```
+
+**Start server:**
+
+```bash
+uvicorn main:app --reload --port 8000
+```
+
+📚 API Docs: http://localhost:8000/docs
+
+### 3. Frontend Setup
+
 ```bash
 cd client
 npm install
+```
 
-# Configure environment
-cp .env.example .env
-# Edit .env with your backend URL and Supabase keys
+**Create `client/.env`:**
 
-# Start dev server
+```env
+VITE_API_URL=http://localhost:8000/api/v1
+VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_key
+```
+
+**Start dev server:**
+
+```bash
 npm run dev
 ```
-App: `http://localhost:5173`
+
+🌐 App: http://localhost:5173
 
 ---
 
-## � Documentation
+## 📡 API Endpoints
 
-Comprehensive technical documentation is organized in the [`documents/`](documents/) directory:
+### Public
 
-### Architecture & Design
-- [System Architecture](documents/architecture/SYSTEM_ARCHITECTURE.md) - Complete system overview, components, and data flow
-- [Architectural Masterplan Part 1: System Overview](documents/architecture/ARCHITECTURAL_MASTERPLAN_PART_1_SYSTEM_OVERVIEW.md)
-- [Architectural Masterplan Part 2: Performance & API Design](documents/architecture/ARCHITECTURAL_MASTERPLAN_PART_2_PERFORMANCE_API_DESIGN.md)
-- [Architectural Masterplan Part 3: ThingSpeak & Real-Time](documents/architecture/ARCHITECTURAL_MASTERPLAN_PART_3_THINGSPEAK_REALTIME.md)
-- [Architectural Masterplan Part 4: Scalability & Reliability](documents/architecture/ARCHITECTURAL_MASTERPLAN_PART_4_SCALABILITY_RELIABILITY.md)
-- [Architectural Masterplan Part 5: Deployment & Maintainability](documents/architecture/ARCHITECTURAL_MASTERPLAN_PART_5_DEPLOYMENT_MAINTAINABILITY.md)
+- `GET /` - API information
+- `GET /health` - Health check with DB & ThingSpeak status
+- `GET /config-check` - Verify environment variables
 
-### Implementation Logs
-- [Phase 1: Backend Structural Refactoring](documents/implementation/PHASE_1_IMPLEMENTATION_LOG.md)
-- [Phase 2: Database Optimization](documents/implementation/PHASE_2_IMPLEMENTATION_LOG.md)
-- [Phase 3: ThingSpeak Integration Refactor](documents/implementation/PHASE_3_IMPLEMENTATION_LOG.md)
-- [Phase 4: Performance & Real-Time Enhancements](documents/implementation/PHASE_4_IMPLEMENTATION_LOG.md)
-- [Backend Restructuring Plan](documents/implementation/BACKEND_RESTRUCTURING_PLAN.md)
+### Authentication (JWT Required)
 
-### Guides & References
-- [Testing Guide](documents/guides/TESTING_GUIDE.md) - Test execution and validation
-- [Troubleshooting Guide](documents/guides/TROUBLESHOOTING.md) - Common issues and solutions
-- [Security Guide](documents/guides/SECURITY.md) - Security policies and best practices
-- [Pipeline Installation Guide](documents/guides/PIPELINE_INSTALLATION_GUIDE.md) - Pipeline feature setup
+- `POST /api/v1/auth/sync` - Sync Supabase user to database
+- `GET /api/v1/auth/me` - Get current user profile
 
-### Project Status
-- [Changelog](documents/CHANGELOG.md) - Version 2.0.0 release notes
-- [Final Validation Report](documents/FINAL_VALIDATION_REPORT.md) - Production readiness validation
-- [Fixes Applied](documents/FIXES_APPLIED.md) - Bug fixes and improvements log
-- [Fixes Summary](documents/FIXES_SUMMARY.md) - Quick reference for all fixes
+### Devices
 
----
+- `GET /api/v1/devices` - List user's devices
+- `POST /api/v1/devices` - Create device
+- `GET /api/v1/devices/{id}` - Get device
+- `PUT /api/v1/devices/{id}` - Update device
+- `DELETE /api/v1/devices/{id}` - Delete device
 
-## �📁 Project Structure
+### Nodes (Alias for Devices)
 
-```
-evaratech/
-├── client/                # React frontend
-│   ├── src/
-│   │   ├── components/   # Reusable UI components
-│   │   ├── pages/        # Route pages
-│   │   ├── services/     # API calls
-│   │   ├── context/      # React Context providers
-│   │   └── lib/          # Utilities (Supabase, etc.)
-│   └── .env.example
-├── server/               # Python FastAPI backend
-│   ├── app/
-│   │   ├── api/          # REST API endpoints
-│   │   ├── core/         # Config, security, caching, background jobs
-│   │   ├── db/           # Database session, repository pattern
-│   │   ├── models/       # SQLAlchemy ORM models
-│   │   ├── schemas/      # Pydantic request/response schemas
-│   │   └── services/     # Business logic layer (DI-based)
-│   ├── migrations/       # SQL migration scripts
-│   ├── tests/            # Comprehensive test suite (65+ tests)
-│   ├── requirements.txt
-│   └── .env.example
-├── documents/            # Technical documentation
-│   ├── architecture/    # System design & architectural plans
-│   ├── implementation/  # Phase-by-phase implementation logs
-│   ├── guides/          # Testing, security, troubleshooting guides
-│   ├── CHANGELOG.md     # Version history
-│   └── FINAL_VALIDATION_REPORT.md
-├── .github/
-│   └── workflows/       # CI/CD pipelines
-├── render.yaml          # Render.com deployment config
-└── README.md
-```
+- `GET /api/v1/nodes` - List nodes
+- `GET /api/v1/nodes/{id}` - Get node
+- `POST /api/v1/nodes` - Create node
+- `PATCH /api/v1/nodes/{id}` - Update node
+- `DELETE /api/v1/nodes/{id}` - Delete node
+
+### Telemetry
+
+- `GET /api/v1/devices/{id}/telemetry/latest` - Latest ThingSpeak data
+- `GET /api/v1/devices/{id}/telemetry/history?results=100` - Historical data
+
+### Dashboard
+
+- `GET /api/v1/dashboard/stats` - Total nodes, online count, alerts
 
 ---
 
-## 🔑 Environment Variables
+## 🗄️ Database Schema
 
-### Backend (`server/.env`)
-```bash
-ENVIRONMENT=development
-DATABASE_URL=postgresql+asyncpg://user:pass@host:6543/postgres
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_KEY=service_role_key
-SUPABASE_JWT_SECRET=jwt_secret
-SECRET_KEY=random_secret_key
-BACKEND_CORS_ORIGINS=http://localhost:5173
+### Users
+
+```sql
+CREATE TABLE users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    display_name TEXT,
+    role TEXT DEFAULT 'customer',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
 ```
 
-### Frontend (`client/.env`)
-```bash
-VITE_API_URL=http://localhost:8000
-VITE_SUPABASE_URL=https://xxx.supabase.co
-VITE_SUPABASE_ANON_KEY=anon_public_key
+### Devices
+
+```sql
+CREATE TABLE devices (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id),
+    node_key TEXT UNIQUE NOT NULL,
+    label TEXT NOT NULL,
+    category TEXT NOT NULL,
+    status TEXT DEFAULT 'offline',
+    lat FLOAT,
+    lng FLOAT,
+    location_name TEXT,
+    thingspeak_channel_id TEXT,
+    thingspeak_read_key TEXT,
+    field_mapping JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    last_seen TIMESTAMP
+);
 ```
 
 ---
 
-## 🚢 Deployment (Render)
+## 🚀 Production Deployment
 
-1. **Push to GitHub**
-   ```bash
-   git add .
-   git commit -m "Ready for deployment"
-   git push origin main
-   ```
+### Backend (Render)
 
-2. **Connect Render**
-   - Go to [Render Dashboard](https://dashboard.render.com)
-   - Click **New → Blueprint**
-   - Connect your GitHub repo
-   - Render will auto-detect `render.yaml`
+1. **Create Web Service** in Render Dashboard
+2. **Connect GitHub repo**
+3. **Configure:**
+   - Build Command: `pip install -r server/requirements.txt`
+   - Start Command: `cd server && uvicorn main:app --host 0.0.0.0 --port $PORT`
 
-3. **Set Environment Variables** (in Render Dashboard)
-   - For `evara-backend`:
-     - `DATABASE_URL` → Your Supabase connection string
-     - `SUPABASE_URL` → Your Supabase project URL
-     - `SUPABASE_KEY` → Service role key
-     - `SUPABASE_JWT_SECRET` → JWT secret
-   - For `evara-frontend`:
-     - `VITE_SUPABASE_URL` → Same as backend
-     - `VITE_SUPABASE_ANON_KEY` → Anon public key
+4. **Add Environment Variables:**
 
-4. **Deploy** → Render will build and deploy both services
+| Key | Value |
+|-----|-------|
+| `DATABASE_URL` | `postgresql+asyncpg://postgres.xxx:password@xxx.pooler.supabase.com:6543/postgres?sslmode=require` |
+| `SUPABASE_URL` | `https://xxx.supabase.co` |
+| `SUPABASE_JWT_SECRET` | Your JWT secret from Supabase → Settings → API |
+| `SUPABASE_KEY` | Your service_role key |
+| `CORS_ORIGINS` | `https://your-frontend.onrender.com` |
+| `ENVIRONMENT` | `production` |
 
----
+5. **Deploy** - Auto-deploys on every push to `main`
 
-## 🎯 Default Login
+### Frontend (Render)
 
-After running the migration, use these credentials:
-- **Email**: `ritik@evaratech.com`
-- **Password**: `evaratech@1010`
-- **Role**: Superadmin
+1. **Create Static Site** in Render Dashboard
+2. **Connect GitHub repo**
+3. **Configure:**
+   - Build Command: `cd client && npm install && npm run build`
+   - Publish Directory: `client/dist`
 
----
+4. **Add Environment Variables:**
 
-## 📊 API Endpoints
+| Key | Value |
+|-----|-------|
+| `VITE_API_URL` | `https://your-backend.onrender.com/api/v1` |
+| `VITE_SUPABASE_URL` | `https://xxx.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Your anon key |
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/api/v1/auth/sync` | POST | Sync user with Supabase |
-| `/api/v1/nodes` | GET/POST | Node CRUD |
-| `/api/v1/dashboard/stats` | GET | Dashboard metrics |
-| `/api/v1/alerts` | GET | Alert history |
-| `/api/v1/ingest/readings` | POST | Sensor data ingestion |
-
-Full docs: `http://localhost:8000/docs`
+📋 **Detailed Setup**: See [RENDER_ENV_SETUP.md](RENDER_ENV_SETUP.md)
 
 ---
 
-## 🛠️ Development
+## 🔍 Troubleshooting
 
-### Run Tests
+### 401 "Not authenticated" Error
+
+**Cause**: Missing `SUPABASE_JWT_SECRET` in Render environment
+
+**Fix**: 
+1. Go to Render → Backend Service → Environment
+2. Add `SUPABASE_JWT_SECRET` from Supabase → Settings → API
+3. Redeploy
+
+### 404 Errors on API Calls
+
+**Cause**: Frontend calling wrong URL
+
+**Fix**: Verify `VITE_API_URL` ends with `/api/v1`
+
+### Database Connection Fails
+
+**Cause**: Wrong connection string or missing SSL
+
+**Fix**: 
+- Use pooler URL (port 6543, not 5432)
+- Append `?sslmode=require` to DATABASE_URL
+- Use `postgresql+asyncpg://` prefix (not just `postgresql://`)
+
+### "DB: Unknown" in Frontend
+
+**Cause**: Backend environment not configured
+
+**Fix**: 
+1. Visit `https://your-backend.onrender.com/config-check`
+2. Add any missing environment variables
+3. Redeploy
+
+---
+
+## 📚 Additional Documentation
+
+See [`documents/`](documents/) folder for:
+
+- **Architecture**: System design docs (historical)
+- **Implementation**: Development phase logs
+- **Guides**: Testing, security, troubleshooting
+
+---
+
+## 🧪 Development
+
+### Run Backend Tests
+
 ```bash
 cd server
-pytest
+pytest tests/ -v
 ```
 
-### Database Migrations
-All schema changes are in `server/migrations/001_backend_excellence.sql`.  
-Run it manually in Supabase SQL Editor.
+### Code Quality
 
-### Background Tasks
-The server runs 3 background loops:
-1. **ThingSpeak Polling** (60s) — Fetches sensor data
-2. **Data Cleanup** (24h) — Removes old readings/logs
-3. **Alert Evaluation** — Checks thresholds after each poll
+```bash
+# Backend
+cd server
+black .
+flake8 .
 
----
+# Frontend
+cd client
+npm run lint
+```
 
-## 📝 License
+### Local Database
 
-[MIT License](LICENSE)
-
----
-
-## 👥 Team
-
-- **Ritik** - ritik@evaratech.com
-- **Aditya** - aditya@evaratech.com
-- **Yasha** - yasha@evaratech.com
-
----
-
-## 🐛 Troubleshooting
-
-For detailed troubleshooting steps, see the [Troubleshooting Guide](documents/guides/TROUBLESHOOTING.md).
-
-**Quick Checks:**
-- Verify environment variables in `.env` files
-- Check Supabase credentials and database connectivity
-- Ensure all dependencies are installed (`pip install -r requirements.txt`, `npm install`)
-- Review [Testing Guide](documents/guides/TESTING_GUIDE.md) for validation steps
-- Check [Security Guide](documents/guides/SECURITY.md) for auth issues
+```bash
+# Use Supabase directly or set up local PostgreSQL
+docker run -d \
+  -e POSTGRES_PASSWORD=postgres \
+  -p 5432:5432 \
+  postgres:15
+```
 
 ---
 
-© 2026 EvaraTech. All Rights Reserved.
+## 📝 Project Structure
+
+```
+MAIN/
+├── client/                    # React frontend
+│   ├── src/
+│   │   ├── components/       # UI components
+│   │   ├── pages/            # Route pages
+│   │   ├── services/         # API client
+│   │   ├── context/          # Auth context
+│   │   └── lib/              # Supabase client
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── server/                    # FastAPI backend
+│   ├── config.py             # Settings
+│   ├── database.py           # DB connection
+│   ├── models.py             # ORM models
+│   ├── schemas.py            # Pydantic schemas
+│   ├── supabase_auth.py      # JWT auth
+│   ├── thingspeak.py         # API client
+│   ├── main.py               # FastAPI app
+│   ├── requirements.txt      # Dependencies
+│   └── tests/                # Test suite
+│
+├── documents/                 # Documentation
+│   ├── architecture/         # Design docs
+│   ├── implementation/       # Dev logs
+│   └── guides/               # How-tos
+│
+├── RENDER_ENV_SETUP.md       # Deployment guide
+└── README.md                 # This file
+```
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/name`)
+3. Commit changes (`git commit -m 'Add feature'`)
+4. Push to branch (`git push origin feature/name`)
+5. Open Pull Request
+
+---
+
+## 📧 Support
+
+- **Issues**: [GitHub Issues](https://github.com/aditya08deole/MAIN/issues)
+- **Documentation**: [documents/](documents/)
+- **Deployment**: [RENDER_ENV_SETUP.md](RENDER_ENV_SETUP.md)
+
+---
+
+## 📄 License
+
+MIT License - See [LICENSE](LICENSE) for details
+
+---
+
+**Built with ❤️ for modern IoT management**

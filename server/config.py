@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     # Application
     ENVIRONMENT: str = "production"
     PROJECT_NAME: str = "EvaraTech Backend"
+    API_V1_STR: str = "/api/v1"
     
     # Database (Supabase PostgreSQL)
     DATABASE_URL: str
@@ -30,7 +31,13 @@ class Settings(BaseSettings):
     SUPABASE_JWT_SECRET: str
     
     # CORS
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:8080,https://evara-frontend.onrender.com"
+    CORS_ORIGINS: str = Field(
+        default="http://localhost:5173,http://localhost:8080,https://evara-dashboard.onrender.com",
+        validation_alias="BACKEND_CORS_ORIGINS"
+    )
+    
+    # Logging
+    LOG_LEVEL: str = "INFO"
     
     @property
     def cors_origins_list(self) -> list[str]:

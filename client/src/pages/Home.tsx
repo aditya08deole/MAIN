@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { Activity, LayoutDashboard, Layers } from 'lucide-react';
 import clsx from 'clsx';
 import { Link } from 'react-router-dom';
-import { useNodes } from '../hooks/useNodes';
-import { usePipelines } from '../hooks/usePipelines';
+import { useMapDevices } from '../hooks/useMapDevices';
+import { useMapPipelines } from '../hooks/useMapPipelines';
 import L from 'leaflet';
 
 // Fix for default marker icon in React-Leaflet
@@ -82,10 +82,10 @@ export const Home = () => {
     const [activeFilter, setActiveFilter] = useState<string | null>(null);
     const [activePipeline, setActivePipeline] = useState<string | null>(null);
 
-    const { nodes, loading: nodesLoading } = useNodes();
-    const { pipelines, loading: pipelinesLoading } = usePipelines();
+    const { devices, loading: devicesLoading } = useMapDevices();
+    const { pipelines, loading: pipelinesLoading } = useMapPipelines();
 
-    if (nodesLoading || pipelinesLoading) {
+    if (devicesLoading || pipelinesLoading) {
         return <div className="flex items-center justify-center h-screen">Loading map data...</div>;
     }
 
@@ -97,16 +97,16 @@ export const Home = () => {
         setActivePipeline(prev => prev === pipeline ? null : pipeline);
     };
 
-    // Derived state for filtering
-    const pumpHouses = nodes.filter(n => n.category === 'PumpHouse');
-    const sumps = nodes.filter(n => n.category === 'Sump');
-    const ohts = nodes.filter(n => n.category === 'OHT');
-    const borewells = nodes.filter(n => n.category === 'Borewell');
-    const govtBorewells = nodes.filter(n => n.category === 'GovtBorewell');
+    // Derived state for filtering (map asset_type to categories)
+    const pumpHouses = devices.filter(d => d.asset_type === 'pump');
+    const sumps = devices.filter(d => d.asset_type === 'sump');
+    const ohts = devices.filter(d => d.asset_type === 'tank');
+    const borewells = devices.filter(d => d.asset_type === 'bore');
+    const govtBorewells = devices.filter(d => d.asset_type === 'govt');
 
     // Combine for counts
-    const onlineNodes = nodes.filter(n => n.status === 'Online');
-    const offlineNodes = nodes.filter(n => n.status === 'Offline' || n.status === 'Alert' || n.status === 'Maintenance');
+    const onlineNodes = devices.filter(d => d.status === 'Online' || d.status === 'Working' || d.status === 'Running' || d.status === 'Normal');
+    const offlineNodes = devices.filter(d => d.status === 'Offline' || d.status === 'Not Working' || d.status === 'Alert' || d.status === 'Maintenance' || d.status === 'Critical');
 
 
     // Center Map on PH-01
@@ -150,23 +150,22 @@ export const Home = () => {
                     ))}
                     {/* Pump House Markers (Purple Pins) */}
                     {(activeFilter === null || activeFilter === 'pumphouse') && pumpHouses.map((ph) => (
-                        <Marker key={ph.id} position={[ph.lat, ph.lng]} icon={purpleIcon}>
+                        <Marker key={ph.id} position={[ph.latitude!, ph.longitude!]} icon={purpleIcon}>
                             <Popup>
                                 <div className="p-2 min-w-[150px]">
-                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{ph.label}</h3>
+                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{ph.name}</h3>
+                                    {ph.capacity && (
+                                        <p className="text-xs text-slate-600 mb-1">Capacity: {ph.capacity}</p>
+                                    )}
                                     <div className="mb-3">
                                         <span className={clsx(
                                             "text-[10px] font-bold px-2 py-0.5 rounded-full inline-block",
-                                            ph.status === 'Online' ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
+                                            (ph.status === 'Online' || ph.status === 'Working' || ph.status === 'Running' || ph.status === 'Normal') ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
                                         )}>
                                             {ph.status}
                                         </span>
                                     </div>
-                                    <Link
-                                        to={`/node/${ph.node_key}`}
-                                        className="block w-full text-center bg-blue-600 !text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
-                                        style={{ color: 'white' }}
-                                    >
+                                    <Link to={`/node/${ph.id}`} className="block w-full text-center bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
                                         View Details
                                     </Link>
                                 </div>
@@ -176,23 +175,22 @@ export const Home = () => {
 
                     {/* Sumps Markers (Green Pins) */}
                     {(activeFilter === null || activeFilter === 'sump') && sumps.map((sump) => (
-                        <Marker key={sump.id} position={[sump.lat, sump.lng]} icon={sumpIcon}>
+                        <Marker key={sump.id} position={[sump.latitude!, sump.longitude!]} icon={sumpIcon}>
                             <Popup>
                                 <div className="p-2 min-w-[150px]">
-                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{sump.label}</h3>
+                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{sump.name}</h3>
+                                    {sump.capacity && (
+                                        <p className="text-xs text-slate-600 mb-1">Capacity: {sump.capacity}</p>
+                                    )}
                                     <div className="mb-3">
                                         <span className={clsx(
                                             "text-[10px] font-bold px-2 py-0.5 rounded-full inline-block",
-                                            sump.status === 'Online' ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
+                                            (sump.status === 'Online' || sump.status === 'Working' || sump.status === 'Running' || sump.status === 'Normal') ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
                                         )}>
                                             {sump.status}
                                         </span>
                                     </div>
-                                    <Link
-                                        to={`/node/${sump.node_key}`}
-                                        className="block w-full text-center bg-blue-600 !text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
-                                        style={{ color: 'white' }}
-                                    >
+                                    <Link to={`/node/${sump.id}`} className="block w-full text-center bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
                                         View Details
                                     </Link>
                                 </div>
@@ -202,23 +200,22 @@ export const Home = () => {
 
                     {/* OHT Markers (Blue Pins) */}
                     {(activeFilter === null || activeFilter === 'oht') && ohts.map((oht) => (
-                        <Marker key={oht.id} position={[oht.lat, oht.lng]} icon={blueIcon}>
+                        <Marker key={oht.id} position={[oht.latitude!, oht.longitude!]} icon={blueIcon}>
                             <Popup>
                                 <div className="p-2 min-w-[150px]">
-                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{oht.label}</h3>
+                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{oht.name}</h3>
+                                    {oht.capacity && (
+                                        <p className="text-xs text-slate-600 mb-1">Capacity: {oht.capacity}</p>
+                                    )}
                                     <div className="mb-3">
                                         <span className={clsx(
                                             "text-[10px] font-bold px-2 py-0.5 rounded-full inline-block",
-                                            oht.status === 'Online' ? "text-blue-600 bg-blue-50" : "text-red-600 bg-red-50"
+                                            (oht.status === 'Online' || oht.status === 'Working' || oht.status === 'Running' || oht.status === 'Normal') ? "text-blue-600 bg-blue-50" : "text-red-600 bg-red-50"
                                         )}>
                                             {oht.status}
                                         </span>
                                     </div>
-                                    <Link
-                                        to={`/node/${oht.node_key}`}
-                                        className="block w-full text-center bg-blue-600 !text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
-                                        style={{ color: 'white' }}
-                                    >
+                                    <Link to={`/node/${oht.id}`} className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
                                         View Details
                                     </Link>
                                 </div>
@@ -228,27 +225,26 @@ export const Home = () => {
 
                     {/* Borewell Markers (Yellow Pins) */}
                     {(activeFilter === null || activeFilter === 'borewell' || activeFilter === 'nonworking') && borewells.filter(bw => {
-                        if (activeFilter === 'nonworking') return bw.status === 'Offline' || bw.status === 'Alert';
+                        if (activeFilter === 'nonworking') return bw.status === 'Offline' || bw.status === 'Not Working' || bw.status === 'Alert' || bw.status === 'Critical';
                         if (activeFilter === 'borewell') return true;
                         return true;
                     }).map((bw) => (
-                        <Marker key={bw.id} position={[bw.lat, bw.lng]} icon={(bw.status === 'Offline' || bw.status === 'Alert') ? redIcon : yellowIcon}>
+                        <Marker key={bw.id} position={[bw.latitude!, bw.longitude!]} icon={(bw.status === 'Offline' || bw.status === 'Not Working' || bw.status === 'Alert' || bw.status === 'Critical') ? redIcon : yellowIcon}>
                             <Popup>
                                 <div className="p-2 min-w-[150px]">
-                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{bw.label}</h3>
+                                    <h3 className="font-bold text-slate-800">{bw.name}</h3>
+                                    {bw.capacity && (
+                                        <p className="text-xs text-slate-600 mb-1">Capacity: {bw.capacity}</p>
+                                    )}
                                     <div className="mb-3">
                                         <span className={clsx(
                                             "text-[10px] font-bold px-2 py-0.5 rounded-full inline-block",
-                                            bw.status === 'Online' ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
+                                            (bw.status === 'Online' || bw.status === 'Working' || bw.status === 'Running' || bw.status === 'Normal') ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
                                         )}>
                                             {bw.status}
                                         </span>
                                     </div>
-                                    <Link
-                                        to={`/node/${bw.node_key}`}
-                                        className="block w-full text-center bg-blue-600 !text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
-                                        style={{ color: 'white' }}
-                                    >
+                                    <Link to={`/node/${bw.id}`} className="block w-full text-center bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
                                         View Details
                                     </Link>
                                 </div>
@@ -258,27 +254,26 @@ export const Home = () => {
 
                     {/* Govt Borewell Markers (Black Pins) */}
                     {(activeFilter === null || activeFilter === 'govtborewell' || activeFilter === 'nonworking') && govtBorewells.filter(bw => {
-                        if (activeFilter === 'nonworking') return bw.status === 'Offline' || bw.status === 'Alert';
+                        if (activeFilter === 'nonworking') return bw.status === 'Offline' || bw.status === 'Not Working' || bw.status === 'Alert' || bw.status === 'Critical';
                         if (activeFilter === 'govtborewell') return true;
                         return true;
                     }).map((bw) => (
-                        <Marker key={bw.id} position={[bw.lat, bw.lng]} icon={(bw.status === 'Offline' || bw.status === 'Alert') ? redIcon : blackIcon}>
+                        <Marker key={bw.id} position={[bw.latitude!, bw.longitude!]} icon={(bw.status === 'Offline' || bw.status === 'Not Working' || bw.status === 'Alert' || bw.status === 'Critical') ? redIcon : blackIcon}>
                             <Popup>
                                 <div className="p-2 min-w-[150px]">
-                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{bw.label}</h3>
+                                    <h3 className="font-bold text-slate-800 text-sm mb-1">{bw.name}</h3>
+                                    {bw.capacity && (
+                                        <p className="text-xs text-slate-600 mb-1">Capacity: {bw.capacity}</p>
+                                    )}
                                     <div className="mb-3">
                                         <span className={clsx(
                                             "text-[10px] font-bold px-2 py-0.5 rounded-full inline-block",
-                                            bw.status === 'Online' ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
+                                            (bw.status === 'Online' || bw.status === 'Working' || bw.status === 'Running' || bw.status === 'Normal') ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
                                         )}>
                                             {bw.status}
                                         </span>
                                     </div>
-                                    <Link
-                                        to={`/node/${bw.node_key}`}
-                                        className="block w-full text-center bg-blue-600 !text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
-                                        style={{ color: 'white' }}
-                                    >
+                                    <Link to={`/node/${bw.id}`} className="block w-full text-center bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
                                         View Details
                                     </Link>
                                 </div>
@@ -328,7 +323,7 @@ export const Home = () => {
                                 <div className="text-[10px] font-semibold text-red-700">Offline</div>
                             </div>
                             <div className="bg-blue-50 rounded-lg p-2.5 text-center">
-                                <div className="text-lg font-extrabold text-blue-600">{nodes.length}</div>
+                                <div className="text-lg font-extrabold text-blue-600">{devices.length}</div>
                                 <div className="text-[10px] font-semibold text-blue-700">Total</div>
                             </div>
                         </div>
@@ -336,11 +331,11 @@ export const Home = () => {
                         {/* Asset Breakdown */}
                         <div className="space-y-3">
                             {[
-                                { name: 'Pump Houses', total: pumpHouses.length, working: pumpHouses.filter(p => p.status === 'Online').length, color: '#9333ea', bg: 'bg-purple-50' },
-                                { name: 'Sumps', total: sumps.length, working: sumps.filter(s => s.status === 'Online').length, color: '#16a34a', bg: 'bg-green-50' },
-                                { name: 'Overhead Tanks', total: ohts.length, working: ohts.filter(o => o.status === 'Online').length, color: '#2563eb', bg: 'bg-blue-50' },
-                                { name: 'Borewells (IIIT)', total: borewells.length, working: borewells.filter(b => b.status === 'Online').length, color: '#eab308', bg: 'bg-yellow-50' },
-                                { name: 'Borewells (Govt)', total: govtBorewells.length, working: govtBorewells.filter(b => b.status === 'Online').length, color: '#1e293b', bg: 'bg-slate-50' },
+                                { name: 'Pump Houses', total: pumpHouses.length, working: pumpHouses.filter(p => p.status === 'Online' || p.status === 'Working' || p.status === 'Running' || p.status === 'Normal').length, color: '#9333ea', bg: 'bg-purple-50' },
+                                { name: 'Sumps', total: sumps.length, working: sumps.filter(s => s.status === 'Online' || s.status === 'Working' || s.status === 'Running' || s.status === 'Normal').length, color: '#16a34a', bg: 'bg-green-50' },
+                                { name: 'Overhead Tanks', total: ohts.length, working: ohts.filter(o => o.status === 'Online' || o.status === 'Working' || o.status === 'Running' || o.status === 'Normal').length, color: '#2563eb', bg: 'bg-blue-50' },
+                                { name: 'Borewells (IIIT)', total: borewells.length, working: borewells.filter(b => b.status === 'Online' || b.status === 'Working' || b.status === 'Running' || b.status === 'Normal').length, color: '#eab308', bg: 'bg-yellow-50' },
+                                { name: 'Borewells (Govt)', total: govtBorewells.length, working: govtBorewells.filter(b => b.status === 'Online' || b.status === 'Working' || b.status === 'Running' || b.status === 'Normal').length, color: '#1e293b', bg: 'bg-slate-50' },
                             ].map((asset, i) => (
                                 <div key={i} className={clsx("rounded-xl p-3", asset.bg)}>
                                     <div className="flex justify-between items-center mb-1.5">
@@ -393,7 +388,7 @@ export const Home = () => {
                             </div>
                             <div className="bg-cyan-50 rounded-lg p-2.5">
                                 <div className="text-[10px] font-bold text-slate-500">System Status</div>
-                                <div className="text-lg font-extrabold text-cyan-600">{nodesLoading ? 'Loading' : 'Active'}</div>
+                                <div className="text-lg font-extrabold text-cyan-600">{devicesLoading ? 'Loading' : 'Active'}</div>
                             </div>
                         </div>
 

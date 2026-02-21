@@ -9,12 +9,28 @@ export const useNodes = (searchQuery: string = '') => {
     const { data: nodes = [], isLoading, error, refetch } = useQuery<NodeRow[]>({
         queryKey: ['nodes', searchQuery],
         queryFn: async () => {
-            const params = searchQuery ? { q: searchQuery } : {};
-            const response = await api.get<NodeRow[]>('/nodes/', { params });
-            return response.data;
+            // Check if user is authenticated before making request
+            const stored = localStorage.getItem('evara_session');
+            if (!stored) {
+                console.warn('[useNodes] No authentication found, returning empty array');
+                return [];
+            }
+
+            try {
+                const params = searchQuery ? { q: searchQuery } : {};
+                const response = await api.get<NodeRow[]>('/nodes/', { params });
+                return response.data;
+            } catch (error: any) {
+                // Gracefully handle auth errors
+                if (error.response?.status === 401 || error.response?.status === 403) {
+                    console.warn('[useNodes] Authentication failed, returning empty array');
+                    return [];
+                }
+                throw error; // Re-throw other errors
+            }
         },
         staleTime: 1000 * 60, // 1 minute stale time (background updates after this)
-        retry: 1, // Fail fast on error
+        retry: false, // Don't retry auth failures
         placeholderData: (prev) => prev, // Keep showing old data while filtering (replaces keepPreviousData)
     });
 
@@ -28,7 +44,7 @@ export const useNodes = (searchQuery: string = '') => {
         console.log("Connecting to WebSocket:", wsUrl);
 
         let socket: WebSocket | null = null;
-        let retryTimeout: any = null;
+        let retryTimeout: ReturnType<typeof setTimeout> | null = null;
 
         const connect = () => {
             socket = new WebSocket(wsUrl);

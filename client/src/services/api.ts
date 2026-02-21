@@ -24,6 +24,7 @@ api.interceptors.request.use(
                 try {
                     const session = JSON.parse(localStorage.getItem(key) || '{}');
                     token = session.access_token || null;
+                    if (token) console.log('[API] Using Supabase token');
                 } catch (e) {
                     console.error('Failed to parse Supabase session:', e);
                 }
@@ -39,15 +40,19 @@ api.interceptors.request.use(
                     const { user } = JSON.parse(stored);
                     if (user?.id && typeof user.id === 'string' && user.id.startsWith('dev-bypass-')) {
                         token = user.id;
+                        console.log('[API] Using dev-bypass token:', token);
                     }
                 }
-            } catch {
-                // ignore
+            } catch (e) {
+                console.error('[API] Failed to get dev-bypass token:', e);
             }
         }
 
         if (token) {
             config.headers.set('Authorization', `Bearer ${token}`);
+            console.log('[API] Request to', config.url, 'with auth');
+        } else {
+            console.warn('[API] No auth token found for request to', config.url);
         }
         return config;
     },

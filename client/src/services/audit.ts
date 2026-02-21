@@ -6,7 +6,7 @@ export interface AuditLog {
     action: string;
     resource_type: string;
     resource_id?: string;
-    details?: any;
+    details?: Record<string, string | number | boolean>;
     timestamp: string;
     user?: {
         full_name: string;

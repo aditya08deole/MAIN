@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth, type UserRole, type UserPlan } from '../context/AuthContext';
 
 interface ProtectedRouteProps {
@@ -9,6 +10,17 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, allowedPlans }) => {
     const { user, loading, isAuthenticated } = useAuth();
+    const queryClient = useQueryClient();
+
+    // Invalidate queries when authentication state changes
+    useEffect(() => {
+        if (isAuthenticated && user) {
+            console.log('[ProtectedRoute] User authenticated, invalidating queries');
+            queryClient.invalidateQueries({ queryKey: ['nodes'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
+            queryClient.invalidateQueries({ queryKey: ['active_alerts'] });
+        }
+    }, [isAuthenticated, user, queryClient]);
 
     if (loading) {
         return (
@@ -19,6 +31,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, allowedPl
     }
 
     if (!isAuthenticated || !user) {
+        console.log('[ProtectedRoute] User not authenticated, redirecting to login');
         return <Navigate to="/login" replace />;
     }
 

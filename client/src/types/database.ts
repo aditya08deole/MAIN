@@ -59,7 +59,7 @@ export interface NodeAnalyticsRow {
     consumption_liters: number | null;
     avg_level_percent: number | null;
     peak_flow: number | null;
-    metadata: any;
+    metadata: Record<string, string | number | boolean> | null;
     created_at: string;
 }
 
@@ -69,7 +69,7 @@ export interface AuditLogRow {
     action: string;
     entity_type: string;
     entity_id: string | null;
-    metadata: any;
+    metadata: Record<string, string | number | boolean> | null;
     created_at: string;
 }
 

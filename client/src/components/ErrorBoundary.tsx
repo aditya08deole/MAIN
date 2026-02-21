@@ -1,4 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 interface Props {
     children?: ReactNode;
@@ -25,6 +28,23 @@ class ErrorBoundary extends Component<Props, State> {
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         console.error("Uncaught error:", error, errorInfo);
         this.setState({ errorInfo });
+        
+        // Log error to backend for monitoring
+        this.logErrorToBackend(error, errorInfo);
+    }
+
+    private async logErrorToBackend(error: Error, errorInfo: ErrorInfo) {
+        try {
+            await axios.post(`${API_URL}/frontend-errors`, {
+                error_message: error.message,
+                stack_trace: errorInfo.componentStack || error.stack,
+                url: window.location.href,
+                user_agent: navigator.userAgent
+            });
+            console.log('[ErrorBoundary] Error logged to backend');
+        } catch (logError) {
+            console.error('[ErrorBoundary] Failed to log error to backend:', logError);
+        }
     }
 
     public render() {
@@ -37,6 +57,7 @@ class ErrorBoundary extends Component<Props, State> {
                 <div className="min-h-screen flex items-center justify-center bg-red-50 p-10 font-mono text-sm">
                     <div className="max-w-4xl w-full bg-white border border-red-200 shadow-xl rounded-lg p-8 overflow-hidden">
                         <h1 className="text-2xl font-bold text-red-600 mb-4">Something went wrong.</h1>
+                        <p className="text-slate-600 mb-4">The error has been logged. Try reloading the page.</p>
                         <div className="bg-red-50 border border-red-100 rounded p-4 mb-4">
                             <p className="font-bold text-red-800 break-words">{this.state.error && this.state.error.toString()}</p>
                         </div>

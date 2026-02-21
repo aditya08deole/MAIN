@@ -42,10 +42,19 @@ async def get_current_user(
     """
     token = credentials.credentials
     
-    # ⚠️ DEV-BYPASS: Allow development bypass tokens (NOT PRODUCTION-SAFE)
+    # ⚠️ DEV-BYPASS: Allow development bypass tokens (ONLY IN DEVELOPMENT)
     if token and token.startswith("dev-bypass-id-"):
+        # SECURITY: Block dev-bypass in production environments
+        if settings.ENVIRONMENT.lower() not in ["development", "dev", "local"]:
+            print(f"[SECURITY BLOCK] ❌ Attempted dev-bypass in {settings.ENVIRONMENT} environment")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Dev-bypass tokens are not allowed in this environment",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
         email = token.replace("dev-bypass-id-", "")
-        print(f"[DEV-BYPASS] ⚠️ Allowing dev-bypass token for: {email}")
+        print(f"[DEV-BYPASS] ⚠️ Allowing dev-bypass token for: {email} (Environment: {settings.ENVIRONMENT})")
         
         # Return mock JWT payload matching Supabase structure
         return {

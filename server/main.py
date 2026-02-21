@@ -22,20 +22,29 @@ import uuid
 # Local imports
 from config import get_settings
 from database import get_db, init_db, engine
-from models import User, Device
+from models import User, Device, Pipeline
 from schemas import (
     UserResponse,
     DeviceCreate,
     DeviceUpdate,
     DeviceResponse,
+    DeviceMapResponse,
+    PipelineMapResponse,
     TelemetryResponse,
-    HealthResponse
+    HealthResponse,
+    AuditLogCreate,
+    AuditLogResponse,
+    FrontendErrorCreate,
+    FrontendErrorResponse
 )
 from supabase_auth import get_current_user, get_user_id, get_user_email
 from thingspeak import get_thingspeak_client
+from logger import setup_logger, RequestLogger
+from performance import metrics, get_performance_report, check_slow_queries, check_slow_endpoints
 
-# Initialize settings
+# Initialize settings and logger
 settings = get_settings()
+logger = setup_logger(__name__, settings.LOG_LEVEL)
 
 # Create FastAPI application
 app = FastAPI(
@@ -61,25 +70,55 @@ app.add_middleware(
 # Add request logging middleware
 @app.middleware("http")
 async def log_requests(request, call_next):
-    """Log all requests with timing information."""
+    """Log all requests with timing information and structured logging."""
     import time
+    import uuid
     
+    request_id = str(uuid.uuid4())[:8]
     start_time = time.time()
+    
+    # Create request-scoped logger
+    req_logger = RequestLogger(
+        logger,
+        request_id=request_id,
+        method=request.method,
+        path=str(request.url.path)
+    )
+    
+    # Attach logger to request state for use in endpoints
+    request.state.logger = req_logger
     
     try:
         response = await call_next(request)
         process_time = round((time.time() - start_time) * 1000, 2)
         
-        # Log request
-        print(f"[{response.status_code}] {request.method} {request.url.path} - {process_time}ms")
+        # Log successful request
+        req_logger.info(
+            "Request completed",
+            status_code=response.status_code,
+            duration_ms=process_time
+        )
+        
+        # Record performance metrics
+        metrics.record_api_request(
+            endpoint=str(request.url.path),
+            duration_ms=process_time,
+            status_code=response.status_code
+        )
         
         # Add custom headers
+        response.headers["X-Request-ID"] = request_id
         response.headers["X-Process-Time"] = str(process_time)
         return response
         
     except Exception as e:
         process_time = round((time.time() - start_time) * 1000, 2)
-        print(f"[ERROR] {request.method} {request.url.path} - {process_time}ms - {str(e)}")
+        req_logger.error(
+            "Request failed",
+            error=str(e),
+            error_type=type(e).__name__,
+            duration_ms=process_time
+        )
         raise
 
 # Global exception handler
@@ -251,7 +290,9 @@ async def health_check():
         
         response_time = round((time.time() - start_time) * 1000, 2)  # ms
         
-        if response_time > 1000:
+        # Adjusted threshold for cloud database (Supabase pooler connection)
+        # 3 seconds is reasonable for cross-region database connections
+        if response_time > 3000:
             db_status = "slow"
             overall_status = "degraded"
     
@@ -389,6 +430,82 @@ async def get_current_user_profile(
         )
     
     return user
+
+
+# ============================================================================
+# AUDIT LOG ENDPOINTS
+# ============================================================================
+
+@api_router.post("/audit-logs", response_model=AuditLogResponse, status_code=status.HTTP_201_CREATED, tags=["audit"])
+async def create_audit_log(
+    audit_data: AuditLogCreate,
+    user_payload: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create audit log entry.
+    
+    Frontend should call this for all mutations:
+    - Device create/update/delete
+    - User create/update
+    - Pipeline create/update/delete
+    - Login/logout events
+    """
+    from models import AuditLog
+    
+    user_id = get_user_id(user_payload)
+    
+    audit_log = AuditLog(
+        user_id=user_id,
+        action=audit_data.action,
+        resource_type=audit_data.resource_type,
+        resource_id=audit_data.resource_id,
+        details=audit_data.details
+    )
+    
+    db.add(audit_log)
+    await db.commit()
+    await db.refresh(audit_log)
+    
+    return audit_log
+
+
+# ============================================================================
+# FRONTEND ERROR LOGGING ENDPOINT
+# ============================================================================
+
+@api_router.post("/frontend-errors", response_model=FrontendErrorResponse, status_code=status.HTTP_201_CREATED, tags=["monitoring"])
+async def log_frontend_error(
+    error_data: FrontendErrorCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Log frontend error for monitoring.
+    
+    This endpoint does NOT require authentication (to capture errors even when auth fails).
+    Frontend ErrorBoundary calls this to track React errors.
+    """
+    from models import FrontendError
+    
+    # Try to extract user_id from Authorization header if present (but don't require it)
+    user_id = None
+    # You could optionally parse the token here if needed, but we keep it simple
+    
+    frontend_error = FrontendError(
+        error_message=error_data.error_message,
+        stack_trace=error_data.stack_trace,
+        url=error_data.url,
+        user_agent=error_data.user_agent,
+        user_id=user_id
+    )
+    
+    db.add(frontend_error)
+    await db.commit()
+    await db.refresh(frontend_error)
+    
+    print(f"[FRONTEND ERROR] {error_data.error_message} at {error_data.url}")
+    
+    return frontend_error
 
 
 # ============================================================================
@@ -537,6 +654,59 @@ async def delete_device(
     return {"message": "Device deleted successfully", "device_id": device_id}
 
 
+@api_router.get("/devices/map/all", response_model=List[DeviceMapResponse], tags=["devices", "map"])
+async def get_map_devices(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Optimized endpoint for map rendering.
+    Returns all active devices with minimal fields for fast map loading.
+    No authentication required for public map display.
+    Performance target: <200ms P95
+    """
+    import time
+    start_time = time.time()
+    
+    # Optimized query: only select required fields
+    result = await db.execute(
+        select(
+            Device.id,
+            Device.name,
+            Device.asset_type,
+            Device.asset_category,
+            Device.latitude,
+            Device.longitude,
+            Device.capacity,
+            Device.specifications,
+            Device.status
+        )
+        .where(Device.is_active == 'true')
+        .where(Device.latitude.isnot(None))
+        .where(Device.longitude.isnot(None))
+        .order_by(Device.asset_type, Device.name)
+    )
+    
+    # Build response objects
+    devices = []
+    for row in result.all():
+        devices.append(DeviceMapResponse(
+            id=row[0],
+            name=row[1],
+            asset_type=row[2],
+            asset_category=row[3],
+            latitude=row[4],
+            longitude=row[5],
+            capacity=row[6],
+            specifications=row[7],
+            status=row[8]
+        ))
+    
+    query_time = (time.time() - start_time) * 1000
+    print(f"[MAP] Loaded {len(devices)} devices in {query_time:.2f}ms")
+    
+    return devices
+
+
 # ============================================================================
 # NODE ENDPOINTS (Aliases for /devices endpoints)
 # Frontend uses /nodes/ terminology
@@ -605,6 +775,55 @@ async def delete_node(
     Frontend compatibility endpoint.
     """
     return await delete_device(device_id=node_id, user_payload=user_payload, db=db)
+
+
+# ============================================================================
+# PIPELINE ENDPOINTS
+# ============================================================================
+
+@api_router.get("/pipelines", response_model=List[PipelineMapResponse], tags=["pipelines", "map"])
+async def list_pipelines(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List all active pipelines for map rendering.
+    Returns minimal fields optimized for Leaflet polylines.
+    No authentication required for public map display.
+    Performance target: <200ms P95
+    """
+    import time
+    start_time = time.time()
+    
+    # Optimized query: only select required fields
+    result = await db.execute(
+        select(
+            Pipeline.id,
+            Pipeline.name,
+            Pipeline.coordinates,
+            Pipeline.color
+        )
+        .where(Pipeline.is_active == True)  # Boolean comparison (pipelines table uses BOOLEAN)
+        .order_by(Pipeline.pipeline_type, Pipeline.name)
+    )
+    
+    # Build response objects
+    pipelines = []
+    for row in result.all():
+        # Convert GeoJSON coordinates [[lng, lat], [lng, lat]] to React-Leaflet format [[lat, lng], [lat, lng]]
+        geojson_coords = row[2]  # [[lng, lat], ...]
+        positions = [[coord[1], coord[0]] for coord in geojson_coords]  # [[lat, lng], ...]
+        
+        pipelines.append(PipelineMapResponse(
+            id=row[0],
+            name=row[1],
+            positions=positions,
+            color=row[3]
+        ))
+    
+    query_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+    print(f"[PIPELINES] Loaded {len(pipelines)} pipelines in {query_time:.2f}ms")
+    
+    return pipelines
 
 
 # ============================================================================
@@ -762,6 +981,22 @@ if settings.ENVIRONMENT == "development":
                 "status": "error",
                 "error": str(e)
             }
+    
+    @app.get("/debug/performance", tags=["debug"])
+    async def debug_performance():
+        """Get performance metrics and identify slow queries/endpoints."""
+        report = get_performance_report()
+        
+        # Add slow query/endpoint analysis
+        slow_queries = await check_slow_queries(threshold_ms=500)
+        slow_endpoints = await check_slow_endpoints(threshold_ms=1000)
+        
+        report["analysis"] = {
+            "slow_queries": slow_queries[:10],  # Top 10 slowest
+            "slow_endpoints": slow_endpoints[:10]
+        }
+        
+        return report
 
 
 # ============================================================================

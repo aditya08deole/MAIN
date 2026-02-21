@@ -1,20 +1,48 @@
-import { supabase } from './supabase';
-import type { AuditLogInsert } from '../types/database';
+import axios from 'axios';
 
-// Utility: write an audit log entry.
-// Automatically attaches the current user's id.
-// Call this at every mutation point (pipeline create/update/delete, user create, node create, etc.)
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+
+// Backend audit log schema
+interface AuditLogCreate {
+    action: string;
+    resource_type: string;
+    resource_id?: string | null;
+    details?: Record<string, any> | null;
+}
+
+/**
+ * Utility: write an audit log entry via FastAPI backend.
+ * Automatically attaches the current user's id from JWT token.
+ * Call this at every mutation point (pipeline create/update/delete, user create, node create, etc.)
+ */
 export async function logAction(
-    entry: Omit<AuditLogInsert, 'user_id'>
+    entry: AuditLogCreate
 ): Promise<void> {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        await supabase.from('audit_logs').insert({
-            ...entry,
-            user_id: user.id,
-        } as any);
-    } catch {
+        // Get auth token from localStorage
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+            console.warn('[Audit] No auth token found, skipping audit log');
+            return;
+        }
+        
+        // Call FastAPI audit endpoint
+        await axios.post(
+            `${API_URL}/audit-logs`,
+            {
+                action: entry.action,
+                resource_type: entry.resource_type,
+                resource_id: entry.resource_id,
+                details: entry.details
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            }
+        );
+    } catch (error) {
         // Audit logging failures must never break the main flow
+        console.warn('[Audit] Failed to log action:', error);
     }
 }

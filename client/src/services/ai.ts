@@ -5,7 +5,7 @@ export interface ChatMessage {
     content: string;
 }
 
-export const sendMessageToAI = async (message: string, context?: any): Promise<string> => {
+export const sendMessageToAI = async (message: string, context?: Record<string, unknown>): Promise<string> => {
     const response = await api.post<{ response: string }>('/ai/chat', {
         message,
         context

@@ -8,13 +8,13 @@ import {
     Server, Clock, Download, FileText
 } from 'lucide-react';
 
-import { useNodes } from '../hooks/useNodes';
+import { useDevices } from '../hooks/useDevices';
 import { useSystemHealth, useActiveAlerts } from '../hooks/useDashboard';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastProvider';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useTelemetry } from '../hooks/useTelemetry';
-import type { NodeRow } from '../types/database';
+import type { Device } from '../hooks/useDevices';
 
 // Custom Icons (Leaflet)
 const createIcon = (color: string) => L.divIcon({
@@ -32,19 +32,19 @@ const yellowIcon = createIcon('#eab308');
 const blackIcon = createIcon('#1e293b');
 const redIcon = createIcon('#ef4444');
 
-const ChangeView = ({ nodes }: { nodes: NodeRow[] }) => {
+const ChangeView = ({ devices }: { devices: Device[] }) => {
     const map = useMap();
     useEffect(() => {
-        if (nodes.length > 0) {
-            const bounds = L.latLngBounds(nodes.map(n => [n.lat || 17.44, n.lng || 78.34]));
+        if (devices.length > 0) {
+            const bounds = L.latLngBounds(devices.map(d => [d.latitude || 17.44, d.longitude || 78.34]));
             map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
         }
-    }, [nodes, map]);
+    }, [devices, map]);
     return null;
 };
 
 // Sub-components
-const MiniMap = ({ onExpand, nodes }: { onExpand: () => void, nodes: NodeRow[] }) => {
+const MiniMap = ({ onExpand, devices }: { onExpand: () => void, devices: Device[] }) => {
     return (
         <div
             className="relative h-full w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm group hover:shadow-md hover:ring-2 hover:ring-blue-100 transition-all duration-300"
@@ -59,24 +59,24 @@ const MiniMap = ({ onExpand, nodes }: { onExpand: () => void, nodes: NodeRow[] }
                 scrollWheelZoom={true}
                 attributionControl={false}
             >
-                <ChangeView nodes={nodes} />
+                <ChangeView devices={devices} />
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                {nodes.map(node => {
+                {devices.map(device => {
                     let icon = blueIcon;
-                    if (node.status === 'Alert' || node.status === 'Offline') icon = redIcon;
-                    else if (node.category === 'PumpHouse') icon = purpleIcon;
-                    else if (node.category === 'Sump') icon = greenIcon;
-                    else if (node.category === 'OHT') icon = blueIcon;
-                    else if (node.category === 'Borewell') icon = yellowIcon;
-                    else if (node.category === 'GovtBorewell') icon = blackIcon;
+                    if (device.status === 'Alert' || device.status === 'Offline' || device.status === 'Not Working') icon = redIcon;
+                    else if (device.asset_type === 'pump') icon = purpleIcon;
+                    else if (device.asset_type === 'sump') icon = greenIcon;
+                    else if (device.asset_type === 'tank') icon = blueIcon;
+                    else if (device.asset_type === 'bore') icon = yellowIcon;
+                    else if (device.asset_type === 'govt') icon = blackIcon;
 
                     return (
                         <Marker
-                            key={node.id}
-                            position={[node.lat || 17.44, node.lng || 78.34]}
+                            key={device.id}
+                            position={[device.latitude || 17.44, device.longitude || 78.34]}
                             icon={icon}
                         />
                     );
@@ -158,7 +158,7 @@ function Dashboard() {
     const { showToast } = useToast();
 
     // Data Hooks
-    const { nodes, loading: nodesLoading, error: nodesError, refresh: refreshNodes } = useNodes(searchQuery);
+    const { devices, loading: devicesLoading, error: devicesError, refresh: refreshDevices } = useDevices(searchQuery);
     const { data: healthData } = useSystemHealth();
     const { data: recentAlerts = [] } = useActiveAlerts();
 
@@ -167,23 +167,17 @@ function Dashboard() {
 
     // Show toast notification ONCE per unique error - prevents flooding
     useEffect(() => {
-        if (nodesError && !shownErrorsRef.current.has(nodesError)) {
-            shownErrorsRef.current.add(nodesError);
-            const isSyncError = typeof nodesError === 'string' && nodesError.toLowerCase().includes('not synced');
-            showToast(
-                isSyncError 
-                    ? 'Account sync required. Some features may be limited.' 
-                    : `Unable to fetch nodes: ${nodesError}`,
-                'error'
-            );
+        if (devicesError && !shownErrorsRef.current.has(devicesError)) {
+            shownErrorsRef.current.add(devicesError);
+            showToast(`Unable to fetch devices: ${devicesError}`, 'error');
         }
-    }, [nodesError, showToast]);
+    }, [devicesError, showToast]);
 
     // Time state
     const [now] = useState(() => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
     const [isNavigating, setIsNavigating] = useState(false);
 
-    const loading = authLoading || nodesLoading;
+    const loading = authLoading || devicesLoading;
 
     if (loading) {
         return (
@@ -196,27 +190,27 @@ function Dashboard() {
     // REMOVED ERROR PANEL - Now shows toast notification instead and dashboard continues working
     // Dashboard always shows even if there's an API error - graceful degradation
 
-    // Derived local stats from Nodes (Real-time fallback/companion)
-    // If nodes is empty due to error, stats will show zeros gracefully
-    const tanks = nodes.filter(n => ['OHT', 'Sump', 'PumpHouse'].includes(n.category));
-    const flow = nodes.filter(n => n.category === 'FlowMeter');
-    const borewells = nodes.filter(n => ['Borewell', 'GovtBorewell'].includes(n.category));
+    // Derived local stats from Devices (Real-time fallback/companion)
+    // If devices is empty due to error, stats will show zeros gracefully
+    const tanks = devices.filter(d => ['tank', 'sump', 'pump'].includes(d.asset_type));
+    const flow = devices.filter(d => d.asset_type === 'flow'); // If flow meters exist
+    const borewells = devices.filter(d => ['bore', 'govt'].includes(d.asset_type));
 
-    // We can use either stats (from DB count) or local calc. Local calc is instant if nodes loaded.
+    // We can use either stats (from DB count) or local calc. Local calc is instant if devices loaded.
     const localStats = {
-        tanks: { active: tanks.filter(n => n.status === 'Online').length, total: tanks.length },
-        flow: { active: flow.filter(n => n.status === 'Online').length, total: flow.length },
-        deep: { active: borewells.filter(n => n.status === 'Online').length, total: borewells.length },
-        alerts: nodes.filter(n => n.status === 'Alert' || n.status === 'Offline').length
+        tanks: { active: tanks.filter(d => d.status === 'Online' || d.status === 'Working' || d.status === 'Running').length, total: tanks.length },
+        flow: { active: flow.filter(d => d.status === 'Online' || d.status === 'Working').length, total: flow.length },
+        deep: { active: borewells.filter(d => d.status === 'Online' || d.status === 'Working' || d.status === 'Running').length, total: borewells.length },
+        alerts: devices.filter(d => d.status === 'Alert' || d.status === 'Offline' || d.status === 'Not Working' || d.status === 'Critical').length
     };
 
-    const deviceFleet = nodes.slice(0, 5).map(n => ({
-        id: n.id,
-        name: n.label || n.id,
-        type: n.category,
-        status: n.status,
+    const deviceFleet = devices.slice(0, 5).map(d => ({
+        id: d.id,
+        name: d.name,
+        type: d.asset_type,
+        status: d.status,
         lastComm: 'Just now', // Mock
-        health: n.status === 'Online' ? 95 : 40 // Mock
+        health: (d.status === 'Online' || d.status === 'Working' || d.status === 'Running') ? 95 : 40 // Mock
     }));
 
     const handleMapClick = () => {
@@ -264,7 +258,7 @@ function Dashboard() {
                     <span className="text-base font-semibold text-slate-400 hidden lg:inline">Last updated: <span className="text-slate-600">{now}</span></span>
 
                     <button
-                        onClick={() => refreshNodes()}
+                        onClick={() => refreshDevices()}
                         className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                         title="Refresh Data"
                     >
@@ -348,7 +342,7 @@ function Dashboard() {
                             </div>
                         </div>
 
-                        <LiveFeedCard nodeId={nodes.find(n => n.status === 'Online')?.id} />
+                        <LiveFeedCard nodeId={devices.find(d => d.status === 'Online' || d.status === 'Working' || d.status === 'Running')?.id} />
                     </div>
 
                     {/* Row 2 — 4 device-type counters */}
@@ -383,7 +377,7 @@ function Dashboard() {
 
                 {/* Right 4 cols: Map */}
                 <div className="col-span-4 h-full">
-                    <MiniMap onExpand={handleMapClick} nodes={nodes} />
+                    <MiniMap onExpand={handleMapClick} devices={devices} />
                 </div>
             </div>
 
