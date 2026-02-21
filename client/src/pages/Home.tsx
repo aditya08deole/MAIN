@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { Link } from 'react-router-dom';
 import { useMapDevices } from '../hooks/useMapDevices';
 import { useMapPipelines } from '../hooks/useMapPipelines';
+import { getDeviceAnalyticsRoute } from '../utils/deviceRouting';
 import L from 'leaflet';
 
 // Fix for default marker icon in React-Leaflet
@@ -165,7 +166,7 @@ export const Home = () => {
                                             {ph.status}
                                         </span>
                                     </div>
-                                    <Link to={`/node/${ph.id}`} className="block w-full text-center bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
+                                    <Link to={getDeviceAnalyticsRoute(ph)} className="block w-full text-center bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
                                         View Details
                                     </Link>
                                 </div>
@@ -190,7 +191,7 @@ export const Home = () => {
                                             {sump.status}
                                         </span>
                                     </div>
-                                    <Link to={`/node/${sump.id}`} className="block w-full text-center bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
+                                    <Link to={getDeviceAnalyticsRoute(sump)} className="block w-full text-center bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
                                         View Details
                                     </Link>
                                 </div>
@@ -215,7 +216,7 @@ export const Home = () => {
                                             {oht.status}
                                         </span>
                                     </div>
-                                    <Link to={`/node/${oht.id}`} className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
+                                    <Link to={getDeviceAnalyticsRoute(oht)} className="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
                                         View Details
                                     </Link>
                                 </div>
@@ -244,7 +245,7 @@ export const Home = () => {
                                             {bw.status}
                                         </span>
                                     </div>
-                                    <Link to={`/node/${bw.id}`} className="block w-full text-center bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
+                                    <Link to={getDeviceAnalyticsRoute(bw)} className="block w-full text-center bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
                                         View Details
                                     </Link>
                                 </div>
@@ -273,7 +274,7 @@ export const Home = () => {
                                             {bw.status}
                                         </span>
                                     </div>
-                                    <Link to={`/node/${bw.id}`} className="block w-full text-center bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
+                                    <Link to={getDeviceAnalyticsRoute(bw)} className="block w-full text-center bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors">
                                         View Details
                                     </Link>
                                 </div>

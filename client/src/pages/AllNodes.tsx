@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { useNodes } from '../hooks/useNodes';
 import { useToast } from '../components/ToastProvider';
+import { getDeviceAnalyticsRoute } from '../utils/deviceRouting';
 import type { NodeCategory, AnalyticsType } from '../types/database';
 
 // TODO(fake-data): ALL_NODES was hardcoded array, now using useNodes() Supabase hook
@@ -307,7 +308,7 @@ const AllNodes = () => {
                             return (
                                 <Link
                                     key={node.node_key}
-                                    to={`/node/${node.node_key}`}
+                                    to={getDeviceAnalyticsRoute({ id: node.node_key, analytics_template: node.analytics_type, device_type: node.category })}
                                     className="group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden flex flex-col"
                                 >
                                     {/* Card top accent — analytics color */}

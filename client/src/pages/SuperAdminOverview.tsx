@@ -6,6 +6,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
+import { useCommunities } from '../hooks/useCommunities';
+import AddCommunityForm from '../components/AddCommunityForm';
+import AddCustomerForm from '../components/AddCustomerForm';
+import AddDeviceForm from '../components/AddDeviceForm';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,17 +23,17 @@ interface AuditEntry {
 }
 
 interface Community {
-    id: number;
+    id: string;
     name: string;
-    nodeCount: number;
+    region_id: string;
+    address: string;
+    contact_email?: string;
+    contact_phone?: string;
+    created_at: string;
+    updated_at: string;
 }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const MOCK_COMMUNITIES: Community[] = [
-    { id: 1, name: 'IIIT Hydra', nodeCount: 12 },
-    { id: 2, name: 'Gachibowli Campus', nodeCount: 7 },
-];
 
 const INITIAL_AUDIT: AuditEntry[] = [];
 
@@ -316,11 +320,16 @@ const AddNodeForm = ({ onBack, onDeploy }: { onBack: () => void; onDeploy: (name
 
 const SuperAdminOverview = () => {
     const { user } = useAuth();
+    const { communities: dbCommunities, isLoading: loadingCommunities } = useCommunities();
+    
     const [view, setView] = useState<View>('home');
-    const [communities, setCommunities] = useState<Community[]>(MOCK_COMMUNITIES);
+    const communities = dbCommunities || [];
     const [auditLog, setAuditLog] = useState<AuditEntry[]>(INITIAL_AUDIT);
     const [adminCount] = useState(0);
     const [customerCount] = useState(0);
+    const [showCommunityForm, setShowCommunityForm] = useState(false);
+    const [showCustomerForm, setShowCustomerForm] = useState(false);
+    const [showDeviceForm, setShowDeviceForm] = useState(false);
 
     if (user?.role !== 'superadmin') {
         return <Navigate to="/dashboard" replace />;
@@ -333,17 +342,14 @@ const SuperAdminOverview = () => {
     };
 
     const handleAddCommunity = () => {
-        const name = prompt('Community name:');
-        if (!name?.trim()) return;
-        const newCom: Community = { id: Date.now(), name: name.trim(), nodeCount: 0 };
-        setCommunities(prev => [...prev, newCom]);
-        addAudit(`Community "${name.trim()}" created`, 'success');
+        setShowCommunityForm(true);
+        addAudit('Opening add community form', 'info');
     };
 
-    const handleDeleteCommunity = (id: number, name: string) => {
+    const handleDeleteCommunity = (id: string, name: string) => {
         if (!confirm(`Delete "${name}"?`)) return;
-        setCommunities(prev => prev.filter(c => c.id !== id));
-        addAudit(`Community "${name}" deleted`, 'error');
+        // TODO: Implement delete API
+        addAudit(`Community "${name}" deletion requested`, 'warning');
     };
 
     const handleDeployNode = (name: string) => {
@@ -485,6 +491,26 @@ const SuperAdminOverview = () => {
                 entries={auditLog}
                 onRefresh={() => addAudit('Audit trail refreshed', 'info')}
             />
+
+            {/* ── Form Modals ── */}
+            {showCommunityForm && (
+                <AddCommunityForm
+                    onClose={() => setShowCommunityForm(false)}
+                    onSuccess={() => addAudit('Community added successfully', 'success')}
+                />
+            )}
+            {showCustomerForm && (
+                <AddCustomerForm
+                    onClose={() => setShowCustomerForm(false)}
+                    onSuccess={() => addAudit('Customer added successfully', 'success')}
+                />
+            )}
+            {showDeviceForm && (
+                <AddDeviceForm
+                    onClose={() => setShowDeviceForm(false)}
+                    onSuccess={() => addAudit('Device added successfully', 'success')}
+                />
+            )}
         </div>
     );
 };

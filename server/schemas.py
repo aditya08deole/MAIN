@@ -2,9 +2,10 @@
 Pydantic schemas for request/response validation.
 Clean and simple data models.
 """
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from datetime import datetime
 from typing import Optional, Dict, Any, List
+from uuid import UUID
 
 
 # ============================================================================
@@ -35,6 +36,13 @@ class RegionResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     
+    @field_validator('id', mode='before')
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        if isinstance(v, UUID):
+            return str(v)
+        return v
+    
     class Config:
         from_attributes = True
 
@@ -58,6 +66,13 @@ class CommunityResponse(BaseModel):
     contact_phone: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    
+    @field_validator('id', 'region_id', mode='before')
+    @classmethod
+    def convert_uuid_to_str(cls, v):
+        if isinstance(v, UUID):
+            return str(v)
+        return v
     
     class Config:
         from_attributes = True
