@@ -22,17 +22,6 @@ interface AuditEntry {
     type: 'success' | 'warning' | 'info' | 'error';
 }
 
-interface Community {
-    id: string;
-    name: string;
-    region_id: string;
-    address: string;
-    contact_email?: string;
-    contact_phone?: string;
-    created_at: string;
-    updated_at: string;
-}
-
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
 const INITIAL_AUDIT: AuditEntry[] = [];
@@ -320,7 +309,7 @@ const AddNodeForm = ({ onBack, onDeploy }: { onBack: () => void; onDeploy: (name
 
 const SuperAdminOverview = () => {
     const { user } = useAuth();
-    const { communities: dbCommunities, isLoading: loadingCommunities } = useCommunities();
+    const { communities: dbCommunities } = useCommunities();
     
     const [view, setView] = useState<View>('home');
     const communities = dbCommunities || [];
@@ -346,7 +335,7 @@ const SuperAdminOverview = () => {
         addAudit('Opening add community form', 'info');
     };
 
-    const handleDeleteCommunity = (id: string, name: string) => {
+    const handleDeleteCommunity = (name: string) => {
         if (!confirm(`Delete "${name}"?`)) return;
         // TODO: Implement delete API
         addAudit(`Community "${name}" deletion requested`, 'warning');
@@ -357,7 +346,7 @@ const SuperAdminOverview = () => {
         setView('home');
     };
 
-    const totalNodes = communities.reduce((s, c) => s + c.nodeCount, 0);
+    const totalNodes = 0; // TODO: Fetch actual node count from API
 
     return (
         <div className="flex gap-5 p-6 bg-slate-50 min-h-screen">
@@ -454,7 +443,7 @@ const SuperAdminOverview = () => {
                                                 <span className="text-[10px] text-slate-300">|</span>
                                                 <BtnView />
                                                 <span className="text-[10px] text-slate-300">|</span>
-                                                <BtnDelete onClick={() => handleDeleteCommunity(c.id, c.name)} />
+                                                <BtnDelete onClick={() => handleDeleteCommunity(c.name)} />
                                             </>}
                                         />
                                     ))

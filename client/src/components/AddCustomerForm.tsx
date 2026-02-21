@@ -11,7 +11,7 @@ interface AddCustomerFormProps {
 }
 
 export default function AddCustomerForm({ onClose, onSuccess }: AddCustomerFormProps) {
-    const { regions, isLoading: loadingRegions, error: regionsError } = useRegions();
+    const { regions, isLoading: loadingRegions } = useRegions();
     const createCustomer = useCreateCustomer();
     const { showToast } = useToast();
 
