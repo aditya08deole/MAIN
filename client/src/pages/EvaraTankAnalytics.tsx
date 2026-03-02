@@ -52,7 +52,7 @@ const EvaraTankAnalytics = () => {
             return data;
         },
         staleTime: 30000, // Data considered fresh for 30 seconds
-        cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+        gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
         refetchInterval: 30000, // Auto-refresh every 30 seconds
         refetchOnWindowFocus: true,
         retry: 3,
@@ -68,7 +68,7 @@ const EvaraTankAnalytics = () => {
             return data;
         },
         staleTime: 60000, // History data fresh for 1 minute
-        cacheTime: 10 * 60 * 1000,
+        gcTime: 10 * 60 * 1000,
         refetchInterval: 60000, // Refresh history every minute
         enabled: !!telemetryData, // Only fetch after telemetry loads
         retry: 2,

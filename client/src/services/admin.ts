@@ -1,4 +1,3 @@
-import api from './api';
 import { supabase } from '../lib/supabase';
 import {
     type ProfileRow as Profile,
@@ -315,7 +314,7 @@ class AdminService {
     /**
      * Get administrative stats for the dashboard.
      */
-    async getStats(distributorId?: string): Promise<any> {
+    async getStats(_distributorId?: string): Promise<any> {
         return this.getDashboardSummary();
     }
 

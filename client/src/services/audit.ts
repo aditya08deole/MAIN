@@ -20,7 +20,7 @@ export const getAuditLogs = async (limit = 100): Promise<AuditLog[]> => {
         .limit(limit);
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as unknown as AuditLog[];
 };
 
 export const exportAuditLogs = async (): Promise<void> => {

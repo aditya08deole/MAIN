@@ -125,7 +125,7 @@ const RegionCustomers = () => {
                                                 </div>
                                                 <div>
                                                     <p className="text-[13px] font-[500] text-[#1F2937] opacity-90">{community?.name || 'Unassigned'}</p>
-                                                    <p className="text-[10px] text-[#1F2937] opacity-50 font-mono uppercase tracking-widest">{community?.city || 'Zone Context'}</p>
+                                                    <p className="text-[10px] text-[#1F2937] opacity-50 font-mono uppercase tracking-widest">{community?.address || 'Zone Context'}</p>
                                                 </div>
                                             </div>
                                         </td>

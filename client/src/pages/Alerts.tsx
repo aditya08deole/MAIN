@@ -79,15 +79,15 @@ export default function AlertsPage() {
                         activeAlerts.map(alert => (
                             <div key={alert.id} className="p-4 flex items-center justify-between hover:bg-red-50/50 transition-colors">
                                 <div>
-                                    <h4 className="font-semibold text-slate-800">{alert.rule.name}</h4>
+                                    <h4 className="font-semibold text-slate-800">{alert.rule?.name ?? '—'}</h4>
                                     <p className="text-sm text-slate-500">
                                         Value: <span className="font-mono font-bold text-red-600">{alert.value_at_time}</span>
-                                        {' '}(Threshold: {alert.rule.condition} {alert.rule.threshold})
+                                        {' '}(Threshold: {alert.rule?.condition} {alert.rule?.threshold})
                                     </p>
                                 </div>
                                 <div className="text-right">
                                     <div className="text-xs font-bold text-red-500 uppercase tracking-wide">Critical</div>
-                                    <div className="text-xs text-slate-400">{new Date(alert.triggered_at).toLocaleTimeString()}</div>
+                                    <div className="text-xs text-slate-400">{alert.triggered_at ? new Date(alert.triggered_at).toLocaleTimeString() : '—'}</div>
                                 </div>
                             </div>
                         ))

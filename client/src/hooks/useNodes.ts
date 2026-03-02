@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 
 // Map DB asset_type → NodeCategory for AllNodes display
@@ -61,10 +61,10 @@ export const useNodes = (searchQuery: string = '') => {
             }));
         },
         staleTime: 1000 * 30, // 30 seconds - reduced from 60s for fresher data
-        cacheTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
+        gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
         retry: 2,
         retryDelay: 1000,
-        placeholderData: (prev: any) => prev, // eslint-disable-line @typescript-eslint/no-explicit-any
+        placeholderData: keepPreviousData,
     });
 
     // ─── Supabase Real-time Listener (Faster than WebSocket) ───

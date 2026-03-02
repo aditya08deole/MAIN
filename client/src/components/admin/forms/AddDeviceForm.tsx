@@ -28,6 +28,8 @@ import { FormField } from '../../forms/FormField';
 interface Props {
     onSubmit: (data: any) => void;
     onCancel: () => void;
+    communities?: any[];
+    customers?: any[];
 }
 
 const DEVICE_TYPES = [

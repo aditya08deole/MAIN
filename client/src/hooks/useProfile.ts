@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { Database } from '../types/database';
 
-type ProfileRow = Database['public']['Tables']['profiles']['Row'];
+type ProfileRow = Database['public']['Tables']['customers']['Row'];
 
 export const useProfile = () => {
     const { user } = useAuth();

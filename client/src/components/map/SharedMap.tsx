@@ -191,7 +191,7 @@ const DeviceHoverPanel = ({ device, x, y, onNavigate }: {
 }) => {
     const template = (device as any).analytics_template || device.asset_type || 'Sensor Node';
     const isOnline = device.status === 'Online';
-    const route = getDeviceAnalyticsRoute({ id: device.id, analytics_template: (device as any).analytics_template, asset_type: device.asset_type });
+    const route = getDeviceAnalyticsRoute({ id: device.id, analytics_template: (device as any).analytics_template, asset_type: device.asset_type ?? undefined });
     const accent = template === 'EvaraTank' ? '#4f46e5' : template === 'EvaraDeep' ? '#0ea5e9' : '#06b6d4';
 
     const panelW = 224;
@@ -284,11 +284,6 @@ const SharedMap = ({
         console.log('[SharedMap] Devices with coordinates:', points.length);
         if (points.length > 0) setMapBounds(L.latLngBounds(points).pad(0.1));
     }, [devices.length, filteredDevices]);
-
-    const scheduleClose = useCallback(() => {
-        if (closeTimer.current) clearTimeout(closeTimer.current);
-        closeTimer.current = setTimeout(() => setHoverPanel(null), 5000);
-    }, []);
 
     const cancelClose = useCallback(() => {
         if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null; }

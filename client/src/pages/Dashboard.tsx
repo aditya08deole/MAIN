@@ -4,7 +4,7 @@ import { useDashboardSummary } from '../hooks/useDashboardSummary';
 import { useMapDevices } from '../hooks/useMapDevices';
 import { useMapPipelines } from '../hooks/useMapPipelines';
 import { adminService } from '../services/admin';
-import { ArrowUpRight, ListFilter, X, Shield } from 'lucide-react';
+import { ArrowUpRight, ListFilter, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 

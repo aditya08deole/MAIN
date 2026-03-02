@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { adminService } from '../../../services/admin';
-import { supabase } from '../../../lib/supabase';
 import { ChevronRight, Building, Wifi, ArrowLeft } from 'lucide-react';
 import type { RegionRow, CommunityRow } from '../../../types/database';
 

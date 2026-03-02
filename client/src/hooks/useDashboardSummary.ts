@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 export interface DashboardSummary {
     total_devices: number;
+    online_devices: number;
     deployed_active: number;
     deployed_inactive: number;
     health_working: number;

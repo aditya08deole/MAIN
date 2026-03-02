@@ -7,6 +7,8 @@ type DeviceRow = Database['public']['Tables']['devices']['Row'];
 export interface DeviceDetails extends DeviceRow {
     calibration_factor?: number;
     last_maintenance_date?: string;
+    firmware_version?: string;
+    location_name?: string;
     shadow_state?: {
         desired?: { pump_status?: string };
         reported?: Record<string, unknown>;

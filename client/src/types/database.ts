@@ -1030,14 +1030,25 @@ export type CustomerWithDevices = ProfileRow & {
 }
 
 export type UserRole = 'superadmin' | 'distributor' | 'customer'
+export type UserPlan = 'base' | 'plus' | 'pro'
+
+// Node aliases
+export type NodeRow = DeviceRow
+
+// Categorical enums used in AllNodes, AdminNodes etc.
+export type NodeCategory = 'OHT' | 'Sump' | 'Borewell' | 'GovtBorewell' | 'PumpHouse' | 'FlowMeter'
+export type AnalyticsType = 'EvaraTank' | 'EvaraDeep' | 'EvaraFlow'
 
 // Stub types for tables that are not yet in the schema but referenced in the codebase
 export interface AlertRule {
   id: string
   name: string
+  node_id?: string
   device_id?: string
+  metric?: string
   condition?: string
   threshold?: number
+  enabled?: boolean
   created_at?: string
 }
 
@@ -1047,5 +1058,21 @@ export interface AlertHistory {
   device_id?: string
   triggered_at?: string
   resolved_at?: string | null
+  value_at_time?: number | string
   rule?: AlertRule
+}
+
+// Pipeline stubs (table not yet in schema)
+export interface PipelineRow {
+  id: string
+  name: string
+  created_by?: string
+  created_at?: string | null
+  [key: string]: unknown
+}
+
+export interface PipelineInsert {
+  name: string
+  created_by?: string
+  [key: string]: unknown
 }

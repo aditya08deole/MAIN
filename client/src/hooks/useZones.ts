@@ -5,8 +5,8 @@ export interface Zone {
     id: string;
     name: string;
     state: string | null;
-    created_at: string;
-    updated_at: string;
+    created_at: string | null;
+    updated_at: string | null;
 }
 
 /**
