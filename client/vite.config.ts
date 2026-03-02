@@ -27,14 +27,20 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui': ['framer-motion', 'lucide-react', 'clsx', 'tailwind-merge'],
+          'vendor-motion': ['framer-motion'],
+          'vendor-ui': ['lucide-react', 'clsx', 'tailwind-merge', 'class-variance-authority', 'sonner', 'vaul'],
           'vendor-charts': ['recharts'],
+          'vendor-echarts': ['echarts', 'echarts-for-react'],
           'vendor-maps': ['leaflet', 'react-leaflet'],
-          'vendor-utils': ['@supabase/supabase-js']
+          'vendor-3d': ['three', '@react-three/fiber', '@react-three/drei'],
+          'vendor-query': ['@tanstack/react-query', '@tanstack/react-query-devtools'],
+          'vendor-forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          'vendor-utils': ['@supabase/supabase-js', 'axios'],
         }
       }
     }
