@@ -54,25 +54,25 @@ export const ActionCard = ({ title, description, icon: Icon, stats, color, onCli
         <button
             onClick={onClick}
             className={`
-                group relative flex flex-col items-start p-6 rounded-2xl border transition-all duration-300 w-full text-left
+                group relative flex flex-col items-start p-[25px] rounded-2xl border transition-all duration-300 w-full text-left
                 apple-glass-card hover:bg-white/30 ${styles.border} hover:border-[color]-500/30 hover:shadow-md hover:-translate-y-1
             `}
         >
             <div className="flex w-full items-start justify-between mb-4">
-                <div className={`p-3 rounded-xl ${styles.bg} ${styles.text}`}>
-                    <Icon size={24} />
+                <div className={`p-[13px] rounded-xl ${styles.bg} ${styles.text}`}>
+                    <Icon size={25} />
                 </div>
                 {stats && (
-                    <span className="px-2 py-1 rounded-md bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-500">
+                    <span className="px-2 py-1 rounded-md bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-500">
                         {stats}
                     </span>
                 )}
             </div>
 
-            <h3 className="text-lg font-bold text-slate-800 mb-1 group-hover:text-blue-600 transition-colors">
+            <h3 className="text-[19px] font-bold text-slate-800 mb-1 group-hover:text-blue-600 transition-colors">
                 {title}
             </h3>
-            <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+            <p className="text-[15px] text-slate-500 mb-6 leading-relaxed">
                 {description}
             </p>
 

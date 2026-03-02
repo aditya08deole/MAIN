@@ -41,15 +41,45 @@ const GlobalBackground = ({ children }: { children: React.ReactNode }) => {
     return (
         <div className={isMap ? '' : 'app-global-bg'}>
             {!isMap && (
-                <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-                    <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#3A7AFE]/10 blur-[160px] animate-blob mix-blend-multiply opacity-50"></div>
-                    <div className="absolute top-[20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#CFEDE6]/20 blur-[180px] animate-blob animation-delay-2000 mix-blend-multiply opacity-40"></div>
-                    <div className="absolute bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-[#D7ECFF]/20 blur-[160px] animate-blob animation-delay-4000 mix-blend-multiply opacity-30"></div>
-                    {/* Additional overlay blur to enhance glass textures */}
-                    <div className="absolute inset-0 backdrop-blur-[12px] z-0"></div>
-                </div>
+                <>
+                    {/* Layer 0.5 — user-provided global image on top of gradient, beneath blobs */}
+                    <div
+                        className="fixed inset-0 pointer-events-none"
+                        style={{
+                            zIndex: 0,
+                            backgroundImage: "url('/global-background.png')",
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            backgroundRepeat: 'no-repeat',
+                            opacity: 0.98,
+                            transform: 'scale(1.02)'
+                        }}
+                    />
+
+                    {/* Layer 1 — vivid colour blobs */}
+                    <div className="fixed inset-0 overflow-hidden pointer-events-none z-1">
+                        {/* Strong blue blob — top-left */}
+                        <div className="absolute top-[-15%] left-[-15%] w-[55%] h-[55%] rounded-full bg-[#3A7AFE]/30 blur-[120px] animate-blob"></div>
+                        {/* Mint/teal blob — top-right */}
+                        <div className="absolute top-[10%] right-[-15%] w-[55%] h-[55%] rounded-full bg-[#06b6d4]/25 blur-[140px] animate-blob animation-delay-2000"></div>
+                        {/* Indigo blob — bottom-center */}
+                        <div className="absolute bottom-[-10%] left-[15%] w-[65%] h-[55%] rounded-full bg-[#6366f1]/20 blur-[130px] animate-blob animation-delay-4000"></div>
+                        {/* Sky blob — center */}
+                        <div className="absolute top-[40%] left-[30%] w-[45%] h-[45%] rounded-full bg-[#38bdf8]/20 blur-[110px] animate-blob animation-delay-2000"></div>
+                    </div>
+                    {/* Layer 2 — soft frosting over the bg so cards appear to "float" above it */}
+                    <div
+                        className="fixed inset-0 pointer-events-none z-[2]"
+                        style={{
+                            backdropFilter: 'blur(8px) saturate(140%)',
+                            WebkitBackdropFilter: 'blur(8px) saturate(140%)',
+                            background: 'rgba(255, 255, 255, 0.06)',
+                        }}
+                    />
+                </>
             )}
-            <div className="relative z-10 w-full min-h-screen">
+            {/* Layer 3 — app content, sits above the frosted background */}
+            <div className="relative z-[3] w-full min-h-screen">
                 {children}
             </div>
         </div>

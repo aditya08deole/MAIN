@@ -100,7 +100,7 @@ const RegionsOverview = () => {
                 {user?.role === 'superadmin' && (
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="flex items-center gap-[8px] px-5 py-[12px] bg-[#1F2937] text-white text-[13px] font-[600] rounded-[12px] hover:bg-[#111827] shadow-[0_8px_16px_rgba(31,41,55,0.2)] transition-all transform hover:-translate-y-[1px]"
+                        className="flex items-center gap-[8px] px-5 py-[12px] btn-liquid-glass btn-liquid-glass-slate text-[13px] font-[600] rounded-[12px] transition-all"
                     >
                         <Plus size={16} />
                         Create New Zone
@@ -230,7 +230,7 @@ const RegionsOverview = () => {
                             {user?.role === 'superadmin' && (
                                 <button
                                     onClick={() => setShowCreateModal(true)}
-                                    className="px-8 py-[14px] bg-[#1F2937] text-white text-[14px] font-[600] rounded-[16px] hover:bg-[#111827] shadow-[0_8px_16px_rgba(31,41,55,0.15)] transition-all transform hover:-translate-y-[1px]"
+                                    className="px-8 py-[14px] btn-liquid-glass btn-liquid-glass-slate text-[14px] font-[600] rounded-[16px] transition-all"
                                 >
                                     Create First Zone
                                 </button>

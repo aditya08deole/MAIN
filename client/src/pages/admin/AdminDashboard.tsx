@@ -108,14 +108,14 @@ const AdminDashboard = () => {
         <div className="space-y-8">
             {/* ─── HEADER ─── */}
             <div>
-                <h2 className="text-2xl font-bold text-slate-800 tracking-tight">System Overview</h2>
-                <p className="text-slate-500 text-sm">
+                <h2 className="text-[25px] font-bold text-slate-800 tracking-tight">System Overview</h2>
+                <p className="text-slate-500 text-[15px]">
                     Real-time infrastructure monitoring and management.
                 </p>
             </div>
 
             {/* ─── STATS ROW ─── */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 <AdminStatItem label="Total Nodes" value={totalNodes.toString()} trend="+2% this week" trendUp />
                 <AdminStatItem label="Active Alerts" value={activeAlerts.toString()} trend={activeAlerts > 0 ? "Needs Attention" : "All Clear"} trendUp={activeAlerts === 0} />
                 <AdminStatItem label="Total Customers" value={totalCustomers.toString()} trend="+1 new" trendUp />
@@ -125,8 +125,8 @@ const AdminDashboard = () => {
             {/* ─── ACTION GRID ─── */}
             <div>
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                        <Activity size={18} className="text-blue-600" />
+                    <h3 className="text-[19px] font-bold text-slate-800 flex items-center gap-2">
+                        <Activity size={19} className="text-blue-600" />
                         Quick Actions
                     </h3>
                 </div>

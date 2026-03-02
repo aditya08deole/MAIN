@@ -67,7 +67,7 @@ const AdminCustomers = () => {
                     {user?.role === 'superadmin' && (
                         <button
                             onClick={() => setShowAddModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-[#1F2937] text-white text-[13px] font-[600] rounded-[12px] hover:bg-[#111827] shadow-sm transition-all"
+                            className="flex items-center gap-2 px-4 py-2 btn-liquid-glass btn-liquid-glass-slate text-[13px] font-[600] rounded-[12px] transition-all"
                         >
                             <Plus size={16} /> Add Customer
                         </button>

@@ -105,10 +105,10 @@
 
 .glass-card {
   @apply shadow-xl transition-all duration-300;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
 }
 
 .premium-gradient {
@@ -122,9 +122,18 @@ body {
   padding: 0;
   overflow-x: hidden;
   background-color: transparent;
-  color: #1F2937;
+  /* Inter on all platforms, SF Pro on Apple devices, Segoe UI on Windows */
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display",
+               "SF Pro Text", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 450;
+  color: #1a2332;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  /* Inter OpenType features for clean numerals & punctuation */
 }
 
 /* Scrollbar Customization */
@@ -399,66 +408,51 @@ body {
 /* Global Background Image Layer */
 .app-global-bg {
   min-height: 100vh;
-  background-image: url('/evara-bg.png');
-  /* The new minimal engineered backdrop */
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  /* Very subtle overlay to blend with the light theme */
-  box-shadow: inset 0 0 0 2000px rgba(255, 255, 255, 0.4);
+  position: relative;
+  /* Neutral, unobtrusive background — removed colored gradient per request */
+  background-color: #f5f5f2;
 }
 
 /* Glass Dashboard Wrapper */
 .glass-dashboard {
-  /* No hard background color, lets the app-global-bg shine through */
   min-height: 100vh;
+  background: transparent;
 }
 
-/* Base Apple Glass Card */
+/* Base Apple Glass Card — exact same recipe as the Navbar */
 .apple-glass-card {
   position: relative;
-  background: rgba(255, 255, 255, 0.22);
-  /* Intense translucency */
-  backdrop-filter: saturate(200%) blur(40px);
-  -webkit-backdrop-filter: saturate(200%) blur(40px);
+  /* EXACT match to navbar: rgba(255,255,255,0.2) */
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  /* EXACT match to navbar border */
   border: 1px solid rgba(255, 255, 255, 0.6);
-  /* Clean white rim */
   border-radius: 32px;
-  /* More premium curvature */
+  /* EXACT match to navbar shadow */
   box-shadow:
-    0 4px 20px rgba(148, 163, 184, 0.25),
-    0 8px 32px 0 rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
-  /* Top rim glow */
+    0 8px 32px 0 rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.55);
   overflow: hidden;
-  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Premium radial sheen for environmental lighting */
+/* Subtle top-edge sheen only — keeps the frosted look clean */
 .apple-glass-card::after {
   content: '';
   position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 60%);
-  transform: rotate(25deg);
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.7);
   pointer-events: none;
   z-index: 0;
-  opacity: 0.4;
 }
 
-/* Subtle inner vignette for depth */
+/* No extra fill — ::before cleared so cards stay translucent like the navbar */
 .apple-glass-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.4) 0%, transparent 60%);
-  pointer-events: none;
-  z-index: 0;
+  content: none;
 }
 
 /* Content wrapper ensuring z-index over pseudo-elements */
@@ -468,35 +462,52 @@ body {
   padding: 24px;
 }
 
-/* Hover Physics */
+/* Hover Physics — matches navbar hover behaviour */
 .apple-glass-card:hover {
   transform: translateY(-2px) scale(1.005);
-  background: rgba(255, 255, 255, 0.35);
-  /* Brighten on hover */
-  border-color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.30);
+  border-color: rgba(255, 255, 255, 0.80);
   box-shadow:
-    0 8px 30px rgba(148, 163, 184, 0.35),
-    0 16px 40px -4px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+    0 12px 40px 0 rgba(0, 0, 0, 0.13),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.75);
 }
 
-/* Inner Translucent Element (for nested cards or stat boxes) */
+/* Inner Translucent Element — slightly more opaque than container */
 .apple-glass-inner {
-  background: rgba(255, 255, 255, 0.15);
-  /* More translucent inner panels */
+  background: rgba(255, 255, 255, 0.18);
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 20px;
-  backdrop-filter: saturate(150%) blur(24px);
-  -webkit-backdrop-filter: saturate(150%) blur(24px);
-  box-shadow: 0 4px 12px rgba(148, 163, 184, 0.15);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
-/* Typography Utilities for Glass */
+/* Typography Utilities for Glass — Apple SF Pro style */
 .glass-title {
-  color: #1F2937;
-  /* Dark slate text for optical contrast */
-  font-weight: 600;
-  letter-spacing: -0.5px;
+  color: #0f172a;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-size: 1.07rem;
+}
+
+/* Force all glass card p/span/label text to be readable, not washed out */
+.apple-glass-card p,
+.apple-glass-card span:not(.badge):not([class*="bg-"]):not([class*="text-white"]):not([class*="text-xs"]),
+.apple-glass-card label {
+  color: #1a2332;
+}
+.apple-glass-card h1, .apple-glass-card h2, .apple-glass-card h3 {
+  color: #0c1523;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+/* Muted/secondary labels — keep just readable enough */
+.apple-glass-card .text-slate-400,
+.apple-glass-card .text-slate-500,
+.apple-glass-card .text-gray-400,
+.apple-glass-card .text-gray-500 {
+  color: #475569 !important;
+  font-weight: 500;
 }
 
 .glass-number {

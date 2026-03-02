@@ -92,7 +92,7 @@ const ANALYTICS_CONFIG: Record<AnalyticsType, {
     EvaraTank: {
         label: 'EvaraTank',
         desc: 'OHTs & Sumps',
-        icon: <Droplets size={16} />,
+        icon: <img src="/tank.png" className="w-4 h-4 object-contain" alt="EvaraTank" />,
         activeBg: 'bg-indigo-600',
         activeText: 'text-white',
         activeBorder: 'border-indigo-600',
@@ -102,12 +102,7 @@ const ANALYTICS_CONFIG: Record<AnalyticsType, {
     EvaraDeep: {
         label: 'EvaraDeep',
         desc: 'Borewells',
-        icon: (
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="5" r="2" /><line x1="12" y1="7" x2="12" y2="20" />
-                <line x1="9" y1="11" x2="12" y2="14" /><line x1="15" y1="11" x2="12" y2="14" />
-            </svg>
-        ),
+        icon: <img src="/borewell.png" className="w-4 h-4 object-contain" alt="EvaraDeep" />,
         activeBg: 'bg-sky-600',
         activeText: 'text-white',
         activeBorder: 'border-sky-600',
@@ -117,7 +112,7 @@ const ANALYTICS_CONFIG: Record<AnalyticsType, {
     EvaraFlow: {
         label: 'EvaraFlow',
         desc: 'Pump Houses',
-        icon: <Waves size={16} />,
+        icon: <img src="/meter.png" className="w-4 h-4 object-contain" alt="EvaraFlow" />,
         activeBg: 'bg-cyan-600',
         activeText: 'text-white',
         activeBorder: 'border-cyan-600',
@@ -159,19 +154,19 @@ const AllNodes = () => {
     const offlineCount = nodes.filter(n => n.status === 'Offline').length;
 
     return (
-        <div className="min-h-screen bg-transparent relative flex flex-col pt-[160px] lg:pt-[180px]">
+        <div className="min-h-screen bg-transparent relative flex flex-col pt-[96px] lg:pt-[112px]">
             {/* SVG Noise Overlay */}
             <div className="absolute inset-0 opacity-[0.015] pointer-events-none z-0" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
 
             {/* ── Top Header Bar ── */}
-            <div className="px-8 py-6 relative z-10">
-                <div className="max-w-screen-2xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div className="px-6 lg:px-10 py-6 relative z-10">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
-                        <h1 className="text-[28px] font-[800] tracking-tight text-[#004ba0] leading-none mb-1.5">All Nodes</h1>
+                        <h1 className="text-[34px] font-[800] tracking-tight text-[#004ba0] leading-none mb-1.5" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif', letterSpacing: '-0.04em' }}>All Nodes</h1>
                         {loading ? (
-                            <p className="text-[11px] text-blue-500 font-bold uppercase tracking-[0.15em] opacity-80">Loading infrastructure...</p>
+                            <p className="text-[12px] text-blue-500 font-bold uppercase tracking-[0.15em] opacity-80">Loading infrastructure...</p>
                         ) : (
-                            <p className="text-[11px] text-blue-500 font-bold uppercase tracking-[0.15em] opacity-80">
+                            <p className="text-[12px] text-blue-500 font-bold uppercase tracking-[0.15em] opacity-80">
                                 {nodes.length} TOTAL ASSETS DEPLOYED — REAL-TIME NETWORK
                             </p>
                         )}
@@ -182,29 +177,30 @@ const AllNodes = () => {
                         <div className="flex items-center gap-2">
                             <div className="flex items-center gap-2 bg-white/40 backdrop-blur-md border border-white/60 px-3 py-1.5 rounded-full shadow-sm">
                                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                                <span className="text-[11px] font-[800] text-green-700 uppercase tracking-tight">{onlineCount} Online</span>
+                                <span className="text-[12px] font-[800] text-green-700 uppercase tracking-tight">{onlineCount} Online</span>
                             </div>
                             <div className="flex items-center gap-2 bg-white/40 backdrop-blur-md border border-white/60 px-3 py-1.5 rounded-full shadow-sm">
                                 <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                                <span className="text-[11px] font-[800] text-red-700 uppercase tracking-tight">{offlineCount} Offline</span>
+                                <span className="text-[12px] font-[800] text-red-700 uppercase tracking-tight">{offlineCount} Offline</span>
                             </div>
                         </div>
                     )}
                 </div>
             </div>
 
-            <div className="max-w-screen-2xl mx-auto px-8 py-4 space-y-6 relative z-10 w-full">
+            <div className="px-6 lg:px-10 py-4 space-y-5 relative z-10 w-full">
 
                 {/* ── Search + Status filter ── */}
-                <div className="flex flex-col lg:flex-row items-center justify-start gap-4 w-full">
-                    <div className="relative w-full max-w-md group">
+                <div className="flex flex-col lg:flex-row items-center justify-start gap-3 w-full">
+                    <div className="relative w-full max-w-sm group">
                         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-400 group-focus-within:text-blue-600 transition-colors" size={16} />
                         <input
                             type="text"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                             placeholder="Search assets…"
-                            className="w-full pl-10 pr-4 py-2.5 bg-white/40 backdrop-blur-xl border border-white/60 rounded-[18px] text-[13px] font-[500] focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-400/50 transition-all shadow-sm placeholder:text-slate-400"
+                            className="w-full pl-10 pr-4 py-2.5 bg-white/40 backdrop-blur-xl border border-white/60 rounded-[18px] text-[14px] font-[600] focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-400/50 transition-all shadow-sm placeholder:text-slate-400"
+                            style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif' }}
                         />
                         {search && (
                             <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 transition-colors">
@@ -222,7 +218,7 @@ const AllNodes = () => {
                                 key={s}
                                 onClick={() => setStatusFilter(s)}
                                 className={clsx(
-                                    'px-3.5 py-1.5 rounded-[12px] text-[10px] font-[800] transition-all uppercase tracking-tight',
+                                    'px-3.5 py-1.5 rounded-[12px] text-[11px] font-[800] transition-all uppercase tracking-tight',
                                     statusFilter === s
                                         ? s === 'Online' ? 'btn-liquid-glass btn-liquid-glass-green'
                                             : s === 'Offline' ? 'btn-liquid-glass btn-liquid-glass-red'
@@ -242,7 +238,7 @@ const AllNodes = () => {
                     <button
                         onClick={() => setAnalyticsFilter('all')}
                         className={clsx(
-                            'flex items-center gap-2 px-4 py-2.5 rounded-[15px] text-[11px] font-[800] border transition-all uppercase tracking-tight',
+                            'flex items-center gap-2 px-4 py-2.5 rounded-[15px] text-[12px] font-[800] border transition-all uppercase tracking-tight',
                             analyticsFilter === 'all'
                                 ? 'btn-liquid-glass btn-liquid-glass-slate'
                                 : 'bg-white/60 backdrop-blur-xl text-slate-600 border-white/80 hover:border-white hover:bg-white/80 shadow-sm'
@@ -274,7 +270,7 @@ const AllNodes = () => {
                                 key={key}
                                 onClick={() => setAnalyticsFilter(key)}
                                 className={clsx(
-                                    'flex items-center gap-2 px-4 py-2.5 rounded-[15px] text-[11px] font-[800] border transition-all uppercase tracking-tight shadow-sm',
+                                    'flex items-center gap-2 px-4 py-2.5 rounded-[15px] text-[12px] font-[800] border transition-all uppercase tracking-tight shadow-sm',
                                     active
                                         ? `btn-liquid-glass ${liquidColorClass}`
                                         : 'bg-white/60 backdrop-blur-xl text-slate-600 border-white/80 hover:border-white hover:bg-white/80'
@@ -297,7 +293,7 @@ const AllNodes = () => {
 
                 {/* ── Results count ── */}
                 <div className="w-full flex justify-start">
-                    <p className="text-[10px] text-blue-700 font-[800] btn-liquid-glass btn-liquid-glass-slate px-4 py-1.5 rounded-full uppercase tracking-widest shadow-sm">
+                    <p className="text-[11px] text-blue-700 font-[800] btn-liquid-glass btn-liquid-glass-slate px-4 py-1.5 rounded-full uppercase tracking-widest shadow-sm" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif' }}>
                         Displaying {filtered.length} nodes
                     </p>
                 </div>
@@ -309,7 +305,7 @@ const AllNodes = () => {
                         <p className="text-slate-500 font-bold mt-4 uppercase tracking-widest text-[12px]">Processing Network Nodes...</p>
                     </div>
                 ) : filtered.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 w-full max-w-7xl">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 w-full">
                         {filtered.map(node => {
                             const cfg = CATEGORY_CONFIG[(node.category as NodeCategory) || 'OHT'] || CATEGORY_CONFIG['OHT'];
                             const anCfg = ANALYTICS_CONFIG[node.analytics_template as keyof typeof ANALYTICS_CONFIG] || ANALYTICS_CONFIG['EvaraTank'];
@@ -318,7 +314,7 @@ const AllNodes = () => {
                                 <Link
                                     key={node.node_key}
                                     to={getDeviceAnalyticsRoute({ id: node.node_key, analytics_template: node.analytics_template || undefined, device_type: node.category || undefined })}
-                                    className="group bg-white/70 backdrop-blur-md rounded-[24px] border border-white/60 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col"
+                                    className="group apple-glass-card flex flex-col"
                                 >
                                     {/* Card top accent — analytics color */}
                                     <div className={clsx('h-1 w-full', anCfg.dot)} />
@@ -327,11 +323,19 @@ const AllNodes = () => {
                                         {/* Icon + status */}
                                         <div className="flex items-start justify-between mb-4">
                                             <div className={clsx(
-                                                'w-11 h-11 rounded-2xl flex items-center justify-center transition-colors',
-                                                cfg.bg, cfg.color,
+                                                'w-11 h-11 rounded-2xl flex items-center justify-center overflow-hidden transition-all',
+                                                cfg.bg,
                                                 'group-hover:scale-110 transition-transform duration-200'
                                             )}>
-                                                {cfg.icon}
+                                                {node.analytics_template === 'EvaraTank' ? (
+                                                    <img src="/tank.png" className="w-8 h-8 object-contain" alt="Tank" />
+                                                ) : node.analytics_template === 'EvaraDeep' ? (
+                                                    <img src="/borewell.png" className="w-8 h-8 object-contain" alt="Borewell" />
+                                                ) : node.analytics_template === 'EvaraFlow' ? (
+                                                    <img src="/meter.png" className="w-8 h-8 object-contain" alt="Flow Meter" />
+                                                ) : (
+                                                    <span className={cfg.color}>{cfg.icon}</span>
+                                                )}
                                             </div>
                                             <span className={clsx(
                                                 'flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full',
@@ -343,17 +347,17 @@ const AllNodes = () => {
                                         </div>
 
                                         {/* Name + ID */}
-                                        <h3 className="font-bold text-slate-800 text-base leading-snug mb-1 group-hover:text-blue-600 transition-colors">
+                                        <h3 className="font-[700] text-slate-800 text-[16px] leading-snug mb-1 group-hover:text-blue-600 transition-colors" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif', letterSpacing: '-0.02em' }}>
                                             {node.label}
                                         </h3>
-                                        <p className="text-xs text-slate-400 font-mono mb-3">{node.node_key}</p>
+                                        <p className="text-[11px] text-slate-400 font-mono font-[600] mb-3">{node.node_key}</p>
 
                                         {/* Category + analytics badges */}
                                         <div className="flex flex-wrap gap-1.5 mb-4">
-                                            <span className={clsx('text-[11px] font-semibold px-2 py-0.5 rounded-md', cfg.badge)}>
+                                            <span className={clsx('text-[12px] font-semibold px-2 py-0.5 rounded-md', cfg.badge)}>
                                                 {cfg.label}
                                             </span>
-                                            <span className={clsx('text-[11px] font-semibold px-2 py-0.5 rounded-md', anCfg.badge)}>
+                                            <span className={clsx('text-[12px] font-semibold px-2 py-0.5 rounded-md', anCfg.badge)}>
                                                 {node.analytics_template}
                                             </span>
                                         </div>
@@ -372,8 +376,8 @@ const AllNodes = () => {
 
                                     {/* View Analytics footer */}
                                     <div className={clsx(
-                                        'px-5 py-3 text-center text-xs font-bold tracking-wide transition-colors border-t border-white/40',
-                                        'bg-white/40 text-slate-400 group-hover:bg-blue-600 group-hover:text-white'
+                                        'px-5 py-3 text-center text-xs font-bold tracking-wide transition-all border-t border-white/40',
+                                        'bg-white/40 text-slate-400 group-hover:btn-liquid-glass group-hover:bg-blue-500/60 group-hover:text-white'
                                     )}>
                                         View Analytics →
                                     </div>

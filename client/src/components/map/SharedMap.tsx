@@ -39,82 +39,30 @@ interface HoverPanel {
 
 // â”€â”€â”€ Badge Icon Factory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-const TEMPLATE_STYLES: Record<string, { bg: string; border: string; svgInner: string }> = {
-    EvaraTank: {
-        bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        border: 'rgba(255,255,255,0.4)',
-        svgInner: `
-          <defs>
-            <linearGradient id="tG1" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1"/>
-              <stop offset="100%" style="stop-color:#f3e8ff;stop-opacity:0.85"/>
-            </linearGradient>
-            <filter id="softGlow"><feGaussianBlur stdDeviation="1.2"/></filter>
-          </defs>
-          <g filter="url(#softGlow)" opacity="0.6"><ellipse cx="16" cy="9" rx="9" ry="3" fill="#fff"/></g>
-          <rect x="7" y="9" width="18" height="13" rx="4" fill="url(#tG1)" stroke="#fff" stroke-width="0.5" opacity="0.95"/>
-          <ellipse cx="16" cy="9" rx="9" ry="3" fill="#fff" opacity="0.9"/>
-          <path d="M 8.5 13.5 Q 16 14.5 23.5 13.5" stroke="#a78bfa" stroke-width="1.2" fill="none" opacity="0.4" stroke-linecap="round"/>
-          <path d="M 8.5 17.5 Q 16 18.5 23.5 17.5" stroke="#a78bfa" stroke-width="1.2" fill="none" opacity="0.4" stroke-linecap="round"/>
-          <circle cx="16" cy="13.5" r="0.8" fill="#c4b5fd" opacity="0.6"/>
-          <circle cx="16" cy="17.5" r="0.8" fill="#c4b5fd" opacity="0.6"/>`,
-    },
-    EvaraDeep: {
-        bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-        border: 'rgba(255,255,255,0.4)',
-        svgInner: `
-          <defs>
-            <radialGradient id="dG1"><stop offset="0%" style="stop-color:#ffffff;stop-opacity:1"/><stop offset="100%" style="stop-color:#7dd3fc;stop-opacity:0.8"/></radialGradient>
-            <filter id="dropGlow"><feGaussianBlur stdDeviation="1.5"/><feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.8 0"/></filter>
-          </defs>
-          <g filter="url(#dropGlow)"><circle cx="16" cy="10" r="3.8" fill="#7dd3fc"/></g>
-          <circle cx="16" cy="10" r="3.8" fill="url(#dG1)"/>
-          <path d="M 16 13.8 L 16 23.5" stroke="#fff" stroke-width="2.8" stroke-linecap="round" opacity="0.9"/>
-          <circle cx="16" cy="16" r="3.2" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
-          <circle cx="16" cy="20" r="3.2" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
-          <circle cx="16" cy="23.5" r="2" fill="#fff" opacity="0.75"/>
-          <circle cx="15" cy="9" r="1" fill="#fff" opacity="0.7"/>`,
-    },
-    EvaraFlow: {
-        bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-        border: 'rgba(255,255,255,0.4)',
-        svgInner: `
-          <defs>
-            <linearGradient id="fG1" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" style="stop-color:#a7f3d0;stop-opacity:0.6"/>
-              <stop offset="50%" style="stop-color:#ffffff;stop-opacity:1"/>
-              <stop offset="100%" style="stop-color:#a7f3d0;stop-opacity:0.6"/>
-            </linearGradient>
-            <filter id="flowGlow"><feGaussianBlur stdDeviation="1"/></filter>
-          </defs>
-          <g filter="url(#flowGlow)" opacity="0.5"><path d="M 6 16 Q 11 12.5 16 16 T 26 16" stroke="#d1fae5" stroke-width="4" fill="none"/></g>
-          <path d="M 6 16 Q 11 12.5 16 16 T 26 16" stroke="url(#fG1)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-          <path d="M 23.5 12 L 27 16 L 23.5 20" fill="none" stroke="#fff" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>
-          <circle cx="10" cy="15" r="2.2" fill="#fff" opacity="0.9"/><circle cx="10" cy="15" r="1.2" fill="#6ee7b7" opacity="0.6"/>
-          <circle cx="16" cy="16" r="2.2" fill="#fff" opacity="0.85"/><circle cx="16" cy="16" r="1.2" fill="#6ee7b7" opacity="0.5"/>
-          <circle cx="22" cy="17" r="2.2" fill="#fff" opacity="0.75"/><circle cx="22" cy="17" r="1.2" fill="#6ee7b7" opacity="0.4"/>`,
-    },
-};
-const FALLBACK_STYLE = { bg: '#6366f1', border: '#c7d2fe', svgInner: `<circle cx="16" cy="16" r="6" fill="#fff" opacity="0.9"/>` };
-
 function buildBadgeIcon(template: string, status: string): L.DivIcon {
-    const s = TEMPLATE_STYLES[template] ?? FALLBACK_STYLE;
     const isOnline = status === 'Online';
     const statusDot = isOnline ? '#10b981' : '#94a3b8';
 
-    const html = `<div style="position:relative;width:48px;height:48px">
-  <div style="width:48px;height:48px;border-radius:50%;background:${s.bg};border:2.5px solid ${s.border};box-shadow:0 8px 24px -4px rgba(0,0,0,0.25),0 0 0 1px rgba(255,255,255,0.8),inset 0 2px 8px rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="28" height="28" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.1))">${s.svgInner}</svg>
-  </div>
-  <div style="position:absolute;bottom:2px;right:2px;width:12px;height:12px;border-radius:50%;background:${statusDot};border:2.5px solid #fff;box-shadow:0 2px 8px ${statusDot}90,0 0 0 1px rgba(255,255,255,0.5);"></div>
+    // Use the actual PNG device images directly
+    const imgSrc =
+        template === 'EvaraTank' ? '/tank.png' :
+        template === 'EvaraDeep' ? '/borewell.png' :
+        template === 'EvaraFlow' ? '/meter.png' :
+        '/tank.png';
+
+
+
+    const html = `<div style="position:relative;width:52px;height:52px;display:flex;align-items:center;justify-content:center;">
+  <img src="${imgSrc}" style="width:50px;height:50px;object-fit:contain;display:block;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.35)) drop-shadow(0 1px 3px rgba(0,0,0,0.25));" />
+  <div style="position:absolute;bottom:0px;right:0px;width:13px;height:13px;border-radius:50%;background:${statusDot};border:2.5px solid #fff;box-shadow:0 2px 8px ${statusDot}90;"></div>
 </div>`;
 
     return L.divIcon({
         className: 'evara-map-badge',
         html,
-        iconSize: [48, 48],
-        iconAnchor: [24, 24],
-        popupAnchor: [0, -28],
+        iconSize: [52, 52],
+        iconAnchor: [26, 26],
+        popupAnchor: [0, -30],
     });
 }
 

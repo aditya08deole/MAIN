@@ -106,7 +106,7 @@ export default function ProvisioningPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-[16px] bg-[#1F2937] text-white rounded-[12px] text-[15px] font-[600] flex items-center justify-center gap-2 hover:bg-[#111827] transform active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_8px_16px_rgba(31,41,55,0.2)]"
+                        className="w-full py-[16px] btn-liquid-glass btn-liquid-glass-slate rounded-[12px] text-[15px] font-[600] flex items-center justify-center gap-2 transform active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {loading ? (
                             <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>

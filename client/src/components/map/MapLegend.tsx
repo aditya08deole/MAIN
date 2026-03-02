@@ -19,12 +19,11 @@ const ASSET_FILTERS: FilterItem[] = [
     { key: 'EvaraFlow', label: 'EvaraFlow', fill: '#06b6d4', activeBg: 'bg-cyan-100', activeRing: 'ring-cyan-400' },
 ];
 
-const SVG_ICON = (fill: string) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={fill} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-map-pin">
-        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-        <circle cx="12" cy="10" r="3" />
-    </svg>
-);
+const ASSET_PNG: Record<string, string> = {
+    EvaraTank: '/tank.png',
+    EvaraDeep: '/borewell.png',
+    EvaraFlow: '/meter.png',
+};
 
 interface Props {
     showIndex: boolean;
@@ -52,7 +51,7 @@ export const MapLegend = ({ showIndex, setShowIndex, activeFilter, onFilterClick
             showIndex ? "opacity-100 scale-100 max-h-[500px]" : "opacity-0 scale-95 max-h-0"
         )}>
             <div className="p-5">
-                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 cursor-pointer hover:text-[var(--color-evara-blue)] transition-colors" onClick={() => onFilterClick('')}>ASSETS <span className="font-normal normal-case text-slate-300">— Tanks &amp; Borewells &amp; Flow Meters</span></h2>
+                <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3 cursor-pointer hover:text-[var(--color-evara-blue)] transition-colors" onClick={() => onFilterClick('')}>ASSETS <span className="font-medium normal-case text-slate-400">— Tanks &amp; Borewells &amp; Flow Meters</span></h2>
                 <div className="grid grid-cols-2 gap-x-2 gap-y-3">
                     {ASSET_FILTERS.map((f) => (
                         <div
@@ -63,27 +62,27 @@ export const MapLegend = ({ showIndex, setShowIndex, activeFilter, onFilterClick
                             )}
                             onClick={() => onFilterClick(f.key)}
                         >
-                            <div className={clsx("w-8 h-8 rounded-full flex items-center justify-center shadow-sm shrink-0 transition-transform", activeFilter === f.key && "scale-110", f.activeBg)}>
-                                {SVG_ICON(f.fill)}
+                            <div className={clsx("w-9 h-9 rounded-full flex items-center justify-center shadow-sm shrink-0 transition-transform bg-white/60", activeFilter === f.key && "scale-110")}>
+                                <img src={ASSET_PNG[f.key]} alt={f.label} style={{ width: 28, height: 28, objectFit: 'contain' }} />
                             </div>
-                            <span className="text-[13px] font-semibold text-slate-700 leading-tight">{f.label}</span>
+                            <span className="text-[13px] font-bold text-slate-800 leading-tight tracking-tight">{f.label}</span>
                         </div>
                     ))}
                 </div>
 
                 <div className="my-3 border-t border-slate-100" />
 
-                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">PIPELINES</h2>
+                <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3">PIPELINES</h2>
 
                 <div className="grid grid-cols-2 gap-x-2 gap-y-3">
                     <div className={clsx("flex items-center gap-2 cursor-pointer rounded-lg px-2 py-1.5 transition-all", activePipeline === 'watersupply' ? 'bg-cyan-100 ring-1 ring-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.4)]' : 'hover:bg-white/40')} onClick={() => onPipelineClick('watersupply')}>
                         <div className={clsx("w-8 h-8 flex flex-col items-center justify-center rounded-full bg-cyan-50 shadow-sm shrink-0 transition-transform", activePipeline === 'watersupply' && "scale-110")}><div className="w-5 h-1 bg-[#00b4d8] rounded-full shadow-sm" /></div>
-                        <span className="text-[13px] font-semibold text-slate-700 leading-tight">Water Supply</span>
+                        <span className="text-[13px] font-bold text-slate-800 leading-tight tracking-tight">Water Supply</span>
                     </div>
 
                     <div className={clsx("flex items-center gap-2 cursor-pointer rounded-lg px-2 py-1.5 transition-all", activePipeline === 'borewellwater' ? 'bg-indigo-100 ring-1 ring-indigo-400 shadow-[0_0_12px_rgba(99,102,241,0.4)]' : 'hover:bg-white/40')} onClick={() => onPipelineClick('borewellwater')}>
                         <div className={clsx("w-8 h-8 flex flex-col items-center justify-center rounded-full bg-indigo-50 shadow-sm shrink-0 transition-transform", activePipeline === 'borewellwater' && "scale-110")}><div className="w-5 h-1 bg-[#000080] rounded-full shadow-sm" /></div>
-                        <span className="text-[13px] font-semibold text-slate-700 leading-tight">Borewell Water</span>
+                        <span className="text-[13px] font-bold text-slate-800 leading-tight tracking-tight">Borewell Water</span>
                     </div>
                 </div>
             </div>

@@ -230,7 +230,7 @@ const AdminNodes = () => {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all transform active:scale-[0.98] shadow-lg shadow-slate-200 disabled:opacity-50"
+                                className="w-full btn-liquid-glass btn-liquid-glass-slate font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all transform active:scale-[0.98] disabled:opacity-50"
                             >
                                 {loading ? (
                                     <Loader2 className="w-5 h-5 animate-spin" />

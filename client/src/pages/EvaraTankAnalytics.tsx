@@ -222,7 +222,7 @@ const EvaraTankAnalytics = () => {
                             onClick={() => refetch()} 
                             className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium transition-colors"
                         >
-                            \u26a0\ufe0f Retry
+                            ⚠️ Retry
                         </button>
                     )}
                 </header>
@@ -234,7 +234,8 @@ const EvaraTankAnalytics = () => {
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">\n                    {/* Tank Display Card */}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                    {/* Tank Display Card */}
                     <div className="apple-glass-card rounded-[20px] p-6 shadow-sm border border-slate-100 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md">
                         {telemetryLoading ? (
                             <div className="animate-pulse flex items-center gap-5">
@@ -296,12 +297,12 @@ const EvaraTankAnalytics = () => {
                             <>
                                 <div className="text-[13px] font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-2">
                                     Est. Consumption
-                                    {consumption.trend === 'up' && <span className="text-red-500">\u2191</span>}
-                                    {consumption.trend === 'down' && <span className="text-green-500">\u2193</span>}
-                                    {consumption.trend === 'stable' && <span className="text-blue-500">\u2192</span>}
+                                    {consumption.trend === 'up' && <span className="text-red-500">↑</span>}
+                                    {consumption.trend === 'down' && <span className="text-green-500">↓</span>}
+                                    {consumption.trend === 'stable' && <span className="text-blue-500">→</span>}
                                 </div>
                                 <div className="text-[28px] font-bold text-indigo-600 my-2.5 leading-none">{consumption.daily} L</div>
-                                <div className="text-[12px] text-slate-500">Daily avg \u2022 {consumption.weekly}L weekly</div>
+                                <div className="text-[12px] text-slate-500">Daily avg • {consumption.weekly}L weekly</div>
                             </>
                         )}
                     </div>

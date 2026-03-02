@@ -264,8 +264,8 @@ const Login = () => {
                             type="submit"
                             disabled={isLoading}
                             className={clsx(
-                                "w-full py-3.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all hover:-translate-y-0.5",
-                                isSuperAdmin ? "bg-slate-900 hover:bg-slate-800" : "bg-blue-600 hover:bg-blue-700"
+                                "w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 btn-liquid-glass",
+                                isSuperAdmin ? "btn-liquid-glass-slate" : "btn-liquid-glass-indigo"
                             )}
                         >
                             {isLoading ? (
