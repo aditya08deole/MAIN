@@ -1,22 +1,24 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import MainLayout from './layouts/MainLayout';
 import ProtectedRoute from './components/ProtectedRoute';
-import { Home, Dashboard, AllNodes, Admin, NodeDetails, EvaraTank, EvaraDeep, EvaraFlow, Login } from './pages';
-import AIAssistant from './pages/AIAssistant';
+import { Home, Dashboard, AllNodes, Admin, NodeDetails, EvaraTankAnalytics, EvaraDeepAnalytics, EvaraFlowAnalytics, Login } from './pages';
 import AdminLayout from './layouts/AdminLayout';
 // import SuperAdminOverview from './pages/SuperAdminOverview';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminCustomers from './pages/admin/AdminCustomers';
 // import AdminNodes from './pages/admin/AdminNodes';
 import AdminConfig from './pages/admin/AdminConfig';
-import RegionsOverview from './pages/admin/hierarchy/RegionsOverview';
-import RegionCustomers from './pages/admin/hierarchy/RegionCustomers';
+import ZonesOverview from './pages/admin/hierarchy/ZonesOverview';
+import ZoneCommunities from './pages/admin/hierarchy/ZoneCommunities';
+import ZoneCustomers from './pages/admin/hierarchy/ZoneCustomers';
+import CommunityCustomers from './pages/admin/hierarchy/CommunityCustomers';
 import CustomerDetails from './pages/admin/hierarchy/CustomerDetails';
 
 import { AuthProvider } from './context/AuthContext';
+import { TenancyProvider } from './context/TenancyContext';
 import { ToastProvider } from './components/ToastProvider';
 
 // Create a client
@@ -31,63 +33,25 @@ const queryClient = new QueryClient({
     },
 });
 
-const SplashScreen = ({ onDone }: { onDone: () => void }) => {
-    const [phase, setPhase] = useState<'in' | 'hold' | 'out'>('in');
+import SplashScreen from './components/ui/SplashScreen';
 
-    useEffect(() => {
-        // Trigger animation start slightly after mount to ensure transition happens
-        // Sequence:
-        // 0ms: Mount (opacity 0, scale 0.5)
-        // 50ms: Set 'hold' -> transitions to (opacity 1, scale 1) over 0.8s
-        // 1200ms: Set 'out' -> transitions to (opacity 0) over 0.5s
-        // 1700ms: Done
-
-        const t1 = setTimeout(() => setPhase('hold'), 50);
-        const t2 = setTimeout(() => setPhase('out'), 1200);
-        const t3 = setTimeout(onDone, 1700);
-
-        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-    }, [onDone]);
-
+const GlobalBackground = ({ children }: { children: React.ReactNode }) => {
+    const location = useLocation();
+    const isMap = location.pathname.startsWith('/map');
     return (
-        <div style={{
-            position: 'fixed', inset: 0, zIndex: 99999,
-            background: '#ffffff',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            gap: '20px',
-            opacity: phase === 'out' ? 0 : 1,
-            pointerEvents: phase === 'out' ? 'none' : 'auto',
-            transition: 'opacity 0.5s ease',
-        }}>
-            <img
-                src="/evara-logo.png"
-                alt="EvaraTech"
-                style={{
-                    height: '180px',
-                    objectFit: 'contain',
-                    opacity: phase === 'in' ? 0 : 1,
-                    transform: phase === 'in' ? 'scale(0.8)' : 'scale(1)',
-                    transition: 'opacity 0.8s ease-out, transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)', // Bouncy zoom
-                    willChange: 'opacity, transform'
-                }}
-            />
-            <h1 style={{
-                margin: 0,
-                fontSize: '32px',
-                fontWeight: '700',
-                letterSpacing: '-0.5px', // Tighter tracking like the image
-                opacity: phase === 'in' ? 0 : 1,
-                transform: phase === 'in' ? 'scale(0.8) translateY(20px)' : 'scale(1) translateY(0)',
-                transition: 'opacity 0.8s ease-out 0.1s, transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s',
-                willChange: 'opacity, transform',
-                fontFamily: '"Interact", sans-serif',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0px'
-            }}>
-                <span style={{ color: '#0077b6' }}>Evara</span>
-                <span style={{ color: '#22c55e' }}>Tech</span>
-            </h1>
+        <div className={isMap ? '' : 'app-global-bg'}>
+            {!isMap && (
+                <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+                    <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#3A7AFE]/10 blur-[160px] animate-blob mix-blend-multiply opacity-50"></div>
+                    <div className="absolute top-[20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#CFEDE6]/20 blur-[180px] animate-blob animation-delay-2000 mix-blend-multiply opacity-40"></div>
+                    <div className="absolute bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-[#D7ECFF]/20 blur-[160px] animate-blob animation-delay-4000 mix-blend-multiply opacity-30"></div>
+                    {/* Additional overlay blur to enhance glass textures */}
+                    <div className="absolute inset-0 backdrop-blur-[12px] z-0"></div>
+                </div>
+            )}
+            <div className="relative z-10 w-full min-h-screen">
+                {children}
+            </div>
         </div>
     );
 };
@@ -100,53 +64,57 @@ function App() {
             {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
             {splashDone && (
                 <AuthProvider>
-                    <ToastProvider>
-                        <Router>
-                            <Routes>
-                                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                                <Route path="/login" element={<Login />} />
+                    <TenancyProvider>
+                        <ToastProvider>
+                            <Router>
+                                <GlobalBackground>
+                                    <Routes>
+                                        <Route path="/" element={<Navigate to="/map" replace />} />
+                                        <Route path="/login" element={<Login />} />
 
-                                <Route element={<ProtectedRoute />}>
-                                    <Route element={<MainLayout />}>
-                                        <Route path="/home" element={<Home />} />
-                                        <Route path="/dashboard" element={<Dashboard />} />
-                                        <Route path="/nodes" element={<AllNodes />} />
-                                        <Route path="/node/:id" element={<NodeDetails />} />
-                                        <Route path="/evaratank" element={<EvaraTank />} />
-                                        <Route path="/evaradeep" element={<EvaraDeep />} />
-                                        <Route path="/evaraflow" element={<EvaraFlow />} />
-                                        <Route path="/admin" element={<Admin />} />
-                                        <Route path="/ai" element={<AIAssistant />} />
-                                    </Route>
+                                        <Route element={<ProtectedRoute />}>
+                                            <Route element={<MainLayout />}>
+                                                <Route path="/map" element={<Home />} />
+                                                <Route path="/dashboard" element={<Dashboard />} />
+                                                <Route path="/nodes" element={<AllNodes />} />
+                                                <Route path="/node/:id" element={<NodeDetails />} />
+                                                <Route path="/evaratank" element={<EvaraTankAnalytics />} />
+                                                <Route path="/evaratank/:id" element={<EvaraTankAnalytics />} />
+                                                <Route path="/evaradeep" element={<EvaraDeepAnalytics />} />
+                                                <Route path="/evaradeep/:id" element={<EvaraDeepAnalytics />} />
+                                                <Route path="/evaraflow" element={<EvaraFlowAnalytics />} />
+                                                <Route path="/evaraflow/:id" element={<EvaraFlowAnalytics />} />
+                                                <Route path="/admin" element={<Admin />} />
+                                            </Route>
 
-                                    {/* Admin Routes (Super Admin & Distributor) */}
-                                    <Route element={<ProtectedRoute allowedRoles={['superadmin', 'distributor']} />}>
-                                        <Route path="/superadmin" element={<AdminLayout />}>
-                                            <Route index element={<Navigate to="dashboard" replace />} />
-                                            <Route path="dashboard" element={<AdminDashboard />} />
-                                            <Route path="customers" element={<AdminCustomers />} />
+                                            {/* Admin Routes (Super Admin) */}
+                                            <Route element={<ProtectedRoute allowedRoles={['superadmin']} />}>
+                                                <Route path="/superadmin" element={<AdminLayout />}>
+                                                    <Route index element={<Navigate to="dashboard" replace />} />
+                                                    <Route path="dashboard" element={<AdminDashboard />} />
+                                                    <Route path="customers" element={<AdminCustomers />} />
 
-                                            {/* Hierarchy Routes */}
-                                            <Route path="regions" element={<RegionsOverview />} />
-                                            <Route path="regions/:regionId" element={<RegionCustomers />} />
-                                            <Route path="customers/:customerId" element={<CustomerDetails />} />
+                                                    {/* Hierarchy Routes */}
+                                                    <Route path="zones" element={<ZonesOverview />} />
+                                                    <Route path="zones/:regionId" element={<ZoneCommunities />} />
+                                                    <Route path="communities/:communityId" element={<CommunityCustomers />} />
+                                                    <Route path="customers/:customerId" element={<CustomerDetails />} />
+                                                    <Route path="zones/:regionId/customers" element={<ZoneCustomers />} />
 
-                                            {/* Legacy route redirects */}
-                                            <Route path="communities/:communityId" element={<Navigate to="../regions" replace />} />
+                                                    {/* Legacy route redirects or keep if needed */}
+                                                    <Route path="nodes" element={<Navigate to="zones" replace />} />
 
-                                            {/* Legacy route redirects or keep if needed */}
-                                            <Route path="nodes" element={<Navigate to="regions" replace />} />
-
-                                            <Route path="config" element={<AdminConfig />} />
+                                                    <Route path="config" element={<AdminConfig />} />
+                                                </Route>
+                                            </Route>
                                         </Route>
-                                    </Route>
-                                </Route>
 
-                                {/* Catch-all redirect to Dashboard */}
-                                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                            </Routes>
-                        </Router>
-                    </ToastProvider>
+                                        {/* Catch-all redirect to Map */}
+                                    </Routes>
+                                </GlobalBackground>
+                            </Router>
+                        </ToastProvider>
+                    </TenancyProvider>
                 </AuthProvider>
             )}
             <ReactQueryDevtools initialIsOpen={false} />

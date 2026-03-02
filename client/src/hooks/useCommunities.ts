@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '../services/api';
+import { supabase } from '../lib/supabase';
 
 export interface Community {
     id: string;
     name: string;
-    region_id: string;
+    zone_id: string;
     address: string | null;
     contact_email: string | null;
     contact_phone: string | null;
@@ -14,14 +14,14 @@ export interface Community {
 
 export interface CommunityCreate {
     name: string;
-    region_id: string;
+    zone_id: string;
     address?: string;
     contact_email?: string;
     contact_phone?: string;
 }
 
 /**
- * Hook to fetch communities, optionally filtered by region
+ * Hook to fetch communities, optionally filtered by zone
  * No authentication required - public data
  * Endpoint: GET /api/v1/communities
  */
@@ -30,10 +30,12 @@ export const useCommunities = (regionId?: string) => {
         queryKey: ['communities', regionId],
         queryFn: async () => {
             try {
-                const params = regionId ? { region_id: regionId } : {};
-                const response = await api.get<Community[]>('/communities', { params });
-                return response.data;
-            } catch (error: any) {
+                let query = supabase.from('communities').select('*');
+                if (regionId) query = query.eq('zone_id', regionId);
+                const { data, error } = await query;
+                if (error) throw error;
+                return data || [];
+            } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
                 console.error('[useCommunities] Failed to fetch communities:', error);
                 throw error;
             }
@@ -61,9 +63,10 @@ export const useCreateCommunity = () => {
     return useMutation({
         mutationFn: async (communityData: CommunityCreate) => {
             try {
-                const response = await api.post<Community>('/communities', communityData);
-                return response.data;
-            } catch (error: any) {
+                const { data, error } = await supabase.from('communities').insert(communityData as any).select().single();
+                if (error) throw error;
+                return data;
+            } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
                 console.error('[useCreateCommunity] Failed to create community:', error);
                 throw error;
             }
@@ -85,9 +88,10 @@ export const useCommunity = (communityId: string) => {
         queryKey: ['community', communityId],
         queryFn: async () => {
             try {
-                const response = await api.get<Community>(`/communities/${communityId}`);
-                return response.data;
-            } catch (error: any) {
+                const { data, error } = await supabase.from('communities').select('*').eq('id', communityId).single();
+                if (error) throw error;
+                return data;
+            } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
                 console.error('[useCommunity] Failed to fetch community:', error);
                 throw error;
             }

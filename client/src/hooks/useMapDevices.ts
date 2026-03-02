@@ -1,43 +1,29 @@
-import { useQuery } from '@tanstack/react-query';
-import api from '../services/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { deviceService, type MapDevice } from '../services/DeviceService';
 
-export interface MapDevice {
-    id: string;
-    name: string;
-    asset_type: string;  // pump, sump, tank, bore, govt
-    asset_category?: string;
-    latitude: number;
-    longitude: number;
-    capacity?: string;
-    specifications?: string;
-    status: string;
-}
+export type { MapDevice };
 
 /**
- * Hook to fetch devices optimized for map rendering
- * No authentication required - public map display
- * Endpoint: GET /devices/map/all
+ * Hook to fetch all devices for map display with real-time updates
  */
 export const useMapDevices = () => {
-    const { data: devices = [], isLoading, error, refetch } = useQuery<MapDevice[]>({
-        queryKey: ['map_devices'],
-        queryFn: async () => {
-            try {
-                const response = await api.get<MapDevice[]>('/devices/map/all');
-                return response.data;
-            } catch (error: any) {
-                console.error('[useMapDevices] Failed to fetch devices:', error);
-                throw error;
-            }
-        },
-        staleTime: 1000 * 60 * 5, // 5 minutes stale time (map data doesn't change often)
-        retry: 2,
-    });
+    const queryClient = useQueryClient();
 
-    return {
-        devices,
-        loading: isLoading,
-        error: error instanceof Error ? error.message : (error ? String(error) : null),
-        refresh: refetch
-    };
+    useEffect(() => {
+        const unsubUpdate = deviceService.subscribeToDeviceUpdates(() => {
+            queryClient.invalidateQueries({ queryKey: ['map_devices'] });
+        });
+        const unsubNew = deviceService.subscribeToNewDevices(() => {
+            queryClient.invalidateQueries({ queryKey: ['map_devices'] });
+        });
+        return () => { unsubUpdate(); unsubNew(); };
+    }, [queryClient]);
+
+    return useQuery<MapDevice[]>({
+        queryKey: ['map_devices'],
+        queryFn: () => deviceService.getMapDevices(),
+        refetchInterval: 30000,
+        retry: 2
+    });
 };

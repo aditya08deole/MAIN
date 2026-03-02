@@ -104,13 +104,13 @@ def sample_device_data():
 @pytest.fixture
 async def create_test_user(test_db: AsyncSession, sample_user_data):
     """Create test user in database."""
-    from models import User
+    from models import Customer
     
-    user = User(**sample_user_data)
-    test_db.add(user)
+    profile = Customer(**sample_user_data)
+    test_db.add(profile)
     await test_db.commit()
-    await test_db.refresh(user)
-    return user
+    await test_db.refresh(profile)
+    return profile
 
 
 @pytest.fixture

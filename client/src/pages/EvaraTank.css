@@ -17,27 +17,15 @@
     color: var(--text-main);
     margin: 0;
     display: flex;
-    min-height: 100vh;
-}
-
-.et-sidebar {
-    width: 100px;
-    background: var(--card);
-    height: 100vh;
-    border-right: 1px solid #E2E8F0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-top: 20px;
-    position: fixed;
-    z-index: 10;
+    height: 100%;
+    overflow-y: auto;
 }
 
 .et-main-content {
-    margin-left: 100px;
-    padding: 40px;
-    width: calc(100% - 100px);
+    padding: 30px;
+    width: 100%;
     max-width: 1400px;
+    margin: 0 auto;
 }
 
 /* Embedded mode adjustments */

@@ -91,6 +91,7 @@ export const performanceMonitor = new PerformanceMonitor();
  * ```
  */
 export function useRenderTime(componentName: string) {
+    // eslint-disable-next-line react-hooks/purity
     const renderStartRef = useRef<number>(performance.now());
 
     useEffect(() => {
@@ -130,7 +131,7 @@ export function useApiTimer() {
 export function usePageLoadTime(pageName: string) {
     useEffect(() => {
         const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-        
+
         if (navigationEntry) {
             const loadTime = navigationEntry.loadEventEnd - navigationEntry.fetchStart;
             performanceMonitor.record(`page-load:${pageName}`, loadTime);
@@ -265,6 +266,7 @@ export function useInView(options = {}) {
         return () => {
             observer.disconnect();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return [ref, isVisible] as const;

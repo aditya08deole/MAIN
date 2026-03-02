@@ -12,18 +12,19 @@ services:
     envVars:
       - key: ENVIRONMENT
         value: production
+      # ⚠️ Sensitive values — set these in the Render dashboard, NOT here
       - key: DATABASE_URL
-        value: postgresql+asyncpg://postgres.tihrvotigvaozizlcxse:evaratech%401010@db.tihrvotigvaozizlcxse.supabase.co:6543/postgres
+        sync: false  # Set in Render dashboard
       - key: SUPABASE_URL
-        value: https://tihrvotigvaozizlcxse.supabase.co
+        sync: false  # Set in Render dashboard
       - key: SUPABASE_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpaHJ2b3RpZ3Zhb3ppemxjeHNlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTMwOTUyNywiZXhwIjoyMDg2ODg1NTI3fQ.zTcjoRCoo8AQHd0X8CFGuHh-WUHwXPDfeQeQKts3JJI
+        sync: false  # Set in Render dashboard
       - key: SUPABASE_JWT_SECRET
-        value: fzxLrpyummk6rZjWJbrC63jZmwrgThygVoHF3K0jdJE2F3sUhuVxH7HUGUk5r67NWsjtYCb4x9iEJdKikyhS4A==
+        sync: false  # Set in Render dashboard
       - key: SECRET_KEY
         generateValue: true
       - key: PORT
-        value: 8000
+        value: "8000"
       - key: BACKEND_CORS_ORIGINS
         value: https://evara-frontend.onrender.com,http://localhost:5173,http://localhost:8080
 
@@ -40,7 +41,9 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://evara-backend-412x.onrender.com/api/v1
+      # ⚠️ Sensitive values — set these in the Render dashboard, NOT here
       - key: VITE_SUPABASE_URL
-        value: https://tihrvotigvaozizlcxse.supabase.co
+        sync: false  # Set in Render dashboard
       - key: VITE_SUPABASE_ANON_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpaHJ2b3RpZ3Zhb3ppemxjeHNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMDk1MjcsImV4cCI6MjA4Njg4NTUyN30.z8zgCfNjeDq68_HuinnvT_efI4B5nPNBY3XCTSNwKVg
+        sync: false  # Set in Render dashboard
+

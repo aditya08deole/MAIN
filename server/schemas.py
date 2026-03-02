@@ -1,16 +1,8 @@
-"""
-Pydantic schemas for request/response validation.
-Clean and simple data models.
-"""
 from pydantic import BaseModel, EmailStr, field_validator
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from uuid import UUID
 
-
-# ============================================================================
-# USER SCHEMAS
-# ============================================================================
 
 class UserResponse(BaseModel):
     """User profile response."""
@@ -24,19 +16,20 @@ class UserResponse(BaseModel):
         from_attributes = True  # Pydantic v2 (was orm_mode in v1)
 
 
-# ============================================================================
-# REGION & COMMUNITY SCHEMAS
-# ============================================================================
-
-class RegionResponse(BaseModel):
-    """Region response."""
+class ZoneResponse(BaseModel):
+    """Zone response."""
     id: str
     name: str
     state: Optional[str] = None
+    country: Optional[str] = None
+    zone_code: Optional[str] = None
+    description: Optional[str] = None
+    distributor_id: Optional[str] = None
+    is_active: Optional[bool] = True
     created_at: datetime
     updated_at: datetime
     
-    @field_validator('id', mode='before')
+    @field_validator('id', 'distributor_id', mode='before')
     @classmethod
     def convert_uuid_to_str(cls, v):
         if isinstance(v, UUID):
@@ -47,27 +40,76 @@ class RegionResponse(BaseModel):
         from_attributes = True
 
 
-class CommunityCreate(BaseModel):
-    """Create new community."""
+class ZoneCreate(BaseModel):
+    """Create a new zone."""
     name: str
-    region_id: str  # References Region.id
+    state: Optional[str] = None
+    country: Optional[str] = "India"
+    zone_code: Optional[str] = None
+    description: Optional[str] = None
+    distributor_id: Optional[str] = None
+
+class PlanResponse(BaseModel):
+    """Subscription plan response."""
+    id: str
+    name: str
+    max_devices: int
+    retention_days: int
+
+    class Config:
+        from_attributes = True
+
+class DistributorResponse(BaseModel):
+    """Distributor (Tenant) response."""
+    id: str
+    name: str
+    region: Optional[str] = None
+    status: str
+    plan_id: Optional[str] = None
+    plan: Optional[PlanResponse] = None
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class DistributorCreate(BaseModel):
+    """Create a new distributor."""
+    name: str
+    region: Optional[str] = None
+    plan_id: Optional[str] = None
+    status: Optional[str] = "active"
+
+class CommunityCreate(BaseModel):
+    """Create new community with enterprise fields."""
+    name: str
+    zone_id: str  # References Zone.id
     address: Optional[str] = None
+    pincode: Optional[str] = None
+    contact_person: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
+    operational_status: Optional[str] = "active"  # active, inactive, maintenance, planned
+    notes: Optional[str] = None
+    meta_data: Optional[Dict[str, Any]] = {}
 
 
 class CommunityResponse(BaseModel):
-    """Community response."""
+    """Community response with enterprise fields."""
     id: str
     name: str
-    region_id: str
+    zone_id: str
     address: Optional[str] = None
+    pincode: Optional[str] = None
+    contact_person: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
+    operational_status: Optional[str] = None
+    notes: Optional[str] = None
+    meta_data: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
     
-    @field_validator('id', 'region_id', mode='before')
+    @field_validator('id', 'zone_id', mode='before')
     @classmethod
     def convert_uuid_to_str(cls, v):
         if isinstance(v, UUID):
@@ -79,12 +121,16 @@ class CommunityResponse(BaseModel):
 
 
 class CustomerCreate(BaseModel):
-    """Create new customer (user with community link)."""
+    """Create new customer (user with enterprise fields)."""
     email: EmailStr
     display_name: str
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
     password: str  # Will be used for Supabase Auth
     community_id: str  # References Community.id
-    role: Optional[str] = "user"  # Default role
+    role: Optional[str] = "customer"  # customer, operator, viewer
+    status: Optional[str] = "active"  # active, suspended, inactive, pending
+    meta_data: Optional[Dict[str, Any]] = {}
 
 
 # ============================================================================
@@ -92,82 +138,93 @@ class CustomerCreate(BaseModel):
 # ============================================================================
 
 class DeviceCreate(BaseModel):
-    """Create new device."""
+    """Create new device with core fields."""
     node_key: str
     label: str
-    category: str
-    name: Optional[str] = None  # Display name for map
-    asset_type: Optional[str] = None  # pump, sump, tank, bore, govt, pipeline, sensor
-    asset_category: Optional[str] = None  # Subcategory
-    device_type: Optional[str] = None  # tank, deep, flow - determines analytics page
-    physical_category: Optional[str] = None  # Physical classification
-    analytics_template: Optional[str] = None  # EvaraTank, EvaraDeep, EvaraFlow
-    capacity: Optional[str] = None  # e.g., "4.98L L", "5 HP"
-    specifications: Optional[str] = None  # Technical specs
-    status: Optional[str] = "active"  # Status of device
-    is_active: Optional[str] = "true"  # String "true"/"false"
-    latitude: Optional[float] = None  # Primary geo field
-    longitude: Optional[float] = None  # Primary geo field
-    lat: Optional[float] = None  # Legacy compatibility
-    lng: Optional[float] = None  # Legacy compatibility
-    location_name: Optional[str] = None
-    community_id: Optional[str] = None  # References Community.id
+    name: Optional[str] = None
+    asset_type: Optional[str] = None
+    status: Optional[str] = "active"
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    device_type: Optional[str] = None
+    community_id: Optional[str] = None
+    user_id: str
+    
+    # ThingSpeak Integration
     thingspeak_channel_id: Optional[str] = None
     thingspeak_read_key: Optional[str] = None
-    thingspeak_write_key: Optional[str] = None
     field_mapping: Optional[Dict[str, str]] = {}
 
 
 class DeviceUpdate(BaseModel):
-    """Update device (all fields optional)."""
+    """Update device core fields."""
     label: Optional[str] = None
-    category: Optional[str] = None
     name: Optional[str] = None
     asset_type: Optional[str] = None
-    asset_category: Optional[str] = None
-    device_type: Optional[str] = None
-    physical_category: Optional[str] = None
-    analytics_template: Optional[str] = None
-    capacity: Optional[str] = None
-    specifications: Optional[str] = None
     status: Optional[str] = None
-    is_active: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    lat: Optional[float] = None
-    lng: Optional[float] = None
-    location_name: Optional[str] = None
-    community_id: Optional[str] = None
+    device_type: Optional[str] = None
+    is_active: Optional[bool] = None
+    
+    # ThingSpeak Integration
     thingspeak_channel_id: Optional[str] = None
     thingspeak_read_key: Optional[str] = None
-    thingspeak_write_key: Optional[str] = None
     field_mapping: Optional[Dict[str, str]] = None
 
 
+class DeviceConfigTankResponse(BaseModel):
+    tank_shape: Optional[str] = None
+    dimension_unit: str = "m"
+    radius: Optional[float] = None
+    height: Optional[float] = None
+    length: Optional[float] = None
+    breadth: Optional[float] = None
+    thingspeak_channel_id: Optional[str] = None
+    thingspeak_read_key: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class DeviceConfigFlowResponse(BaseModel):
+    max_flow_rate: Optional[float] = None
+    pipe_diameter: Optional[float] = None
+    abnormal_threshold: Optional[float] = None
+    thingspeak_channel_id: Optional[str] = None
+    thingspeak_read_key: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class DeviceConfigDeepResponse(BaseModel):
+    static_depth: Optional[float] = None
+    dynamic_depth: Optional[float] = None
+    recharge_threshold: Optional[float] = None
+    thingspeak_channel_id: Optional[str] = None
+    thingspeak_read_key: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
 class DeviceResponse(BaseModel):
-    """Device response."""
+    """Refined device response."""
     id: str
     node_key: str
     label: str
-    category: str
     name: Optional[str] = None
     asset_type: Optional[str] = None
-    asset_category: Optional[str] = None
-    device_type: Optional[str] = None
-    physical_category: Optional[str] = None
-    analytics_template: Optional[str] = None
-    capacity: Optional[str] = None
-    specifications: Optional[str] = None
     status: str
-    is_active: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    lat: Optional[float] = None
-    lng: Optional[float] = None
-    location_name: Optional[str] = None
+    device_type: Optional[str] = None
+    is_active: bool
+    
+    # Normalized Configs
+    config_tank: Optional[DeviceConfigTankResponse] = None
+    config_flow: Optional[DeviceConfigFlowResponse] = None
+    config_deep: Optional[DeviceConfigDeepResponse] = None
+
     community_id: Optional[str] = None
-    thingspeak_channel_id: Optional[str] = None
-    thingspeak_write_key: Optional[str] = None
     user_id: str
     created_at: datetime
     updated_at: datetime
@@ -187,7 +244,7 @@ class DeviceMapResponse(BaseModel):
     longitude: Optional[float] = None
     capacity: Optional[str] = None
     specifications: Optional[str] = None
-    status: str
+    status: Optional[str] = "active"
     
     class Config:
         from_attributes = True
@@ -201,6 +258,13 @@ class TelemetryResponse(BaseModel):
     """Telemetry data response from ThingSpeak."""
     timestamp: str
     data: Dict[str, Any]
+    
+    # Strongly Typed Phase 1
+    level_percentage: Optional[float] = None
+    depth_value: Optional[float] = None
+    temperature_value: Optional[float] = None
+    flow_rate: Optional[float] = None
+    total_liters: Optional[int] = None
 
 
 class HealthResponse(BaseModel):
@@ -311,7 +375,7 @@ class PipelineResponse(BaseModel):
     installation_type: Optional[str] = None
     color: str
     status: str
-    is_active: str
+    is_active: bool
     description: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -330,3 +394,60 @@ class PipelineMapResponse(BaseModel):
     class Config:
         from_attributes = True
 
+# ============================================================================
+# STATS SCHEMAS
+# ============================================================================
+
+class RegionStatsResponse(BaseModel):
+    """Statistical summary for a zone."""
+    zone_id: str
+    region_name: str
+    state: Optional[str] = None
+    community_count: int
+    customer_count: int
+    device_count: int
+    online_devices: int
+    offline_devices: int
+
+class DashboardSummaryResponse(BaseModel):
+    """Consolidated dashboard summary metrics."""
+    total_devices: int
+    deployed_active: int
+    deployed_inactive: int
+    health_working: int
+    health_not_working: int
+    product_tank: int
+    product_flow: int
+    product_deep: int
+    alerts_active: int
+    alerts_critical: int
+    alerts_warning: int
+    tanks_full: int
+    tanks_not_full: int
+    system_health: int
+    timestamp: datetime
+
+
+
+
+# ============================================================================
+# DEVICE SHARE SCHEMAS
+# ============================================================================
+
+class DeviceShareCreate(BaseModel):
+    """Create a new device share."""
+    device_id: str
+    user_id: str
+    access_level: Optional[str] = "viewer"
+
+class DeviceShareResponse(BaseModel):
+    """Device share response."""
+    id: str
+    device_id: str
+    user_id: str
+    access_level: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

@@ -1,25 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import api from '../services/api';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 import type { UserRole, UserPlan } from '../types/database';
 
-// Session key for localStorage (moved to module level)
-const SESSION_KEY = 'evara_session';
-const SESSION_DURATION = 12 * 60 * 60 * 1000; // 12 hours
-
-/** Ensure backend has this user (creates/updates users_profiles). Call after login or session restore. */
-const syncWithBackend = async (): Promise<void> => {
-    // Run in background, don't block login
-    setTimeout(async () => {
-        try {
-            await api.post('/auth/sync');
-        } catch (err) {
-            console.warn('Backend sync failed (user may still work):', err);
-        }
-    }, 100); // Defer to next tick
-};
-
-// Re-export so existing imports from AuthContext continue to work
+// Re-export types
 export type { UserRole, UserPlan };
 
 export interface User {
@@ -28,220 +12,192 @@ export interface User {
     displayName: string;
     role: UserRole;
     plan: UserPlan;
+    community_id?: string;
 }
 
 interface AuthContextType {
     user: User | null;
     isAuthenticated: boolean;
     loading: boolean;
-    login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+    login: (email: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
     signup: (email: string, password: string, displayName: string) => Promise<{ success: boolean; error?: string }>;
     logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const buildUser = async (uid: string): Promise<User | null> => {
-    const { data: profile, error } = await supabase
-        .from('users_profiles')
-        .select('id, email, display_name, role, plan')
-        .eq('id', uid)
-        .single();
-    if (error || !profile) return null;
-    const p = profile as any;
-    return {
-        id: p.id,
-        email: p.email,
-        displayName: p.display_name,
-        role: p.role,
-        plan: p.plan,
-    };
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
+
+    // Extract user metadata from Supabase session
+    const extractUser = useCallback((supabaseUser: SupabaseUser, profile?: any): User => {
+        const metadata = supabaseUser.user_metadata || {};
+        const profileRole = profile?.role as UserRole;
+        const metadataRole = metadata.role as UserRole;
+
+        const finalRole = profileRole || metadataRole || 'customer';
+
+        return {
+            id: supabaseUser.id,
+            email: supabaseUser.email || '',
+            displayName: profile?.full_name || metadata.display_name || metadata.displayName || supabaseUser.email?.split('@')[0] || 'User',
+            role: finalRole,
+            plan: (metadata.plan as UserPlan) || 'pro',
+            community_id: profile?.community_id || metadata.community_id,
+        };
+    }, []);
+
+    const fetchProfile = useCallback(async (supabaseUser: SupabaseUser) => {
+        try {
+            const { data: profile, error } = await supabase
+                .from('customers')
+                .select('*')
+                .eq('id', supabaseUser.id)
+                .single();
+
+            if (error) {
+                setUser(extractUser(supabaseUser));
+            } else {
+                setUser(extractUser(supabaseUser, profile));
+            }
+        } catch (err) {
+            setUser(extractUser(supabaseUser));
+        } finally {
+            setLoading(false);
+        }
+    }, [extractUser]);
 
     useEffect(() => {
         let mounted = true;
 
         const initializeAuth = async () => {
-            try {
-                // Check localStorage first for instant restore (dev bypass)
-                const stored = localStorage.getItem(SESSION_KEY);
-                if (stored) {
-                    const { user: storedUser, timestamp } = JSON.parse(stored);
-                    const age = Date.now() - timestamp;
-                    if (age < SESSION_DURATION && storedUser?.id?.startsWith('dev-bypass-')) {
-                        if (mounted) {
-                            setUser(storedUser);
-                            setLoading(false);
-                            return; // Early return for dev bypass
-                        }
-                    } else {
-                        localStorage.removeItem(SESSION_KEY);
-                    }
+            const { data: { session } } = await supabase.auth.getSession();
+            if (mounted) {
+                if (session?.user) {
+                    await fetchProfile(session.user);
+                } else {
+                    setUser(null);
+                    setLoading(false);
                 }
-
-                // Check Supabase session
-                const { data: { session } } = await supabase.auth.getSession();
-                
-                if (session?.user && mounted) {
-                    const u = await buildUser(session.user.id);
-                    if (u) {
-                        setUser(u);
-                        localStorage.setItem(SESSION_KEY, JSON.stringify({
-                            user: u,
-                            timestamp: Date.now()
-                        }));
-                        await syncWithBackend();
-                    }
-                }
-            } catch (err) {
-                console.error("Auth initialization error:", err);
-                localStorage.removeItem(SESSION_KEY);
-            } finally {
-                if (mounted) setLoading(false);
             }
         };
 
         initializeAuth();
 
         // Listen for auth state changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
-                if (session?.user && mounted) {
-                    const u = await buildUser(session.user.id);
-                    if (u) {
-                        setUser(u);
-                        localStorage.setItem(SESSION_KEY, JSON.stringify({
-                            user: u,
-                            timestamp: Date.now()
-                        }));
-                        await syncWithBackend();
-                    }
-                } else if (!session?.user && mounted) {
-                    // Only clear for non-dev-bypass sessions
-                    const stored = localStorage.getItem(SESSION_KEY);
-                    if (stored) {
-                        const { user: storedUser } = JSON.parse(stored);
-                        if (!storedUser?.id?.startsWith('dev-bypass-')) {
-                            setUser(null);
-                            localStorage.removeItem(SESSION_KEY);
-                        }
-                    } else {
-                        setUser(null);
-                    }
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (mounted) {
+                if (session?.user) {
+                    await fetchProfile(session.user);
+                } else {
+                    setUser(null);
+                    setLoading(false);
                 }
             }
-        );
+        });
 
         return () => {
             mounted = false;
             subscription.unsubscribe();
         };
-    }, []);
+    }, [fetchProfile]);
 
     const login = useCallback(async (
         email: string, password: string
-    ): Promise<{ success: boolean; error?: string }> => {
-        // ─── DEV BYPASS ───
-        const DEV_ADMINS = ['ritik@evaratech.com', 'yasha@evaratech.com', 'aditya@evaratech.com', 'admin@evara.com'];
-        if (DEV_ADMINS.includes(email) && password === 'evaratech@1010') {
-            const mockUser: User = {
-                id: 'dev-bypass-id-' + email,
+    ): Promise<{ success: boolean; user?: User; error?: string }> => {
+        setLoading(true);
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({
                 email,
-                displayName: 'Dev SuperAdmin',
-                role: 'superadmin',
-                plan: 'pro'
+                password,
+            });
+
+            if (error) {
+                setLoading(false);
+                return { success: false, error: error.message };
+            }
+
+            if (data.user) {
+                // fetchProfile updates state, but we also want to return the data immediately
+                const { data: profile } = await supabase
+                    .from('customers')
+                    .select('*')
+                    .eq('id', data.user.id)
+                    .single();
+
+                const finalUser = extractUser(data.user, profile);
+
+                setUser(finalUser);
+                setLoading(false);
+                return { success: true, user: finalUser };
+            }
+
+            setLoading(false);
+            return { success: false, error: 'Login failed' };
+        } catch (err: unknown) {
+            setLoading(false);
+            return {
+                success: false,
+                error: err instanceof Error ? err.message : 'Login failed'
             };
-            setUser(mockUser);
-            localStorage.setItem(SESSION_KEY, JSON.stringify({
-                user: mockUser,
-                timestamp: Date.now()
-            }));
-            await syncWithBackend();
-            return { success: true };
         }
-
-        // ─── DISTRIBUTOR 1 BYPASS ───
-        if (email === 'distributor@evara.com' && password === 'evaratech@1010') {
-            const mockUser: User = {
-                id: 'dev-bypass-distributor',
-                email,
-                displayName: 'Distributor One',
-                role: 'distributor',
-                plan: 'pro'
-            };
-            setUser(mockUser);
-            localStorage.setItem(SESSION_KEY, JSON.stringify({ user: mockUser, timestamp: Date.now() }));
-            await syncWithBackend();
-            return { success: true };
-        }
-
-        // ─── DISTRIBUTOR 2 BYPASS ───
-        if (email === 'distributor2@evara.com' && password === 'evaratech@1010') {
-            const mockUser: User = {
-                id: 'dev-bypass-distributor-2',
-                email,
-                displayName: 'Distributor Two',
-                role: 'distributor',
-                plan: 'pro'
-            };
-            setUser(mockUser);
-            localStorage.setItem(SESSION_KEY, JSON.stringify({ user: mockUser, timestamp: Date.now() }));
-            await syncWithBackend();
-            return { success: true };
-        }
-
-        // ─── CUSTOMER PLAN BYPASS ───
-        if (email.startsWith('customer.') && email.endsWith('@evara.com') && password === 'evaratech@1010') {
-            const plan = email.split('.')[1].split('@')[0] as UserPlan; // Extract 'base', 'plus', 'pro'
-            const mockUser: User = {
-                id: 'dev-bypass-' + plan,
-                email,
-                displayName: `Dev Customer (${plan.toUpperCase()})`,
-                role: 'customer',
-                plan: plan
-            };
-            setUser(mockUser);
-            localStorage.setItem(SESSION_KEY, JSON.stringify({ user: mockUser, timestamp: Date.now() }));
-            await syncWithBackend();
-            return { success: true };
-        }
-
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error || !data.user) return { success: false, error: error?.message ?? 'Sign-in failed' };
-
-        // Ensure backend has this user (Supabase stores session in localStorage; api interceptor will send it)
-        await syncWithBackend();
-        return { success: true };
-    }, []);
+    }, [fetchProfile]);
 
     const signup = useCallback(async (
         email: string, password: string, displayName: string
     ): Promise<{ success: boolean; error?: string }> => {
-        const { data, error } = await supabase.auth.signUp({
-            email, password,
-            options: { data: { display_name: displayName } },
-        });
-        if (error || !data.user) return { success: false, error: error?.message ?? 'Sign-up failed' };
-        return { success: true };
-    }, []);
+        try {
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        display_name: displayName,
+                        role: 'customer',
+                        plan: 'pro',
+                    },
+                },
+            });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            if (data.user) {
+                await fetchProfile(data.user);
+                return { success: true };
+            }
+
+            return { success: false, error: 'Signup failed' };
+        } catch (err: unknown) {
+            return {
+                success: false,
+                error: err instanceof Error ? err.message : 'Signup failed'
+            };
+        }
+    }, [fetchProfile]);
 
     const logout = useCallback(async (): Promise<void> => {
         await supabase.auth.signOut();
         setUser(null);
-        localStorage.removeItem(SESSION_KEY);
     }, []);
 
     return (
-        <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, signup, logout }}>
+        <AuthContext.Provider value={{
+            user,
+            isAuthenticated: !!user,
+            loading,
+            login,
+            signup,
+            logout
+        }}>
             {children}
         </AuthContext.Provider>
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');

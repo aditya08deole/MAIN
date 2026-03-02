@@ -28,7 +28,7 @@ class ErrorBoundary extends Component<Props, State> {
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         console.error("Uncaught error:", error, errorInfo);
         this.setState({ errorInfo });
-        
+
         // Log error to backend for monitoring
         this.logErrorToBackend(error, errorInfo);
     }
@@ -53,24 +53,17 @@ class ErrorBoundary extends Component<Props, State> {
                 return this.props.fallback;
             }
 
+            // If we are in a small container (not full screen)
             return (
-                <div className="min-h-screen flex items-center justify-center bg-red-50 p-10 font-mono text-sm">
-                    <div className="max-w-4xl w-full bg-white border border-red-200 shadow-xl rounded-lg p-8 overflow-hidden">
-                        <h1 className="text-2xl font-bold text-red-600 mb-4">Something went wrong.</h1>
-                        <p className="text-slate-600 mb-4">The error has been logged. Try reloading the page.</p>
-                        <div className="bg-red-50 border border-red-100 rounded p-4 mb-4">
-                            <p className="font-bold text-red-800 break-words">{this.state.error && this.state.error.toString()}</p>
-                        </div>
-                        <div className="bg-slate-900 text-slate-300 p-4 rounded overflow-auto max-h-96 text-xs whitespace-pre-wrap">
-                            {this.state.errorInfo?.componentStack}
-                        </div>
-                        <button
-                            onClick={() => window.location.reload()}
-                            className="mt-6 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition"
-                        >
-                            Reload Page
-                        </button>
-                    </div>
+                <div className="p-6 bg-red-50/50 border border-red-100 rounded-xl text-center space-y-2">
+                    <div className="text-red-500 font-bold text-xs uppercase tracking-widest">Component Error</div>
+                    <p className="text-[10px] text-slate-500 line-clamp-2">{this.state.error?.message}</p>
+                    <button
+                        onClick={() => this.setState({ hasError: false, error: null })}
+                        className="text-[10px] font-bold text-blue-600 underline"
+                    >
+                        Reset Component
+                    </button>
                 </div>
             );
         }

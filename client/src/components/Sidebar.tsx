@@ -14,7 +14,7 @@ const Sidebar = () => {
     const menuItems = [
         { path: '/superadmin/dashboard', icon: LayoutDashboard, label: 'Overview' },
         { path: '/superadmin/customers', icon: Users, label: 'Customers' },
-        { path: '/superadmin/regions', icon: Map, label: 'Regions & Zones' },
+        { path: '/superadmin/zones', icon: Map, label: 'Zones & Zones' },
         { path: '/superadmin/config', icon: Settings, label: 'System Config' },
     ];
 
@@ -23,14 +23,14 @@ const Sidebar = () => {
     return (
         <aside
             className={`
-                relative bg-white border-r border-slate-200 flex flex-col transition-all duration-300
+                relative apple-glass-card border-r border-slate-200 flex flex-col transition-all duration-300
                 ${collapsed ? 'w-20' : 'w-64'}
             `}
         >
             {/* Toggle Button */}
             <button
                 onClick={() => setCollapsed(!collapsed)}
-                className="absolute -right-3 top-8 bg-white border border-slate-200 text-slate-500 rounded-full p-1 hover:text-blue-600 hover:shadow-md transition-all z-50"
+                className="absolute -right-3 top-8 apple-glass-card border border-slate-200 text-slate-500 rounded-full p-1 hover:text-blue-600 hover:shadow-md transition-all z-50"
             >
                 {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
             </button>
@@ -56,7 +56,7 @@ const Sidebar = () => {
                             flex items-center gap-3 px-3 py-3 rounded-xl transition-all group
                             ${isActive(item.path)
                                 ? 'bg-blue-50 text-blue-600 shadow-sm'
-                                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                                : 'text-slate-500 hover:text-slate-800 hover:bg-white/30'
                             }
                         `}
                     >

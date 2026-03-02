@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        h3 { margin-top: 30px; color: #333; }
+    </style>
+</head>
+<body>
+    <h1>EvaraTech API Test</h1>
+    
+    <button onclick="testNodes()">Test /api/v1/nodes</button>
+    <button onclick="testTelemetry()">Test /api/v1/devices/{id}/telemetry/latest</button>
+    <button onclick="clearResults()">Clear</button>
+    
+    <div id="results"></div>
+    
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        const DEVICE_ID = 'b4f94237-42f1-4f16-8a88-f52631d84bdc';
+        
+        function log(title, data) {
+            const div = document.getElementById('results');
+            const section = document.createElement('div');
+            section.innerHTML = `<h3>${title}</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+            div.appendChild(section);
+        }
+        
+        async function testNodes() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/nodes`);
+                const data = await response.json();
+                log('✅ /api/v1/nodes', data);
+            } catch (error) {
+                log('❌ /api/v1/nodes Error', error.message);
+            }
+        }
+        
+        async function testTelemetry() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/telemetry/devices/${DEVICE_ID}/telemetry/latest`);
+                const data = await response.json();
+                log('✅ `/telemetry/devices/${DEVICE_ID}/telemetry/latest`', data);
+            } catch (error) {
+                log(`❌ /telemetry/devices/${DEVICE_ID}/telemetry/latest Error`, error.message);
+            }
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+    </script>
+</body>
+</html>

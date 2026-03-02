@@ -15,7 +15,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, allowedPl
     // Invalidate queries when authentication state changes
     useEffect(() => {
         if (isAuthenticated && user) {
-            console.log('[ProtectedRoute] User authenticated, invalidating queries');
             queryClient.invalidateQueries({ queryKey: ['nodes'] });
             queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
             queryClient.invalidateQueries({ queryKey: ['active_alerts'] });
@@ -24,14 +23,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, allowedPl
 
     if (loading) {
         return (
-            <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
+            <div className="h-screen w-screen flex items-center justify-center apple-glass-inner">
                 <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
             </div>
         );
     }
 
     if (!isAuthenticated || !user) {
-        console.log('[ProtectedRoute] User not authenticated, redirecting to login');
         return <Navigate to="/login" replace />;
     }
 

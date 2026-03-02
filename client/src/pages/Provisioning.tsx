@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { QrCode, Smartphone, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
-import { claimDevice } from '../services/provisioning';
+import { deviceService } from '../services/DeviceService';
 import { useNavigate } from 'react-router-dom';
 
 export default function ProvisioningPage() {
@@ -17,7 +17,7 @@ export default function ProvisioningPage() {
         setLoading(true);
         setStatus('idle');
         try {
-            const result = await claimDevice(token, hardwareId, label);
+            const result = await deviceService.claimDevice(token, hardwareId, label);
             setStatus('success');
             setMessage(result.message);
             setTimeout(() => navigate('/dashboard'), 2000);
@@ -30,18 +30,17 @@ export default function ProvisioningPage() {
     };
 
     return (
-        <div className="min-h-[80vh] flex items-center justify-center p-4">
-            <div className="bg-white max-w-md w-full rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        <div className="glass-dashboard min-h-[80vh] flex items-center justify-center p-4">
+            <div className="apple-glass-card max-w-md w-full !rounded-[24px]">
 
-                {/* Header */}
-                <div className="p-8 bg-gradient-to-br from-blue-600 to-indigo-700 text-center text-white relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+                {/* Header (Integrated into Glass) */}
+                <div className="p-8 text-center relative overflow-hidden border-b border-[rgba(255,255,255,0.1)]">
                     <div className="relative z-10">
-                        <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4">
-                            <QrCode className="w-8 h-8 text-white" />
+                        <div className="w-16 h-16 bg-[#1F2937] bg-opacity-5 backdrop-blur-md rounded-2xl border border-[rgba(255,255,255,0.2)] flex items-center justify-center mx-auto mb-4 shadow-sm">
+                            <QrCode className="w-8 h-8 text-[#1F2937] opacity-80" />
                         </div>
-                        <h1 className="text-2xl font-bold">Claim New Device</h1>
-                        <p className="text-blue-100 mt-2 text-sm">Enter the provisioning token and hardware ID found on the device box.</p>
+                        <h1 className="text-[24px] font-[600] tracking-[-0.5px] text-[#1F2937]">Claim New Device</h1>
+                        <p className="glass-secondary mt-2">Enter the provisioning token and hardware ID found on the device box.</p>
                     </div>
                 </div>
 
@@ -68,35 +67,35 @@ export default function ProvisioningPage() {
                         </div>
                     )}
 
-                    <div className="space-y-4">
+                    <div className="space-y-[16px]">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Provisioning Token</label>
+                            <label className="block text-[11px] font-[600] text-[#1F2937] opacity-70 uppercase mb-[8px]">Provisioning Token</label>
                             <input
                                 type="text"
                                 required
-                                className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-mono text-sm"
+                                className="w-full p-[14px] bg-[rgba(255,255,255,0.3)] border border-[rgba(255,255,255,0.4)] rounded-[12px] focus:ring-2 focus:ring-[rgba(58,122,254,0.3)] focus:border-[#3A7AFE] outline-none transition-all font-mono text-[14px] text-[#1F2937] placeholder:text-[#1F2937] placeholder:opacity-40 shadow-sm"
                                 placeholder="e.g. pr_abc123..."
                                 value={token}
                                 onChange={e => setToken(e.target.value)}
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Hardware ID (MAC)</label>
+                            <label className="block text-[11px] font-[600] text-[#1F2937] opacity-70 uppercase mb-[8px]">Hardware ID (MAC)</label>
                             <input
                                 type="text"
                                 required
-                                className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-mono text-sm"
+                                className="w-full p-[14px] bg-[rgba(255,255,255,0.3)] border border-[rgba(255,255,255,0.4)] rounded-[12px] focus:ring-2 focus:ring-[rgba(58,122,254,0.3)] focus:border-[#3A7AFE] outline-none transition-all font-mono text-[14px] text-[#1F2937] placeholder:text-[#1F2937] placeholder:opacity-40 shadow-sm"
                                 placeholder="e.g. AA:BB:CC:11:22:33"
                                 value={hardwareId}
                                 onChange={e => setHardwareId(e.target.value)}
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Device Label</label>
+                            <label className="block text-[11px] font-[600] text-[#1F2937] opacity-70 uppercase mb-[8px]">Device Label</label>
                             <input
                                 type="text"
                                 required
-                                className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                                className="w-full p-[14px] bg-[rgba(255,255,255,0.3)] border border-[rgba(255,255,255,0.4)] rounded-[12px] focus:ring-2 focus:ring-[rgba(58,122,254,0.3)] focus:border-[#3A7AFE] outline-none transition-all text-[14px] text-[#1F2937] placeholder:text-[#1F2937] placeholder:opacity-40 shadow-sm"
                                 placeholder="e.g. North Tank - Block A"
                                 value={label}
                                 onChange={e => setLabel(e.target.value)}
@@ -107,7 +106,7 @@ export default function ProvisioningPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-slate-200"
+                        className="w-full py-[16px] bg-[#1F2937] text-white rounded-[12px] text-[15px] font-[600] flex items-center justify-center gap-2 hover:bg-[#111827] transform active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_8px_16px_rgba(31,41,55,0.2)]"
                     >
                         {loading ? (
                             <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
@@ -119,9 +118,11 @@ export default function ProvisioningPage() {
                     </button>
                 </form>
 
-                <div className="p-4 bg-slate-50 text-center text-xs text-slate-400 border-t border-slate-100">
-                    <Smartphone className="w-4 h-4 mx-auto mb-1 text-slate-300" />
-                    Installer Mode v2.1
+                <div className="p-4 text-center border-t border-[rgba(255,255,255,0.1)]">
+                    <div className="flex items-center justify-center gap-[6px] opacity-60">
+                        <Smartphone className="w-[14px] h-[14px] text-[#1F2937]" />
+                        <span className="text-[11px] font-[500] text-[#1F2937]">Installer Mode v2.1</span>
+                    </div>
                 </div>
             </div>
         </div>

@@ -76,10 +76,12 @@ export function useCleanup() {
 
     useEffect(() => {
         return () => {
+            // eslint-disable-next-line react-hooks/exhaustive-deps
             trackerRef.current.cleanup();
         };
     }, []);
 
+     
     return trackerRef.current;
 }
 
@@ -144,10 +146,12 @@ export function useAbortPool() {
 
     useEffect(() => {
         return () => {
+            // eslint-disable-next-line react-hooks/exhaustive-deps
             poolRef.current.abortAll();
         };
     }, []);
 
+     
     return poolRef.current;
 }
 
@@ -239,6 +243,7 @@ export function usePrevious<T>(value: T): T | undefined {
         ref.current = value;
     }, [value]);
 
+    // eslint-disable-next-line react-hooks/refs
     return ref.current;
 }
 

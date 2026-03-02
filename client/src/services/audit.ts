@@ -1,32 +1,40 @@
-import api from './api';
+import { supabase } from '../lib/supabase';
 
 export interface AuditLog {
     id: string;
-    actor_id: string;
+    user_id: string;
     action: string;
     resource_type: string;
     resource_id?: string;
     details?: Record<string, string | number | boolean>;
+    created_at: string;
     timestamp: string;
-    user?: {
-        full_name: string;
-        email: string;
-    };
+    user: { email: string; display_name: string | null; full_name?: string } | null;
 }
 
 export const getAuditLogs = async (limit = 100): Promise<AuditLog[]> => {
-    const response = await api.get<AuditLog[]>(`/admin/audit-logs`, {
-        params: { limit }
-    });
-    return response.data;
+    const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+    if (error) throw error;
+    return data || [];
 };
 
 export const exportAuditLogs = async (): Promise<void> => {
-    const response = await api.get(`/reports/audit-logs/export`, {
-        responseType: 'blob',
+    // For CSV export in a serverless way, we fetch data and generate blob on client
+    const logs = await getAuditLogs(1000);
+    const headers = ['id', 'user_id', 'action', 'resource_type', 'resource_id', 'created_at'];
+    const csvRows = [headers.join(',')];
+
+    logs.forEach(log => {
+        const row = [log.id, log.user_id, log.action, log.resource_type, log.resource_id, log.created_at];
+        csvRows.push(row.join(','));
     });
 
-    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const url = window.URL.createObjectURL(new Blob([csvRows.join('\n')], { type: 'text/csv' }));
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', 'audit_logs.csv');

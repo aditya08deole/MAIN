@@ -1,4 +1,6 @@
-// import api from './api';
+import api from './api';
+
+// ── Types ───────────────────────────────────────────────────────────────
 
 export interface UserPreferences {
     email_notifications: boolean;
@@ -6,23 +8,44 @@ export interface UserPreferences {
     theme: 'light' | 'dark' | 'system';
 }
 
-export const getUserPreferences = async (): Promise<UserPreferences> => {
-    // Mock response for now as backend endpoint might need specific implementation
-    // Or assume GET /users/me/preferences
-    // For MVP, returning default or fetching via user profile
-    return {
-        email_notifications: true,
-        sms_notifications: false,
-        theme: 'light'
-    };
+const DEFAULT_PREFS: UserPreferences = {
+    email_notifications: true,
+    sms_notifications: false,
+    theme: 'light',
 };
 
-export const updateUserPreferences = async (prefs: Partial<UserPreferences>): Promise<UserPreferences> => {
-    // Mock update
-    // await api.patch('/users/me/preferences', prefs);
-    return {
-        email_notifications: prefs.email_notifications ?? true,
-        sms_notifications: prefs.sms_notifications ?? false,
-        theme: prefs.theme ?? 'light'
-    };
+// ── API calls ───────────────────────────────────────────────────────────
+
+/**
+ * GET user preferences.
+ *
+ * NOTE: The backend does not yet have a /users/me/preferences endpoint.
+ * Once implemented, swap the fallback with a real call.
+ */
+export const getUserPreferences = async (): Promise<UserPreferences> => {
+    try {
+        const response = await api.get<UserPreferences>('/users/me/preferences');
+        return response.data;
+    } catch {
+        // Backend endpoint not yet implemented ─ return sensible defaults
+        console.warn('[settings] GET /users/me/preferences not implemented — using defaults');
+        return { ...DEFAULT_PREFS };
+    }
+};
+
+/**
+ * PATCH user preferences.
+ *
+ * Falls back to returning merged defaults if the backend endpoint is missing.
+ */
+export const updateUserPreferences = async (
+    prefs: Partial<UserPreferences>
+): Promise<UserPreferences> => {
+    try {
+        const response = await api.patch<UserPreferences>('/users/me/preferences', prefs);
+        return response.data;
+    } catch {
+        console.warn('[settings] PATCH /users/me/preferences not implemented — returning merged defaults');
+        return { ...DEFAULT_PREFS, ...prefs };
+    }
 };

@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@theme {
+:root {
   --color-evara-blue: #0077be;
   --color-evara-blue-light: #4dabf5;
   --color-evara-blue-dark: #004ba0;
@@ -8,25 +8,123 @@
   --color-evara-green-light: #58d68d;
   --color-evara-green-dark: #27ae60;
 
-  --animate-fade-in: fade-in 0.5s ease-out forwards;
-  --animate-slide-up: slide-up 0.5s ease-out forwards;
+  --color-premium-indigo: #6366f1;
+  --color-premium-rose: #f43f5e;
+  --color-premium-amber: #f59e0b;
 
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+  /* Glassmorphism Tokens - Premium */
+  --header-bg: rgba(255, 255, 255, 0.6);
+  --header-border: rgba(255, 255, 255, 0.35);
+  --header-blur: 25px;
+  --header-shadow: 0 25px 50px rgba(0, 0, 0, 0.08);
+  --header-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+
+  /* Golden Ratio Spacing (Requested Scaling) */
+  --ratio-13: 13px;
+  --ratio-21: 21px;
+  --ratio-34: 34px;
+  --ratio-55: 55px;
+
+  /* Previous Tokens Retained for Compatibility */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.618rem;
+  --space-xl: 2.618rem;
+  --space-xxl: 4.236rem;
+}
+
+@theme {
+  --animate-fade-in: fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-slide-up: slide-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-float: float 6s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    filter: blur(4px);
   }
-  @keyframes slide-up {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
   }
 }
 
+@keyframes slide-up {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.glass-header {
+  background: var(--header-bg);
+  backdrop-filter: blur(var(--header-blur));
+  -webkit-backdrop-filter: blur(var(--header-blur));
+  border: 1px solid var(--header-border);
+  box-shadow: var(--header-shadow), var(--header-highlight);
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-header-hover:hover {
+  transform: translateY(-2px) scale(1.005);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.12), var(--header-highlight);
+}
+
+.nav-item-hover {
+  transition: all 180ms ease;
+}
+
+.nav-item-hover:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.nav-item-active {
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+.glass-card {
+  @apply shadow-xl transition-all duration-300;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.premium-gradient {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+}
+
 /* Global Styles */
-html, body {
-  @apply bg-slate-50 text-slate-900 antialiased font-sans;
+html,
+body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
+  background-color: transparent;
+  color: #1F2937;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Scrollbar Customization */
@@ -34,9 +132,11 @@ html, body {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
   @apply bg-slate-100;
 }
+
 ::-webkit-scrollbar-thumb {
   @apply bg-slate-300 rounded-full hover:bg-slate-400;
 }
@@ -44,10 +144,482 @@ html, body {
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background-color: #cbd5e1;
   border-radius: 20px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* ANIMATION UTILITIES                                                */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+
+  70% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.35s ease-out both;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.3s ease-out both;
+}
+
+.animate-slideRight {
+  animation: slideInRight 0.3s ease-out both;
+}
+
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 8s infinite ease-in-out;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Scrollbar hide utility */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* ADMIN FORM STYLING                                                 */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Premium input focus glow */
+.admin-form input:focus,
+.admin-form select:focus,
+.admin-form textarea:focus {
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12),
+    0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Card hover lift for device type selection */
+.device-type-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.device-type-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.08),
+    0 4px 10px -6px rgba(0, 0, 0, 0.04);
+}
+
+.device-type-card:active {
+  transform: translateY(0);
+}
+
+/* Step indicator active pulse */
+.step-active {
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Section gradient borders (used on form cards) */
+.form-section {
+  position: relative;
+  overflow: hidden;
+}
+
+.form-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  border-radius: 4px 0 0 4px;
+  background: linear-gradient(to bottom, var(--section-accent, #10b981), transparent);
+  opacity: 0.6;
+}
+
+/* Summary row zebra */
+.summary-row:nth-child(odd) {
+  background-color: rgba(16, 185, 129, 0.03);
+}
+
+/* Form select custom arrow */
+.form-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+/* Field mapping pills */
+.field-pill {
+  transition: all 0.15s ease;
+}
+
+.field-pill:focus-within {
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.15);
+}
+
+/* Commission button shimmer effect */
+.btn-commission {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-commission::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  animation: shimmer 3s infinite;
+}
+
+/* Stagger children animation */
+.stagger-children>* {
+  opacity: 0;
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.stagger-children>*:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.stagger-children>*:nth-child(2) {
+  animation-delay: 0.10s;
+}
+
+.stagger-children>*:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.stagger-children>*:nth-child(4) {
+  animation-delay: 0.20s;
+}
+
+.stagger-children>*:nth-child(5) {
+  animation-delay: 0.25s;
+}
+
+.stagger-children>*:nth-child(6) {
+  animation-delay: 0.30s;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* GLOBAL APPLE GLASSMORPHISM SYSTEM                                   */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Global Background Image Layer */
+.app-global-bg {
+  min-height: 100vh;
+  background-image: url('/evara-bg.png');
+  /* The new minimal engineered backdrop */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  /* Very subtle overlay to blend with the light theme */
+  box-shadow: inset 0 0 0 2000px rgba(255, 255, 255, 0.4);
+}
+
+/* Glass Dashboard Wrapper */
+.glass-dashboard {
+  /* No hard background color, lets the app-global-bg shine through */
+  min-height: 100vh;
+}
+
+/* Base Apple Glass Card */
+.apple-glass-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.22);
+  /* Intense translucency */
+  backdrop-filter: saturate(200%) blur(40px);
+  -webkit-backdrop-filter: saturate(200%) blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  /* Clean white rim */
+  border-radius: 32px;
+  /* More premium curvature */
+  box-shadow:
+    0 4px 20px rgba(148, 163, 184, 0.25),
+    0 8px 32px 0 rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+  /* Top rim glow */
+  overflow: hidden;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Premium radial sheen for environmental lighting */
+.apple-glass-card::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 60%);
+  transform: rotate(25deg);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* Subtle inner vignette for depth */
+.apple-glass-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.4) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Content wrapper ensuring z-index over pseudo-elements */
+.apple-glass-content {
+  position: relative;
+  z-index: 1;
+  padding: 24px;
+}
+
+/* Hover Physics */
+.apple-glass-card:hover {
+  transform: translateY(-2px) scale(1.005);
+  background: rgba(255, 255, 255, 0.35);
+  /* Brighten on hover */
+  border-color: rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 8px 30px rgba(148, 163, 184, 0.35),
+    0 16px 40px -4px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Inner Translucent Element (for nested cards or stat boxes) */
+.apple-glass-inner {
+  background: rgba(255, 255, 255, 0.15);
+  /* More translucent inner panels */
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 20px;
+  backdrop-filter: saturate(150%) blur(24px);
+  -webkit-backdrop-filter: saturate(150%) blur(24px);
+  box-shadow: 0 4px 12px rgba(148, 163, 184, 0.15);
+}
+
+/* Typography Utilities for Glass */
+.glass-title {
+  color: #1F2937;
+  /* Dark slate text for optical contrast */
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+.glass-number {
+  color: #111827;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+
+.glass-secondary {
+  color: #4B5563;
+  /* Medium slate */
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.glass-highlight {
+  color: #3A7AFE;
+  /* Vibrant blue for active states/icons */
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* LIQUID GLASS WET UI COMPONENTS                                      */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+.btn-liquid-glass {
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(12px) saturate(200%);
+  -webkit-backdrop-filter: blur(12px) saturate(200%);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.1),
+    0 10px 20px -5px rgba(0, 0, 0, 0.1);
+  transform: translateZ(0);
+}
+
+.btn-liquid-glass:hover {
+  transform: translateY(-1px) scale(1.02);
+  filter: brightness(1.1);
+}
+
+.btn-liquid-glass:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-liquid-glass::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.35) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.btn-liquid-glass-green {
+  background: rgba(34, 197, 94, 0.5) !important;
+  border: 1.5px solid rgba(34, 197, 94, 0.7) !important;
+  color: white !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.btn-liquid-glass-red {
+  background: rgba(239, 68, 68, 0.5) !important;
+  border: 1.5px solid rgba(239, 68, 68, 0.7) !important;
+  color: white !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.btn-liquid-glass-slate {
+  background: rgba(30, 41, 59, 0.8) !important;
+  border: 1.5px solid rgba(30, 41, 59, 1) !important;
+  color: white !important;
+}
+
+.btn-liquid-glass-indigo {
+  background: rgba(79, 70, 229, 0.5) !important;
+  border: 1.5px solid rgba(79, 70, 229, 0.7) !important;
+  color: white !important;
+}
+
+.btn-liquid-glass-sky {
+  background: rgba(14, 165, 233, 0.5) !important;
+  border: 1.5px solid rgba(14, 165, 233, 0.7) !important;
+  color: white !important;
+}
+
+.btn-liquid-glass-cyan {
+  background: rgba(6, 182, 212, 0.5) !important;
+  border: 1.5px solid rgba(6, 182, 212, 0.7) !important;
+  color: white !important;
+}
+
+/* ── Map badge markers ────────────────────────────────────────────────── */
+.evara-map-badge {
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer;
+}
+.evara-map-badge > div > div:first-child {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+}
+.evara-map-badge:hover > div > div:first-child {
+  transform: scale(1.12) translateY(-3px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.32), 0 0 0 1px rgba(255,255,255,0.9), inset 0 2px 12px rgba(255,255,255,0.4) !important;
+}
+
+/* ── Micro-interaction button press feedback ─────────────────────────── */
+button:active,
+a:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+  transition: transform 0.1s ease, opacity 0.1s ease !important;
+}
+
+/* ── Smooth panel open/collapse ──────────────────────────────────────── */
+.panel-slide-in {
+  animation: panelSlideIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes panelSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

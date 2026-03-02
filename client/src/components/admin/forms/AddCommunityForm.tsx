@@ -1,137 +1,129 @@
-import { useState, useEffect } from 'react';
+/**
+ * AddCommunityForm — Admin version.
+ * Refactored to use Zod + React Hook Form + Framer Motion.
+ */
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { motion } from 'framer-motion';
+import {
+    Loader2, Users, Building2, MapPin, Phone, Mail, FileText
+} from 'lucide-react';
+
 import { adminService } from '../../../services/admin';
-import { Loader2, MapPin, Plus } from 'lucide-react';
+import { useZones } from '../../../hooks/useZones';
+import { useToast } from '../../ToastProvider';
+import { communitySchema, type CommunityInput } from '../../../schemas';
+import { FormField } from '../../forms/FormField';
 
-export const AddCommunityForm = ({ onSubmit, onCancel }: { onSubmit: (data: any) => void; onCancel: () => void }) => {
-    const [name, setName] = useState('');
-    const [region, setRegion] = useState('');
-    const [city, setCity] = useState('');
-    const [existingRegions, setExistingRegions] = useState<string[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+interface Props {
+    onSubmit: (data: any) => void;
+    onCancel: () => void;
+}
 
-    // Fetch existing regions from database
-    useEffect(() => {
-        const fetchRegions = async () => {
-            try {
-                const [communities, distributors] = await Promise.all([
-                    adminService.getCommunities(),
-                    adminService.getDistributors().catch(() => [])
-                ]);
-                
-                // Extract unique regions from both communities and distributors
-                const regions = new Set<string>();
-                communities.forEach((c: any) => c.region && regions.add(c.region));
-                distributors.forEach((d: any) => d.region && regions.add(d.region));
-                
-                setExistingRegions(Array.from(regions).sort());
-            } catch (err) {
-                console.warn('Could not fetch regions:', err);
-                // Continue with empty list - user can type new ones
-            }
-        };
-        
-        fetchRegions();
-    }, []);
+export const AddCommunityForm = ({ onSubmit, onCancel }: Props) => {
+    const { showToast } = useToast();
+    const { zones, isLoading: loadingRegions } = useZones();
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
+    const {
+        register,
+        handleSubmit,
+        formState: { errors, isSubmitting },
+    } = useForm<CommunityInput>({
+        resolver: zodResolver(communitySchema) as any,
+        defaultValues: {
+            operational_status: 'active',
+        }
+    });
 
+    const onFormSubmit = async (data: CommunityInput) => {
         try {
-            // Call API
-            const result = await adminService.createCommunity({ name, region, city });
+            const result = await adminService.createCommunity(data);
+            showToast('Community Created Successfully', 'success');
             onSubmit(result);
         } catch (err: any) {
-            setError(err.response?.data?.detail || 'Failed to create community. Please try again.');
-            console.error(err);
-        } finally {
-            setLoading(false);
+            showToast(err.message || 'Failed to create community', 'error');
         }
     };
 
-    const inputCls = "w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400";
-    const labelCls = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2";
+    const inputClass = (error?: any) => `
+        w-full px-4 py-3 rounded-2xl border transition-all duration-300 outline-none text-sm
+        ${error
+            ? 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-4 focus:ring-red-500/10'
+            : 'border-slate-200 apple-glass-inner focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 focus:apple-glass-card'}
+    `;
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-                <div className="p-4 bg-red-50 border border-red-100 text-red-700 text-sm rounded-xl flex items-start gap-3">
-                    <span className="text-red-500">⚠️</span>
-                    <span>{error}</span>
-                </div>
-            )}
-
-            <div>
-                <label className={labelCls}>
-                    <MapPin className="inline w-3 h-3 mr-1" />
-                    Community Name *
-                </label>
-                <input
-                    required
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    placeholder="e.g. Greenwood Heights, Prestige Apartments"
-                    className={inputCls}
-                    autoFocus
-                    disabled={loading}
-                />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className={labelCls}>Region / Zone *</label>
-                    <div className="relative">
-                        <input
-                            required
-                            list="region-options"
-                            value={region}
-                            onChange={e => setRegion(e.target.value)}
-                            placeholder="Select existing or type new"
-                            className={inputCls}
-                            disabled={loading}
-                        />
-                        <datalist id="region-options">
-                            {existingRegions.map(r => <option key={r} value={r} />)}
-                        </datalist>
-                        <Plus className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-8 p-1">
+            <div className="space-y-6">
+                {/* Basic Details */}
+                <div className="bg-blue-50/30 p-6 rounded-3xl border border-blue-100 space-y-4">
+                    <div className="flex items-center gap-3 text-sm font-bold text-blue-800 uppercase tracking-tight">
+                        <Building2 size={18} /> Basic Information
                     </div>
-                    <p className="text-[10px] text-blue-500 mt-1.5 ml-1 font-medium">
-                        <Plus className="inline w-3 h-3" /> Type a new name to create a new region automatically
-                    </p>
+                    <div className="space-y-4">
+                        <FormField label="Community Name" required icon={Building2} error={errors.name?.message}>
+                            <input {...register('name')} placeholder="e.g. Greenwood Heights" className={inputClass(errors.name)} />
+                        </FormField>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField label="Infrastructure Zone" required icon={MapPin} error={errors.zone_id?.message}>
+                                <select {...register('zone_id')} className={inputClass(errors.zone_id)} disabled={loadingRegions}>
+                                    <option value="">Select Zone</option>
+                                    {zones?.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                </select>
+                            </FormField>
+                            <FormField label="Pincode" icon={FileText as any} error={errors.pincode?.message}>
+                                <input {...register('pincode')} placeholder="6 digits" maxLength={6} className={inputClass(errors.pincode)} />
+                            </FormField>
+                        </div>
+                    </div>
                 </div>
 
-                <div>
-                    <label className={labelCls}>City (Optional)</label>
-                    <input
-                        value={city}
-                        onChange={e => setCity(e.target.value)}
-                        placeholder="e.g. Hyderabad, Bangalore"
-                        className={inputCls}
-                        disabled={loading}
-                    />
+                {/* Location & Contact */}
+                <div className="bg-emerald-50/30 p-6 rounded-3xl border border-emerald-100 space-y-4">
+                    <div className="flex items-center gap-3 text-sm font-bold text-emerald-800 uppercase tracking-tight">
+                        <MapPin size={18} /> Location & Contact
+                    </div>
+                    <div className="space-y-4">
+                        <FormField label="Full Address" icon={MapPin} error={errors.address?.message}>
+                            <input {...register('address')} placeholder="Physical address of specific site" className={inputClass(errors.address)} />
+                        </FormField>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField label="Contact Person" icon={Users} error={errors.contact_person?.message}>
+                                <input {...register('contact_person')} placeholder="Manager name" className={inputClass(errors.contact_person)} />
+                            </FormField>
+                            <FormField label="Contact Email" icon={Mail} error={errors.contact_email?.message}>
+                                <input {...register('contact_email')} type="email" placeholder="site@example.com" className={inputClass(errors.contact_email)} />
+                            </FormField>
+                            <FormField label="Phone Number" icon={Phone} error={errors.contact_phone?.message} className="md:col-span-2">
+                                <input {...register('contact_phone')} placeholder="Contact phone" className={inputClass(errors.contact_phone)} />
+                            </FormField>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
                 <button
                     type="button"
                     onClick={onCancel}
-                    disabled={loading}
-                    className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all"
+                    disabled={isSubmitting}
+                    className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-800 hover:bg-white/30 rounded-2xl transition-all"
                 >
                     Cancel
                 </button>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     type="submit"
-                    disabled={!name || !region || loading}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-bold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-200"
+                    disabled={isSubmitting}
+                    className="flex items-center gap-2 px-10 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-black rounded-2xl hover:shadow-xl hover:shadow-blue-500/30 transition-all shadow-lg shadow-blue-200"
                 >
-                    {loading && <Loader2 size={16} className="animate-spin" />}
-                    {loading ? 'Creating...' : 'Create Community'}
-                </button>
+                    {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Building2 size={18} />}
+                    {isSubmitting ? 'Creating...' : 'Create Community'}
+                </motion.button>
             </div>
         </form>
     );
 };
+

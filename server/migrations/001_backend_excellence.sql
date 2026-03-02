@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS users_profiles (
 CREATE TABLE IF NOT EXISTS distributors (
     id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name       VARCHAR(255) NOT NULL,
-    region     VARCHAR(255) NOT NULL,
+    zone     VARCHAR(255) NOT NULL,
     status     VARCHAR(50) DEFAULT 'active',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID REFERENCES users_profiles(id)
@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS distributors (
 CREATE TABLE IF NOT EXISTS communities (
     id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name           VARCHAR(255) UNIQUE NOT NULL,
-    region         VARCHAR(255) NOT NULL,
+    zone         VARCHAR(255) NOT NULL,
     city           VARCHAR(255),
     status         VARCHAR(50) DEFAULT 'active',
     slug           VARCHAR(255) UNIQUE,

@@ -5,7 +5,7 @@ import {
     ArrowLeft, Cpu, Activity,
     Download, Power, RefreshCw, Clock
 } from 'lucide-react';
-import { getDeviceDetails, updateDeviceShadow, exportDeviceReadings, type DeviceDetails } from '../services/devices';
+import { deviceService, type DeviceDetails } from '../services/DeviceService';
 import { useTelemetry } from '../hooks/useTelemetry';
 
 export default function DeviceDetailsPage() {
@@ -23,7 +23,7 @@ export default function DeviceDetailsPage() {
     const fetchDevice = async (nodeId: string) => {
         try {
             setLoading(true);
-            const data = await getDeviceDetails(nodeId);
+            const data = await deviceService.getDeviceDetails(nodeId);
             setDevice(data);
         } catch (err) {
             console.error("Error fetching device:", err);
@@ -39,7 +39,7 @@ export default function DeviceDetailsPage() {
             const newState = !currentState;
             // Updating 'pump_status' as an example control
             // const result = await updateDeviceShadow(id, { pump_status: newState ? 'ON' : 'OFF' });
-            await updateDeviceShadow(id, { pump_status: newState ? 'ON' : 'OFF' });
+            await deviceService.updateDeviceShadow(id!, { pump_status: newState ? 'ON' : 'OFF' });
 
             // Optimistic update or refetch
             setDevice(prev => prev ? {
@@ -73,14 +73,14 @@ export default function DeviceDetailsPage() {
                 </div>
                 <div className="ml-auto flex gap-2">
                     <button
-                        onClick={() => id && exportDeviceReadings(id)}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                        onClick={() => id && deviceService.exportDeviceReadings(id)}
+                        className="flex items-center gap-2 px-4 py-2 apple-glass-card border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-white/30 transition-colors"
                     >
                         <Download className="w-4 h-4" /> Export Data
                     </button>
                     <button
                         onClick={() => id && fetchDevice(id)}
-                        className="p-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50"
+                        className="p-2 apple-glass-card border border-slate-200 rounded-lg text-slate-600 hover:bg-white/30"
                     >
                         <RefreshCw className="w-4 h-4" />
                     </button>
@@ -89,18 +89,18 @@ export default function DeviceDetailsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Main Info Card */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 md:col-span-2">
+                <div className="apple-glass-card rounded-xl shadow-sm border border-slate-100 p-6 md:col-span-2">
                     <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
                         <Activity className="w-5 h-5 text-blue-500" /> Status & Controls
                     </h3>
 
                     <div className="grid grid-cols-2 gap-6">
-                        <div className="p-4 bg-slate-50 rounded-lg">
+                        <div className="p-4 apple-glass-inner rounded-lg">
                             <span className="text-xs font-bold text-slate-400 uppercase">Current Status</span>
                             <div className="text-xl font-bold text-slate-700 mt-1 capitalize">{device.status}</div>
                         </div>
 
-                        <div className="p-4 bg-slate-50 rounded-lg flex items-center justify-between">
+                        <div className="p-4 apple-glass-inner rounded-lg flex items-center justify-between">
                             <div>
                                 <span className="text-xs font-bold text-slate-400 uppercase">Pump Control</span>
                                 <div className="text-sm font-medium text-slate-600 mt-1">
@@ -131,15 +131,19 @@ export default function DeviceDetailsPage() {
                             </div>
                         ) : (
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                {Object.entries(telemetry?.metrics || {}).map(([key, value]) => (
-                                    <div key={key} className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 transition-all hover:shadow-sm">
-                                        <div className="text-[10px] font-extrabold text-blue-400 uppercase tracking-tighter">{key}</div>
-                                        <div className="text-2xl font-black text-blue-700 mt-1">
-                                            {typeof value === 'number' ? value.toFixed(1) : value}
-                                        </div>
+                                <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 transition-all hover:shadow-sm">
+                                    <div className="text-[10px] font-extrabold text-blue-400 uppercase tracking-tighter">Signal Strength</div>
+                                    <div className="text-2xl font-black text-blue-700 mt-1">
+                                        {telemetry?.values?.signal_strength || 'N/A'}
                                     </div>
-                                ))}
-                                {(!telemetry || Object.keys(telemetry.metrics).length === 0) && (
+                                </div>
+                                <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 transition-all hover:shadow-sm">
+                                    <div className="text-[10px] font-extrabold text-blue-400 uppercase tracking-tighter">Water Level</div>
+                                    <div className="text-2xl font-black text-blue-700 mt-1">
+                                        {telemetry?.values?.level || 'N/A'}
+                                    </div>
+                                </div>
+                                {Object.keys(telemetry?.values || {}).length === 0 && (
                                     <div className="col-span-full text-center py-6 text-slate-400 text-sm italic">
                                         No live metrics registered for this device yet.
                                     </div>
@@ -163,7 +167,7 @@ export default function DeviceDetailsPage() {
                 </div>
 
                 {/* Metadata Card */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                <div className="apple-glass-card rounded-xl shadow-sm border border-slate-100 p-6">
                     <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
                         <Cpu className="w-5 h-5 text-purple-500" /> System Info
                     </h3>

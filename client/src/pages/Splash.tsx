@@ -13,12 +13,12 @@ const Splash = () => {
     }, [navigate]);
 
     return (
-        <div className="fixed inset-0 flex items-center justify-center bg-white z-50">
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
             <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, ease: "easeOut" }}
-                className="text-center"
+                className="flex flex-col items-center justify-center text-center pointer-events-auto"
             >
                 <motion.img
                     src="/evara-logo.png"

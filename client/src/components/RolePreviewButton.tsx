@@ -30,7 +30,7 @@ export const RolePreviewButton = () => {
             {isOpen && (
                 <>
                     <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50">
+                    <div className="absolute right-0 top-full mt-2 w-48 apple-glass-card rounded-xl shadow-lg border border-slate-200 py-2 z-50">
                         <div className="px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wide border-b border-slate-100">
                             Preview as Role
                         </div>
@@ -42,7 +42,7 @@ export const RolePreviewButton = () => {
                                     console.log('Preview as:', option.role, option.plan);
                                     setIsOpen(false);
                                 }}
-                                className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 transition-colors text-slate-700 font-medium"
+                                className="w-full px-3 py-2 text-left text-sm hover:bg-white/30 transition-colors text-slate-700 font-medium"
                             >
                                 {option.label}
                             </button>

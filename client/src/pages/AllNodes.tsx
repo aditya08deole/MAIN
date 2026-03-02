@@ -11,7 +11,7 @@ import type { NodeCategory, AnalyticsType } from '../types/database';
 
 // ─── Category config ─────────────────────────────────────────────────────────
 
-const CATEGORY_CONFIG: Record<NodeCategory, {
+export const CATEGORY_CONFIG: Record<NodeCategory, {
     label: string;
     icon: React.ReactNode;
     color: string;
@@ -135,7 +135,7 @@ const AllNodes = () => {
 
     const { showToast } = useToast();
     const { nodes, loading, error } = useNodes();
-    
+
     // Track shown errors to prevent notification spam
     const shownErrorsRef = useRef<Set<string>>(new Set());
 
@@ -148,10 +148,10 @@ const AllNodes = () => {
     }, [error, showToast]);
 
     const filtered = nodes.filter(n => {
-        const matchAnalytics = analyticsFilter === 'all' || n.analytics_type === analyticsFilter;
+        const matchAnalytics = analyticsFilter === 'all' || n.analytics_template === analyticsFilter;
         const matchStatus = statusFilter === 'all' || n.status === statusFilter;
         const q = search.toLowerCase();
-        const matchSearch = !q || n.label.toLowerCase().includes(q) || n.location_name.toLowerCase().includes(q) || n.node_key.toLowerCase().includes(q);
+        const matchSearch = !q || n.label.toLowerCase().includes(q) || (n.location_name || '').toLowerCase().includes(q) || n.node_key.toLowerCase().includes(q);
         return matchAnalytics && matchStatus && matchSearch;
     });
 
@@ -159,94 +159,99 @@ const AllNodes = () => {
     const offlineCount = nodes.filter(n => n.status === 'Offline').length;
 
     return (
-        <div className="min-h-full bg-slate-50">
+        <div className="min-h-screen bg-transparent relative flex flex-col pt-[160px] lg:pt-[180px]">
+            {/* SVG Noise Overlay */}
+            <div className="absolute inset-0 opacity-[0.015] pointer-events-none z-0" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
+
             {/* ── Top Header Bar ── */}
-            <div className="bg-white border-b border-slate-200 px-8 py-5">
-                <div className="max-w-screen-2xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="px-8 py-6 relative z-10">
+                <div className="max-w-screen-2xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">All Nodes</h1>
+                        <h1 className="text-[28px] font-[800] tracking-tight text-[#004ba0] leading-none mb-1.5">All Nodes</h1>
                         {loading ? (
-                            <p className="text-sm text-slate-500 mt-0.5">Loading nodes...</p>
+                            <p className="text-[11px] text-blue-500 font-bold uppercase tracking-[0.15em] opacity-80">Loading infrastructure...</p>
                         ) : (
-                            <p className="text-sm text-slate-500 mt-0.5">
-                                All infrastructure assets deployed on campus — {nodes.length} total {error ? '(limited data)' : ''}
+                            <p className="text-[11px] text-blue-500 font-bold uppercase tracking-[0.15em] opacity-80">
+                                {nodes.length} TOTAL ASSETS DEPLOYED — REAL-TIME NETWORK
                             </p>
                         )}
                     </div>
 
                     {/* Stats */}
                     {!loading && (
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 bg-green-50 border border-green-200 px-4 py-2 rounded-xl">
-                                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                <span className="text-sm font-bold text-green-700">{onlineCount} Online</span>
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 bg-white/40 backdrop-blur-md border border-white/60 px-3 py-1.5 rounded-full shadow-sm">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                <span className="text-[11px] font-[800] text-green-700 uppercase tracking-tight">{onlineCount} Online</span>
                             </div>
-                            <div className="flex items-center gap-2 bg-red-50 border border-red-200 px-4 py-2 rounded-xl">
-                                <span className="w-2 h-2 rounded-full bg-red-400"></span>
-                                <span className="text-sm font-bold text-red-700">{offlineCount} Offline</span>
+                            <div className="flex items-center gap-2 bg-white/40 backdrop-blur-md border border-white/60 px-3 py-1.5 rounded-full shadow-sm">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                                <span className="text-[11px] font-[800] text-red-700 uppercase tracking-tight">{offlineCount} Offline</span>
                             </div>
                         </div>
                     )}
                 </div>
             </div>
 
-            <div className="max-w-screen-2xl mx-auto px-8 py-6 space-y-6">
+            <div className="max-w-screen-2xl mx-auto px-8 py-4 space-y-6 relative z-10 w-full">
 
                 {/* ── Search + Status filter ── */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative flex-1 max-w-md">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <div className="flex flex-col lg:flex-row items-center justify-start gap-4 w-full">
+                    <div className="relative w-full max-w-md group">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-400 group-focus-within:text-blue-600 transition-colors" size={16} />
                         <input
                             type="text"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            placeholder="Search by name, location or ID…"
-                            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all"
+                            placeholder="Search assets…"
+                            className="w-full pl-10 pr-4 py-2.5 bg-white/40 backdrop-blur-xl border border-white/60 rounded-[18px] text-[13px] font-[500] focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-400/50 transition-all shadow-sm placeholder:text-slate-400"
                         />
                         {search && (
-                            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 transition-colors">
                                 <X size={14} />
                             </button>
                         )}
                     </div>
 
-                    <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-1">
-                        <Filter size={15} className="text-slate-400 ml-2" />
+                    <div className="flex items-center gap-1 bg-white/60 backdrop-blur-xl border border-white/80 rounded-[16px] p-1 shadow-sm">
+                        <div className="px-2.5 text-slate-400">
+                            <Filter size={14} />
+                        </div>
                         {(['all', 'Online', 'Offline'] as const).map(s => (
                             <button
                                 key={s}
                                 onClick={() => setStatusFilter(s)}
                                 className={clsx(
-                                    'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                                    'px-3.5 py-1.5 rounded-[12px] text-[10px] font-[800] transition-all uppercase tracking-tight',
                                     statusFilter === s
-                                        ? s === 'Online' ? 'bg-green-500 text-white'
-                                            : s === 'Offline' ? 'bg-red-500 text-white'
-                                                : 'bg-slate-800 text-white'
-                                        : 'text-slate-500 hover:bg-slate-100'
+                                        ? s === 'Online' ? 'btn-liquid-glass btn-liquid-glass-green'
+                                            : s === 'Offline' ? 'btn-liquid-glass btn-liquid-glass-red'
+                                                : 'btn-liquid-glass btn-liquid-glass-slate'
+                                        : 'text-slate-500 hover:bg-white/40'
                                 )}
                             >
-                                {s === 'all' ? 'All Status' : s}
+                                {s === 'all' ? 'All Assets' : s}
                             </button>
                         ))}
                     </div>
                 </div>
 
                 {/* ── Analytics Type Tabs ── */}
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap items-center justify-start gap-3">
                     {/* All tab */}
                     <button
                         onClick={() => setAnalyticsFilter('all')}
                         className={clsx(
-                            'flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border transition-all',
+                            'flex items-center gap-2 px-4 py-2.5 rounded-[15px] text-[11px] font-[800] border transition-all uppercase tracking-tight',
                             analyticsFilter === 'all'
-                                ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
-                                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                ? 'btn-liquid-glass btn-liquid-glass-slate'
+                                : 'bg-white/60 backdrop-blur-xl text-slate-600 border-white/80 hover:border-white hover:bg-white/80 shadow-sm'
                         )}
                     >
                         All Nodes
                         <span className={clsx(
-                            'text-[11px] font-bold px-1.5 py-0.5 rounded-md',
-                            analyticsFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                            'text-[10px] font-[900] px-1.5 py-0.5 rounded-full',
+                            analyticsFilter === 'all' ? 'bg-white/20 text-white' : 'bg-blue-100 text-[#004ba0]'
                         )}>
                             {nodes.length}
                         </span>
@@ -255,17 +260,24 @@ const AllNodes = () => {
                     {/* EvaraTank / EvaraDeep / EvaraFlow tabs */}
                     {(Object.keys(ANALYTICS_CONFIG) as AnalyticsType[]).map(key => {
                         const cfg = ANALYTICS_CONFIG[key];
-                        const count = nodes.filter(n => n.analytics_type === key).length;
+                        const count = nodes.filter(n => n.analytics_template === key).length;
                         const active = analyticsFilter === key;
+
+                        // Map template to liquid glass color
+                        const liquidColorClass =
+                            key === 'EvaraTank' ? 'btn-liquid-glass-indigo' :
+                                key === 'EvaraDeep' ? 'btn-liquid-glass-sky' :
+                                    'btn-liquid-glass-cyan';
+
                         return (
                             <button
                                 key={key}
                                 onClick={() => setAnalyticsFilter(key)}
                                 className={clsx(
-                                    'flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-semibold border transition-all shadow-sm',
+                                    'flex items-center gap-2 px-4 py-2.5 rounded-[15px] text-[11px] font-[800] border transition-all uppercase tracking-tight shadow-sm',
                                     active
-                                        ? `${cfg.activeBg} ${cfg.activeText} ${cfg.activeBorder}`
-                                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                        ? `btn-liquid-glass ${liquidColorClass}`
+                                        : 'bg-white/60 backdrop-blur-xl text-slate-600 border-white/80 hover:border-white hover:bg-white/80'
                                 )}
                             >
                                 <span className={active ? 'text-white/90' : 'text-slate-400'}>
@@ -273,43 +285,40 @@ const AllNodes = () => {
                                 </span>
                                 <span>{cfg.label}</span>
                                 <span className={clsx(
-                                    'text-[11px] font-bold px-1.5 py-0.5 rounded-md',
+                                    'text-[10px] font-[900] px-1.5 py-0.5 rounded-full',
                                     active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
                                 )}>
                                     {count}
                                 </span>
-                                {active && (
-                                    <span className="text-[10px] font-medium opacity-75 ml-0.5">
-                                        — {cfg.desc}
-                                    </span>
-                                )}
                             </button>
                         );
                     })}
                 </div>
 
                 {/* ── Results count ── */}
-                <p className="text-xs text-slate-400 font-medium">
-                    Showing {filtered.length} of {nodes.length} nodes
-                </p>
+                <div className="w-full flex justify-start">
+                    <p className="text-[10px] text-blue-700 font-[800] btn-liquid-glass btn-liquid-glass-slate px-4 py-1.5 rounded-full uppercase tracking-widest shadow-sm">
+                        Displaying {filtered.length} nodes
+                    </p>
+                </div>
 
                 {/* ── Grid ── */}
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-24 text-center">
-                        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                        <p className="text-slate-500 font-medium mt-4">Loading nodes...</p>
+                        <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                        <p className="text-slate-500 font-bold mt-4 uppercase tracking-widest text-[12px]">Processing Network Nodes...</p>
                     </div>
                 ) : filtered.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 w-full max-w-7xl">
                         {filtered.map(node => {
-                            const cfg = CATEGORY_CONFIG[node.category];
-                            const anCfg = ANALYTICS_CONFIG[node.analytics_type];
+                            const cfg = CATEGORY_CONFIG[(node.category as NodeCategory) || 'OHT'] || CATEGORY_CONFIG['OHT'];
+                            const anCfg = ANALYTICS_CONFIG[node.analytics_template as keyof typeof ANALYTICS_CONFIG] || ANALYTICS_CONFIG['EvaraTank'];
                             const isOnline = node.status === 'Online';
                             return (
                                 <Link
                                     key={node.node_key}
-                                    to={getDeviceAnalyticsRoute({ id: node.node_key, analytics_template: node.analytics_type, device_type: node.category })}
-                                    className="group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden flex flex-col"
+                                    to={getDeviceAnalyticsRoute({ id: node.node_key, analytics_template: node.analytics_template || undefined, device_type: node.category || undefined })}
+                                    className="group bg-white/70 backdrop-blur-md rounded-[24px] border border-white/60 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col"
                                 >
                                     {/* Card top accent — analytics color */}
                                     <div className={clsx('h-1 w-full', anCfg.dot)} />
@@ -345,7 +354,7 @@ const AllNodes = () => {
                                                 {cfg.label}
                                             </span>
                                             <span className={clsx('text-[11px] font-semibold px-2 py-0.5 rounded-md', anCfg.badge)}>
-                                                {node.analytics_type}
+                                                {node.analytics_template}
                                             </span>
                                         </div>
 
@@ -363,8 +372,8 @@ const AllNodes = () => {
 
                                     {/* View Analytics footer */}
                                     <div className={clsx(
-                                        'px-5 py-3 text-center text-xs font-bold tracking-wide transition-colors',
-                                        'bg-slate-50 text-slate-400 group-hover:bg-blue-600 group-hover:text-white'
+                                        'px-5 py-3 text-center text-xs font-bold tracking-wide transition-colors border-t border-white/40',
+                                        'bg-white/40 text-slate-400 group-hover:bg-blue-600 group-hover:text-white'
                                     )}>
                                         View Analytics →
                                     </div>

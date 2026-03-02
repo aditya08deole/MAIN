@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import Chart from 'chart.js/auto';
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import NodeNotConfigured from '../components/NodeNotConfigured';
-import { getDeviceDetails } from '../services/devices';
+import { deviceService } from '../services/DeviceService';
+import { useTelemetry } from '../hooks/useTelemetry';
+
+import TankLevelTrend from '../components/dashboard/TankLevelTrend';
 import './EvaraTank.css';
 
 interface EvaraTankProps {
@@ -10,377 +12,119 @@ interface EvaraTankProps {
     nodeId?: string;
 }
 
-const EvaraTank = ({ embedded = false, nodeId }: EvaraTankProps) => {
-    // Chart Refs
-    const levelChartRef = useRef<HTMLCanvasElement>(null);
-    const usageChartRef = useRef<HTMLCanvasElement>(null);
-    const refillChartRef = useRef<HTMLCanvasElement>(null);
+const EvaraTank = ({ embedded = false, nodeId: nodeIdProp }: EvaraTankProps) => {
+    const { id: routeId } = useParams<{ id: string }>();
+    const nodeId = nodeIdProp || routeId;
+    const [config, setConfig] = useState<any>(null);
+    const { data: telemetry, loading: telLoading } = useTelemetry(nodeId);
 
-    // Chart Instances
-    const chartInstances = useRef<{
-        level: Chart | null;
-        usage: Chart | null;
-        refill: Chart | null;
-    }>({ level: null, usage: null, refill: null });
-
-    // State
-    const [filter, setFilter] = useState('live');
-    const [tsConfig, setTsConfig] = useState<{
-        channelId: string | null;
-        readApiKey: string | null;
-    } | null>(null);
-
-    const [data, setData] = useState({
-        percent: 0,
-        volume: 0,
-        fillHeight: 0,
-        meters: 0.85,  // Total height in m
-        lowAlert: { state: 'green', text: 'NORMAL' },
-        overAlert: { state: 'green', text: 'MINIMAL' },
-        rapidAlert: { state: 'green', text: 'NORMAL' },
-        sensorAlert: { state: 'green', text: 'CONNECTED' },
-    });
-
-    // Constants from user snippet
-    const TOTAL_HEIGHT_CM = 85;
-    const TOTAL_HEIGHT_M = 0.85;
-    const MAX_CAPACITY = 500;
-    const TARGET_SENSOR_VAL = 40;
-
-    // 1. Fetch Config from Backend
     useEffect(() => {
-        if (!nodeId) {
-            setTsConfig({ channelId: null, readApiKey: null });
-            return;
-        }
-
-        const fetchConfig = async () => {
-            try {
-                const node = await getDeviceDetails(nodeId);
-                setTsConfig({
-                    channelId: node.thingspeak_channel_id ?? null,
-                    readApiKey: node.thingspeak_read_api_key ?? null,
-                });
-            } catch (err) {
-                console.error("Failed to fetch node config:", err);
-                setTsConfig({ channelId: null, readApiKey: null });
-            }
-        };
-
-        fetchConfig();
+        if (!nodeId) return;
+        deviceService.getDeviceDetails(nodeId).then(setConfig).catch(console.error);
     }, [nodeId]);
 
-    // 2. Initialize Charts
-    useEffect(() => {
-        // Level Chart
-        if (levelChartRef.current) {
-            if (chartInstances.current.level) chartInstances.current.level.destroy();
-            chartInstances.current.level = new Chart(levelChartRef.current, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Level (cm)',
-                        data: [],
-                        borderColor: '#4F46E5',
-                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                        fill: true,
-                        tension: 0.3
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 85 } }, plugins: { legend: { display: false } } }
-            });
-        }
+    if (!config && !telLoading) return <NodeNotConfigured analyticsType="EvaraTank" />;
 
-        // Usage Chart
-        if (usageChartRef.current) {
-            if (chartInstances.current.usage) chartInstances.current.usage.destroy();
-            chartInstances.current.usage = new Chart(usageChartRef.current, {
-                type: 'doughnut',
-                data: { labels: ['Normal', 'Abnormal'], datasets: [{ data: [95, 5], backgroundColor: ['#4F46E5', '#EF4444'], borderWidth: 0 }] },
-                options: { responsive: true, maintainAspectRatio: false, cutout: '80%', plugins: { legend: { display: false } } } as any
-            });
-        }
+    const battery = telemetry?.values?.battery as number || 0;
+    const signal = telemetry?.values?.signal_strength as number || 0;
+    const percentValue = typeof telemetry?.values?.level === 'number'
+        ? telemetry.values.level
+        : parseFloat(telemetry?.values?.level as any || '0');
 
-        // Refill Chart
-        if (refillChartRef.current) {
-            if (chartInstances.current.refill) chartInstances.current.refill.destroy();
-            chartInstances.current.refill = new Chart(refillChartRef.current, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Cycles', 'Remaining'],
-                    datasets: [{
-                        data: [2.4, 1.6],
-                        backgroundColor: ['#3B82F6', '#F1F5F9'],
-                        borderWidth: 0,
-                        borderRadius: 20
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '85%',
-                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
-                    animation: { animateScale: true, animateRotate: true } as any
-                } as any
-            });
-        }
-
-        return () => {
-            Object.values(chartInstances.current).forEach(chart => chart?.destroy());
-        };
-    }, []);
-
-    // 3. Data Fetching Loop
-    useEffect(() => {
-        if (!tsConfig?.channelId || !tsConfig?.readApiKey) return;
-
-        const fetchData = async () => {
-            let apiParams = '&results=15';
-            if (filter === '1h') apiParams = '&minutes=60';
-            if (filter === '6h') apiParams = '&minutes=360';
-            if (filter === '24h') apiParams = '&minutes=1440';
-
-            const url = `https://api.thingspeak.com/channels/${tsConfig.channelId}/feeds.json?api_key=${tsConfig.readApiKey}${apiParams}`;
-
-            try {
-                const response = await fetch(url);
-                const json = await response.json();
-                const feeds = json.feeds;
-
-                // Static mock logic from snippet (mimicking the user's JS logic)
-                const sensorReading = TARGET_SENSOR_VAL;
-                const currentLevel = TOTAL_HEIGHT_CM - sensorReading;
-                const percentage = (currentLevel / TOTAL_HEIGHT_CM) * 100;
-                const volume = (percentage / 100) * MAX_CAPACITY;
-
-                // Alert Logic
-                let low = { state: 'green', text: 'NORMAL' };
-                if (percentage < 20) low = { state: 'orange', text: 'ATTENTION REQUIRED' };
-
-                let over = { state: 'green', text: 'MINIMAL' };
-                if (percentage > 90) over = { state: 'red', text: 'CRITICAL' };
-
-                // Update State
-                setData(prev => ({
-                    ...prev,
-                    percent: percentage,
-                    volume: volume,
-                    fillHeight: percentage,
-                    lowAlert: low,
-                    overAlert: over,
-                    sensorAlert: { state: 'green', text: 'CONNECTED' }
-                }));
-
-                // Update Charts
-                if (chartInstances.current.level) {
-                    // Color Logic
-                    let borderColor = '#4F46E5';
-                    let bgColor = 'rgba(79, 70, 229, 0.1)';
-
-                    if (percentage > 70) {
-                        borderColor = '#1e40af'; // Deep Blue
-                        bgColor = 'rgba(30, 64, 175, 0.2)';
-                    } else if (percentage < 30) {
-                        borderColor = '#38bdf8'; // Sky Blue
-                        bgColor = 'rgba(56, 189, 248, 0.2)';
-                    }
-
-                    chartInstances.current.level.data.datasets[0].borderColor = borderColor;
-                    chartInstances.current.level.data.datasets[0].backgroundColor = bgColor;
-
-                    const labels = feeds.map((f: any) => {
-                        let d = new Date(f.created_at);
-                        return d.getHours() + ":" + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
-                    });
-                    // Mock data mapping as per snippet
-                    const points = feeds.map(() => currentLevel);
-
-                    chartInstances.current.level.data.labels = labels;
-                    chartInstances.current.level.data.datasets[0].data = points;
-                    chartInstances.current.level.update();
-                }
-
-            } catch (error) {
-                console.error("Error:", error);
-                setData(prev => ({ ...prev, sensorAlert: { state: 'red', text: 'DISCONNECTED' } }));
-            }
-        };
-
-        fetchData();
-        const interval = setInterval(fetchData, 15000); // 15s polling
-        return () => clearInterval(interval);
-
-    }, [tsConfig, filter]);
-
-
-    // Helper for alert classes
-    const getAlertClass = (state: string) => {
-        if (state === 'green') return { dot: 'et-alert-dot et-bg-green', text: 'et-alert-right et-status-green' };
-        if (state === 'orange') return { dot: 'et-alert-dot et-bg-orange', text: 'et-alert-right et-status-orange' };
-        if (state === 'red') return { dot: 'et-alert-dot et-bg-red', text: 'et-alert-right et-status-red' };
-        return { dot: 'et-alert-dot', text: 'et-alert-right' };
-    };
-
-    if (!tsConfig?.channelId && !embedded) return <NodeNotConfigured analyticsType="EvaraTank" />;
+    const percent = isNaN(percentValue) ? 0 : percentValue;
+    const volume = (percent / 100) * 500; // Assuming 500L max
+    const history = [
+        { time: '12:00', level: 45 },
+        { time: '13:00', level: 52 },
+        { time: '14:00', level: 48 },
+        { time: '15:00', level: 60 },
+        { time: '16:00', level: percent }
+    ];
 
     return (
-        <div className={`evara-tank-body${embedded ? ' et-embedded' : ''}`}>
-            {!embedded && (
-                <nav className="et-sidebar">
-                    <Link to="/evaratank" style={{ textDecoration: 'none' }}>
-                        <div style={{ width: '40px', height: '40px', background: 'var(--primary)', borderRadius: '12px', marginBottom: '25px' }}></div>
-                    </Link>
-                    <Link to="/evaradeep" style={{ textDecoration: 'none' }}>
-                        <div style={{ width: '32px', height: '32px', background: '#E2E8F0', borderRadius: '10px', marginBottom: '25px' }}></div>
-                    </Link>
-                    <Link to="/evaraflow" style={{ textDecoration: 'none' }}>
-                        <div style={{ width: '32px', height: '32px', background: '#E2E8F0', borderRadius: '10px', marginBottom: '25px' }}></div>
-                    </Link>
-                </nav>
-            )}
+        <div className={`glass-dashboard w-full px-[32px] md:px-[40px] pt-[110px] pb-8 min-h-screen${embedded ? ' et-embedded' : ''}`}>
+            {/* SVG Noise Overlay */}
+            {!embedded && <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>}
 
-            <main className="et-main-content">
-                <header className="et-header">
-                    <div className="et-header-title">
-                        <h1>EvaraTank Analytics</h1>
-                        <p>Real-Time Water Monitoring System</p>
+            <div className="max-w-[1440px] w-full mx-auto relative z-10 flex flex-col gap-[24px]">
+                <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-[32px]">
+                    <div>
+                        <h1 className="text-[36px] font-[600] tracking-[-0.5px] text-[#1F2937] leading-tight">{config?.name || 'Tank'} — Digital Twin</h1>
+                        <p className="text-[14px] text-gray-500 mt-1">Blueprint: {config?.id} | Heartbeat: Operational</p>
                     </div>
                 </header>
 
-                <div className="et-dashboard-grid">
-
-                    <div className="et-card">
-                        <div className="et-tank-display">
-                            <div className="et-tank-tube">
-                                <div className="et-water-fill" style={{ height: `${data.fillHeight}%` }}></div>
-                            </div>
-                            <div>
-                                <div className="et-kpi-label">Current Level</div>
-                                <div className="et-percent-large">{data.percent.toFixed(1)}%</div>
-                                <div className="et-meter-subtext">Total: {TOTAL_HEIGHT_M}m</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="et-card">
-                        <div className="et-kpi-label">Total Tank Volume</div>
-                        <div className="et-kpi-value">500 L</div>
-                        <div className="et-kpi-sub">Max Capacity</div>
-                    </div>
-
-                    <div className="et-card">
-                        <div className="et-kpi-label">Available Volume</div>
-                        <div className="et-kpi-value">{data.volume.toFixed(1)} L</div>
-                        <div className="et-kpi-sub">Calculated Real-Time</div>
-                    </div>
-
-                    <div className="et-card">
-                        <div className="et-kpi-label">Est. Consumption</div>
-                        <div className="et-kpi-value">750 L</div>
-                        <div className="et-kpi-sub">Daily Calculation (1.5 Cycles)</div>
-                    </div>
-
-                    <div className="et-card et-span-3">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ margin: 0, fontSize: '16px' }}>Real-Time Water Level</h3>
-                            <div className="et-filter-group">
-                                <button className={`et-filter-btn ${filter === 'live' ? 'active' : ''}`} onClick={() => setFilter('live')}>Live</button>
-                                <button className={`et-filter-btn ${filter === '1h' ? 'active' : ''}`} onClick={() => setFilter('1h')}>1h</button>
-                                <button className={`et-filter-btn ${filter === '6h' ? 'active' : ''}`} onClick={() => setFilter('6h')}>6h</button>
-                                <button className={`et-filter-btn ${filter === '24h' ? 'active' : ''}`} onClick={() => setFilter('24h')}>24h</button>
-                            </div>
-                        </div>
-                        <div className="et-chart-container">
-                            <canvas ref={levelChartRef}></canvas>
-                        </div>
-                    </div>
-
-                    <div className="et-card">
-                        <h3 style={{ margin: '0 0 15px', fontSize: '14px' }}>Abnormal Usage</h3>
-                        <div className="et-doughnut-container">
-                            <canvas ref={usageChartRef}></canvas>
-                        </div>
-                        <div className="et-chart-legend">
-                            <div className="et-legend-item"><span className="et-dot" style={{ background: '#4F46E5' }}></span> Normal</div>
-                            <div className="et-legend-item"><span className="et-dot" style={{ background: '#EF4444' }}></span> Abnormal</div>
-                        </div>
-                    </div>
-
-                    <div className="et-card">
-                        <h3 style={{ margin: '0 0 10px', fontSize: '14px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Refill Cycles</h3>
-                        <div className="et-ring-container">
-                            <canvas ref={refillChartRef}></canvas>
-                            <div className="et-ring-center-text">
-                                <div className="et-kpi-value" style={{ color: 'var(--blue-accent)', margin: 0 }}>2.4</div>
-                                <div className="et-sub-blue" style={{ fontSize: '11px' }}>Avg/Day</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="et-card">
-                        <h3 style={{ margin: '0 0 15px', fontSize: '14px' }}>Consumption Trends</h3>
-                        <div className="et-list-container">
-                            <div className="et-list-item">
-                                <span className="et-list-label" style={{ color: 'var(--text-muted)' }}>Last 24 Hours</span>
-                                <span className="et-list-value-bold">750 L</span>
-                            </div>
-                            <div className="et-list-item">
-                                <span className="et-list-label" style={{ color: 'var(--text-muted)' }}>Last 3 Days</span>
-                                <span className="et-list-value-bold">2,250 L</span>
-                            </div>
-                            <div className="et-list-item">
-                                <span className="et-list-label" style={{ color: 'var(--text-muted)' }}>Last 7 Days</span>
-                                <span className="et-list-value-bold">5,250 L</span>
-                            </div>
-                            <div className="et-list-item">
-                                <span className="et-list-label" style={{ color: 'var(--text-muted)' }}>Last 30 Days</span>
-                                <span className="et-list-value-bold">22,500 L</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="et-card et-span-2">
-                        <h3 style={{ margin: '0 0 20px', fontSize: '16px' }}>System Alerts</h3>
-                        <div className="et-list-container">
-
-                            <div className="et-list-item">
-                                <div className="et-alert-left">
-                                    <div className={getAlertClass(data.lowAlert.state).dot}></div>
-                                    <span className="et-list-label">Low Water Level</span>
+                <div className="grid grid-cols-12 gap-[24px]">
+                    <div className="apple-glass-card col-span-12 xl:col-span-8 p-[24px]">
+                        <div className="apple-glass-content h-full">
+                            <div className="w-full h-full min-h-[300px] flex items-end justify-center bg-sky-50 rounded-2xl overflow-hidden relative border border-sky-100/50">
+                                <div className="absolute bottom-0 w-full bg-gradient-to-t from-blue-600 to-sky-400 opacity-80 transition-all duration-1000 ease-[cubic-bezier(0.4,0,0.2,1)]" style={{ height: `${percent}%` }}></div>
+                                <div className="absolute inset-0 flex items-center justify-center font-black text-5xl text-slate-800 tracking-tighter drop-shadow-xl z-20">
+                                    {percent.toFixed(1)}%
                                 </div>
-                                <div className={getAlertClass(data.lowAlert.state).text}>{data.lowAlert.text}</div>
+                                {/* Optional subtle grid or lines */}
+                                <div className="absolute inset-x-0 bottom-1/4 h-[1px] bg-sky-900/10 border-t border-dashed z-10"></div>
+                                <div className="absolute inset-x-0 bottom-2/4 h-[1px] bg-sky-900/10 border-t border-dashed z-10"></div>
+                                <div className="absolute inset-x-0 bottom-3/4 h-[1px] bg-sky-900/10 border-t border-dashed z-10"></div>
                             </div>
-
-                            <div className="et-list-item">
-                                <div className="et-alert-left">
-                                    <div className={getAlertClass(data.overAlert.state).dot}></div>
-                                    <span className="et-list-label">Overflow Risk</span>
-                                </div>
-                                <div className={getAlertClass(data.overAlert.state).text}>{data.overAlert.text}</div>
-                            </div>
-
-                            <div className="et-list-item">
-                                <div className="et-alert-left">
-                                    <div className={getAlertClass(data.rapidAlert.state).dot}></div>
-                                    <span className="et-list-label">Rapid Depletion</span>
-                                </div>
-                                <div className={getAlertClass(data.rapidAlert.state).text}>{data.rapidAlert.text}</div>
-                            </div>
-
-                            <div className="et-list-item">
-                                <div className="et-alert-left">
-                                    <div className={getAlertClass(data.sensorAlert.state).dot}></div>
-                                    <span className="et-list-label">Sensor/Device Offline</span>
-                                </div>
-                                <div className={getAlertClass(data.sensorAlert.state).text}>{data.sensorAlert.text}</div>
-                            </div>
-
                         </div>
                     </div>
 
+                    <div className="col-span-12 xl:col-span-4 flex flex-col gap-[24px]">
+                        <div className="apple-glass-card p-[24px] flex flex-col justify-between h-[150px]">
+                            <div className="apple-glass-content h-full flex flex-col justify-between">
+                                <div className="glass-title">Volume</div>
+                                <div className="glass-number text-[#16A34A]">{volume.toFixed(1)} L</div>
+                                <div className="glass-secondary">500L Capacity</div>
+                            </div>
+                        </div>
+
+                        <div className="apple-glass-card p-[24px] flex flex-col justify-between h-[150px]">
+                            <div className="apple-glass-content h-full flex flex-col justify-between">
+                                <div className="glass-title">Status</div>
+                                <div className={`glass-number ${percent < 20 ? 'text-[#EF4444]' : 'text-[#3A7AFE]'}`}>
+                                    {percent < 20 ? 'Crit Low' : 'Normal'}
+                                </div>
+                                <div className="glass-secondary">Real-time Check</div>
+                            </div>
+                        </div>
+
+                        <div className="apple-glass-card p-[24px] flex flex-col justify-between h-[150px]">
+                            <div className="apple-glass-content h-full flex flex-col justify-between">
+                                <div className="glass-title">Battery / Signal</div>
+                                <div className="flex gap-2 items-center mt-1">
+                                    <span className="glass-number !text-[28px]">{battery}%</span>
+                                    <span className="text-[#1F2937] opacity-30 text-2xl font-light">|</span>
+                                    <span className="glass-number !text-[28px]">{signal} dBm</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="apple-glass-card col-span-12 xl:col-span-9 p-[24px]">
+                        <div className="apple-glass-content">
+                            <div className="glass-title mb-4">Live Performance Trend</div>
+                            <TankLevelTrend data={history} />
+                        </div>
+                    </div>
+
+                    <div className="apple-glass-card col-span-12 xl:col-span-3 p-[24px]">
+                        <div className="apple-glass-content h-full flex flex-col">
+                            <div className="glass-title mb-4">Alert History</div>
+                            <div className="space-y-[12px]">
+                                {percent < 20 && (
+                                    <div className="apple-glass-inner p-[12px] bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)]">
+                                        <span className="text-[#EF4444] text-[12px] font-[600]">Low Water Alert - Just Now</span>
+                                    </div>
+                                )}
+                                <div className="apple-glass-inner p-[12px]">
+                                    <span className="text-[12px] font-[500] text-[#1F2937] opacity-80">System Check - OK</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </main>
+            </div>
         </div>
     );
 };

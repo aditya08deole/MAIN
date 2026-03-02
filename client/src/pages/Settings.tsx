@@ -26,7 +26,7 @@ export default function SettingsPage() {
             await updateUserPreferences(prefs);
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
-        } catch (err) {
+        } catch {
             console.error("Failed to save settings");
         } finally {
             setLoading(false);
@@ -45,7 +45,7 @@ export default function SettingsPage() {
                 </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden divide-y divide-slate-100">
+            <div className="apple-glass-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden divide-y divide-slate-100">
 
                 {/* Notifications Section */}
                 <div className="p-6">
@@ -70,7 +70,7 @@ export default function SettingsPage() {
                                     checked={prefs.email_notifications}
                                     onChange={e => setPrefs({ ...prefs, email_notifications: e.target.checked })}
                                 />
-                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:apple-glass-card after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                             </label>
                         </div>
 
@@ -91,7 +91,7 @@ export default function SettingsPage() {
                                     checked={prefs.sms_notifications}
                                     onChange={e => setPrefs({ ...prefs, sms_notifications: e.target.checked })}
                                 />
-                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:apple-glass-card after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                             </label>
                         </div>
                     </div>
@@ -108,9 +108,9 @@ export default function SettingsPage() {
                             <div className="text-sm text-slate-500">Switch between light and dark themes.</div>
                         </div>
                         <select
-                            className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                            className="apple-glass-inner border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
                             value={prefs.theme}
-                            onChange={(e) => setPrefs({ ...prefs, theme: e.target.value as any })}
+                            onChange={(e) => setPrefs({ ...prefs, theme: e.target.value as 'light' | 'dark' | 'system' })}
                         >
                             <option value="light">Light</option>
                             <option value="dark">Dark</option>
@@ -120,7 +120,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Save Bar */}
-                <div className="p-6 bg-slate-50 flex justify-end">
+                <div className="p-6 apple-glass-inner flex justify-end">
                     <button
                         onClick={handleSave}
                         disabled={loading}

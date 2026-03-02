@@ -5,7 +5,7 @@ interface ActionCardProps {
     description: string;
     icon: LucideIcon;
     stats?: string;
-    color: 'blue' | 'green' | 'purple' | 'amber';
+    color: 'blue' | 'green' | 'purple' | 'amber' | 'indigo';
     onClick?: () => void;
 }
 
@@ -38,6 +38,13 @@ const colorStyles = {
         hover: 'group-hover:border-amber-500/50',
         iconBg: 'bg-amber-500',
     },
+    indigo: {
+        bg: 'bg-indigo-500/10',
+        border: 'border-indigo-500/20',
+        text: 'text-indigo-500',
+        hover: 'group-hover:border-indigo-500/50',
+        iconBg: 'bg-indigo-500',
+    },
 };
 
 export const ActionCard = ({ title, description, icon: Icon, stats, color, onClick }: ActionCardProps) => {
@@ -48,7 +55,7 @@ export const ActionCard = ({ title, description, icon: Icon, stats, color, onCli
             onClick={onClick}
             className={`
                 group relative flex flex-col items-start p-6 rounded-2xl border transition-all duration-300 w-full text-left
-                bg-white hover:bg-slate-50 ${styles.border} hover:border-[color]-500/30 hover:shadow-md hover:-translate-y-1
+                apple-glass-card hover:bg-white/30 ${styles.border} hover:border-[color]-500/30 hover:shadow-md hover:-translate-y-1
             `}
         >
             <div className="flex w-full items-start justify-between mb-4">

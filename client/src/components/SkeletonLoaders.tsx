@@ -25,7 +25,7 @@ export const SkeletonPulse: React.FC<SkeletonProps> = ({
 );
 
 export const StatCardSkeleton: React.FC = () => (
-    <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white/50 flex flex-col justify-between">
+    <div className="apple-glass-card backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white/50 flex flex-col justify-between">
         <div className="flex justify-between items-start">
             <div>
                 <SkeletonPulse width="80px" height="14px" className="mb-2" />
@@ -68,7 +68,7 @@ export const MapSkeleton: React.FC = () => (
 );
 
 export const DashboardSkeleton: React.FC = () => (
-    <div className="h-screen flex flex-col p-5 bg-slate-50 font-sans overflow-hidden">
+    <div className="h-screen flex flex-col p-5 apple-glass-inner font-sans overflow-hidden">
         {/* Header Skeleton */}
         <div className="flex-none flex items-center justify-between mb-5">
             <SkeletonPulse width="280px" height="36px" />
@@ -97,7 +97,7 @@ export const DashboardSkeleton: React.FC = () => (
         {/* Bottom Row Skeleton */}
         <div className="flex-1 min-h-0 grid grid-cols-3 gap-4">
             {[...Array(3)].map((_, i) => (
-                <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
+                <div key={i} className="apple-glass-card rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
                     <div className="px-5 py-4 border-b border-slate-50 flex justify-between items-center">
                         <SkeletonPulse width="150px" height="24px" />
                         <SkeletonPulse width="60px" height="20px" rounded />

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import declarative_base
 from config import get_settings
 import ssl
+import uuid
 
 settings = get_settings()
 
@@ -29,38 +30,32 @@ if "supabase.co" in db_url or "pooler.supabase.com" in db_url:
     elif ":6543/" in db_url:
         print("[OK] Using Supabase connection pooler (port 6543)")
         
-        # Detect region from URL
+        # Detect zone from URL
         if "aws-1-ap-northeast-2" in db_url:
-            print("[OK] Region: Seoul (ap-northeast-2)")
+            print("[OK] Zone: Seoul (ap-northeast-2)")
         elif "aws-0-ap-south-1" in db_url:
-            print("[OK] Region: Mumbai (ap-south-1)")
+            print("[OK] Zone: Mumbai (ap-south-1)")
 
 # Configure SSL for Supabase (required for all connections)
 ssl_context = ssl.create_default_context()
 ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
-# Create PostgreSQL engine with optimal settings
-# Critical: Supabase pooler (pgbouncer) in transaction mode doesn't support prepared statements
+from sqlalchemy.pool import NullPool
+
+# Create PostgreSQL engine optimized for Supabase PgBouncer Transaction Mode
 engine = create_async_engine(
     db_url,
     echo=False,
-    pool_size=5,
-    max_overflow=2,
-    pool_pre_ping=True,
-    pool_recycle=300,
+    # Use NullPool because PgBouncer handles the pooling already
+    poolclass=NullPool,
     connect_args={
         "ssl": ssl_context,
-        "server_settings": {"application_name": "evara_backend_simple"},
         "timeout": 30,
         "command_timeout": 60,
-        "prepared_statement_cache_size": 0,  # Disable asyncpg prepared statement cache
-        "statement_cache_size": 0,  # Also disable statement cache
-    },
-    execution_options={
-        "compiled_cache": None,  # Disable SQLAlchemy compiled cache
-    },
-    pool_timeout=30
+        # Strictly disable prepared statement cache for PgBouncer
+        "statement_cache_size": 0,
+    }
 )
 
 # Create session factory
@@ -97,18 +92,21 @@ async def init_db():
     
     for attempt in range(1, max_retries + 1):
         try:
-            async with asyncio.timeout(10):  # 10 second timeout
+            async def _create_tables():
                 async with engine.begin() as conn:
                     await conn.run_sync(Base.metadata.create_all)
+            await asyncio.wait_for(_create_tables(), timeout=30)
             print("[OK] Database tables initialized")
             return
         except asyncio.TimeoutError:
-            print(f"[WARN] Database initialization timeout (attempt {attempt}/{max_retries})")
+            print(f"[ERROR] Database initialization timeout (attempt {attempt}/{max_retries})")
             if attempt < max_retries:
                 await asyncio.sleep(retry_delay)
                 retry_delay *= 2
         except Exception as e:
-            print(f"[WARN] Database initialization error (attempt {attempt}/{max_retries}): {e}")
+            print(f"[ERROR] Database initialization error (attempt {attempt}/{max_retries}): {e}")
+            import traceback
+            traceback.print_exc()
             if attempt < max_retries:
                 await asyncio.sleep(retry_delay)
                 retry_delay *= 2

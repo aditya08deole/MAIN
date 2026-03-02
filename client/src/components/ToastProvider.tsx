@@ -15,6 +15,7 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useToast = () => {
     const context = useContext(ToastContext);
     if (!context) throw new Error("useToast must be used within a ToastProvider");
@@ -25,6 +26,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
     const [toasts, setToasts] = useState<Toast[]>([]);
 
     const showToast = (message: string, type: ToastType) => {
+        // eslint-disable-next-line react-hooks/purity
         const id = Date.now();
         setToasts(prev => [...prev, { id, message, type }]);
         setTimeout(() => removeToast(id), 3000);
@@ -41,9 +43,9 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
                 {toasts.map(toast => (
                     <div
                         key={toast.id}
-                        className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border animate-in slide-in-from-right-5 fade-in duration-300 ${toast.type === 'success' ? 'bg-white border-green-100 text-green-700' :
-                            toast.type === 'error' ? 'bg-white border-red-100 text-red-700' :
-                                'bg-white border-blue-100 text-blue-700'
+                        className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border animate-in slide-in-from-right-5 fade-in duration-300 ${toast.type === 'success' ? 'apple-glass-card border-green-100 text-green-700' :
+                            toast.type === 'error' ? 'apple-glass-card border-red-100 text-red-700' :
+                                'apple-glass-card border-blue-100 text-blue-700'
                             }`}
                     >
                         {toast.type === 'success' && <CheckCircle className="w-5 h-5 text-green-500" />}

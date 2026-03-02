@@ -1,467 +1,502 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Users, User, Settings, Crown, Key, Globe, Database, Monitor, Bell, FileText, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { adminService } from '../services/admin';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { motion, AnimatePresence } from 'framer-motion';
+import ErrorBoundary from '../components/ErrorBoundary';
+import { AddZoneForm } from '../components/admin/forms/AddZoneForm';
+import { AddCommunityForm } from '../components/admin/forms/AddCommunityForm';
+import { AddCustomerForm } from '../components/admin/forms/AddCustomerForm';
+import { AddDeviceForm } from '../components/admin/forms/AddDeviceForm';
+import { ActionCard } from '../components/admin/ActionCard';
+import {
+    Users, User, Crown, Globe, FileText,
+    type LucideIcon, PlusCircle, Activity,
+    LayoutGrid, Map as MapIcon, RefreshCw
+} from 'lucide-react';
+import { useTenancy } from '../context/TenancyContext';
+import { UsageMeter } from '../components/admin/UsageMeter';
+import clsx from 'clsx';
 
-/* ─── Data ─── */
-const distributors = [
-    { id: 'DST-001', name: 'HydroServe Solutions', region: 'Hyd North', nodes: 48, customers: 120, status: 'Active' },
-    { id: 'DST-002', name: 'AquaLink Partners', region: 'Hyd South', nodes: 36, customers: 89, status: 'Active' },
-    { id: 'DST-003', name: 'WaterGrid Dist.', region: 'Secunderabad', nodes: 24, customers: 65, status: 'Active' },
-    { id: 'DST-004', name: 'FlowTech Networks', region: 'Kukatpally', nodes: 18, customers: 42, status: 'Suspended' },
-];
-const customers = [
-    { id: 'CUST-1001', name: 'Sunrise Apartments', type: 'Residential', devices: 3, status: 'Active' },
-    { id: 'CUST-1002', name: 'TechPark Office', type: 'Commercial', devices: 8, status: 'Active' },
-    { id: 'CUST-1003', name: 'Green Valley', type: 'Residential', devices: 12, status: 'Active' },
-    { id: 'CUST-1004', name: 'Metro Hospital', type: 'Institutional', devices: 5, status: 'Active' },
-    { id: 'CUST-1005', name: 'Lake View Villa', type: 'Residential', devices: 1, status: 'Inactive' },
-];
+interface Profile {
+    id: string;
+    email: string;
+    full_name?: string;
+    role: string;
+}
 
-const ROLE_TAB_MAP: Record<string, string> = { superadmin: 'Command', distributor: 'Distributor', customer: 'Customer' };
+interface Community {
+    id: string;
+    name: string;
+    profiles: Profile[];
+}
+
+interface Zone {
+    id: string;
+    name: string;
+    communities: Community[];
+}
+
+interface AdminStats {
+    total_nodes: number;
+    online_nodes: number;
+    active_alerts: number;
+    total_customers: number;
+    total_regions: number;
+    total_communities: number;
+    weekly_growth: number;
+    system_health: number;
+    system_stability: number;
+}
 
 /* ─── Widget Card Component ─── */
 const Widget = ({ icon: Icon, iconBg, title, summary, expanded, onClick, children }: {
-    icon: any; iconBg: string; title: string; summary: string;
+    icon: LucideIcon; iconBg: string; title: string; summary: string;
     expanded: boolean; onClick: () => void; children: React.ReactNode;
 }) => (
-    <div
+    <motion.div
+        layout
         onClick={onClick}
-        style={{
-            background: expanded ? '#FFF' : 'rgba(255,255,255,0.9)',
-            backdropFilter: 'blur(20px)',
-            borderRadius: '24px',
-            border: expanded ? '1.5px solid #CBD5E1' : '1px solid rgba(226,232,240,0.8)',
-            cursor: 'pointer',
-            transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
-            boxShadow: expanded
-                ? '0 25px 50px -12px rgba(0, 0, 0, 0.15)'
-                : '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-            overflow: 'hidden',
-            gridColumn: expanded ? 'span 2' : 'span 1',
-            gridRow: expanded ? 'span 2' : 'span 1',
-            display: 'flex',
-            flexDirection: 'column',
-            position: 'relative',
-        }}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className={clsx(
+            "apple-glass-card transition-all duration-500 flex flex-col cursor-pointer lg:min-h-[220px]",
+            expanded ? "col-span-3 row-span-2 z-50 bg-white/95" : "col-span-1 hover:scale-[1.02]"
+        )}
     >
-        {/* ── Expanded Header ── */}
         {expanded ? (
-            <div style={{
-                padding: '20px 24px',
-                display: 'flex', alignItems: 'center', gap: '16px',
-                borderBottom: '1px solid #F1F5F9',
-                flexShrink: 0,
-            }}>
-                <div style={{
-                    width: '44px', height: '44px', borderRadius: '12px',
-                    background: iconBg,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                    boxShadow: `0 4px 10px ${iconBg}40`
-                }}>
-                    <Icon size={22} color="#FFF" />
+            <div className="p-6 flex items-center gap-4 bg-white/50 border-b border-gray-100/50 backdrop-blur-md">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
+                    style={{ background: iconBg }}>
+                    <Icon size={24} color="#FFF" />
                 </div>
-                <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: '16px', color: '#1E293B' }}>{title}</div>
-                    <div style={{ fontSize: '13px', color: '#64748B' }}>{summary}</div>
+                <div className="flex-1">
+                    <h3 className="text-lg font-black text-gray-800 tracking-tight">{title}</h3>
+                    <p className="text-sm text-gray-500 font-medium">{summary}</p>
                 </div>
-                <ChevronDown size={20} color="#94A3B8" style={{ transform: 'rotate(180deg)' }} />
+                <button
+                    onClick={(e) => { e.stopPropagation(); onClick(); }}
+                    className="p-2 rounded-xl bg-white/80 border border-gray-200 hover:bg-gray-50 transition-colors"
+                >
+                    <X size={20} color="#94A3B8" />
+                </button>
             </div>
         ) : (
-            /* ── Collapsed Content (Large Icon) ── */
-            <div style={{
-                flex: 1, display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center',
-                gap: '16px', padding: '20px',
-            }}>
-                <div style={{
-                    width: '80px', height: '80px', borderRadius: '20px',
-                    background: `${iconBg}15`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'transform 0.3s ease',
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
+                <motion.div
+                    whileHover={{ rotate: 12, scale: 1.1 }}
+                    className="w-20 h-20 rounded-3xl flex items-center justify-center"
+                    style={{ background: `${iconBg}15` }}
+                >
+                    <Icon size={44} color={iconBg} />
+                </motion.div>
+                <div className="text-center">
+                    <h3 className="text-[19px] font-black text-gray-700 tracking-tight">{title}</h3>
+                    <p className="text-[13px] text-gray-400 mt-1.5 font-bold uppercase tracking-wide">{summary}</p>
+                </div>
+            </div>
+        )}
+
+        <AnimatePresence>
+            {expanded && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="p-8 flex-1 overflow-auto custom-scrollbar"
+                >
+                    <ErrorBoundary>
+                        {children}
+                    </ErrorBoundary>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    </motion.div>
+);
+
+const X = ({ size, color }: { size: number; color: string }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+);
+
+
+
+const StatPill = ({ icon, value, label, color, trend }: { icon: string; value: string; label: string; color: string; trend?: string }) => (
+    <motion.div
+        whileHover={{ y: -5 }}
+        style={{
+            padding: '20px 16px',
+            background: '#FFF',
+            borderRadius: '24px',
+            border: '1px solid #E2E8F0',
+            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
+        }}
+    >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '20px' }}>{icon}</span>
+            {trend && (
+                <span style={{
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    color: trend.includes('+') || trend.includes('Clear') || trend.includes('Operational') ? '#10B981' : '#64748B',
+                    background: trend.includes('+') || trend.includes('Clear') || trend.includes('Operational') ? '#F0FDF4' : '#F8FAFC',
+                    padding: '2px 8px',
+                    borderRadius: '20px'
                 }}>
-                    <Icon size={40} color={iconBg} />
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontWeight: 800, fontSize: '18px', color: '#334155' }}>{title}</div>
-                    <div style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px', fontWeight: 500 }}>{summary}</div>
-                </div>
-            </div>
-        )}
-
-        {/* ── Expanded Content Body ── */}
-        {expanded && (
-            <div
-                onClick={e => e.stopPropagation()}
-                style={{
-                    padding: '24px',
-                    flex: 1,
-                    overflow: 'auto',
-                    minHeight: 0,
-                    animation: 'fadeIn 0.3s ease-out'
-                }}
-            >
-                {children}
-            </div>
-        )}
-    </div>
-);
-
-/* ─── Utility Components ─── */
-const Row = ({ label, sub, right, dot }: { label: string; sub: string; right?: React.ReactNode; dot?: string }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid #F8FAFC' }}>
-        {dot && <div style={{ width: 8, height: 8, borderRadius: '50%', background: dot, flexShrink: 0 }} />}
-        <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 600, fontSize: '13px', color: '#1E293B' }}>{label}</div>
-            <div style={{ fontSize: '11px', color: '#64748B' }}>{sub}</div>
+                    {trend}
+                </span>
+            )}
         </div>
-        {right}
-    </div>
+        <div>
+            <div style={{ fontSize: '24px', fontWeight: 900, color: '#1E293B', letterSpacing: '-0.03em' }}>{value}</div>
+            <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+        </div>
+        <div style={{ height: '3px', width: '100%', background: `${color}15`, borderRadius: '10px', overflow: 'hidden' }}>
+            <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: '100%' }}
+                transition={{ duration: 1 }}
+                style={{ height: '100%', background: color }}
+            />
+        </div>
+    </motion.div>
 );
 
-const StatPill = ({ icon, value, label, color }: { icon: string; value: string; label: string; color: string }) => (
-    <div style={{ textAlign: 'center', padding: '12px 8px', background: '#F8FAFC', borderRadius: '12px' }}>
-        <div style={{ fontSize: '18px', marginBottom: '4px' }}>{icon}</div>
-        <div style={{ fontSize: '18px', fontWeight: 800, color }}>{value}</div>
-        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>{label}</div>
-    </div>
-);
-
-/* ─── Admin Page ─── */
 const Admin = () => {
     const { user, isAuthenticated } = useAuth();
+    const { selectedDistributorId, activeDistributor, distributors } = useTenancy();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const [expanded, setExpanded] = useState<string | null>(null);
-    const [demoPlan, setDemoPlan] = useState<string>('base');
+    const [activeForm, setActiveForm] = useState<'zone' | 'community' | 'customer' | 'node' | null>(null);
+    const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
     useEffect(() => {
         if (!isAuthenticated) navigate('/login', { replace: true });
-        if (user?.plan) setDemoPlan(user.plan);
-    }, [isAuthenticated, navigate, user]);
+    }, [isAuthenticated, navigate]);
 
-    const activeTab = user ? ROLE_TAB_MAP[user.role] : 'Command';
-    // User Plan Logic
+    // Data Fetching
+    const { data: hierarchy = [], isLoading: loadingHierarchy } = useQuery<Zone[]>({
+        queryKey: ['admin_hierarchy', selectedDistributorId],
+        queryFn: () => adminService.getHierarchy() as Promise<Zone[]>,
+        enabled: isAuthenticated && user?.role === 'superadmin'
+    });
+
+    const { data: stats, isLoading: loadingStats } = useQuery<AdminStats>({
+        queryKey: ['admin_stats', selectedDistributorId],
+        queryFn: () => adminService.getStats(selectedDistributorId || undefined) as Promise<AdminStats>,
+        enabled: isAuthenticated,
+        refetchInterval: 30000 // Refresh every 30s
+    });
+
+    const { data: auditLogs = [] } = useQuery<any[]>({
+        queryKey: ['admin_audit_logs', selectedDistributorId],
+        queryFn: () => adminService.getAuditLogs(15, selectedDistributorId || undefined),
+        enabled: isAuthenticated && user?.role === 'superadmin'
+    });
+
+    const activeTab = user?.role === 'superadmin' ? 'Command' : 'Customer';
     const tabs = [
-        { name: 'Command', subtitle: 'Super Admin', icon: Crown, color: '#DC2626', border: '#FECACA' },
-        { name: 'Distributor', subtitle: 'Operational', icon: Shield, color: '#2563EB', border: '#BFDBFE' },
-        { name: 'Customer', subtitle: 'End User', icon: User, color: '#16A34A', border: '#BBF7D0' },
+        { name: 'Command', subtitle: 'Super Admin', icon: Crown, color: '#6366F1' },
+        { name: 'Customer', subtitle: 'End User', icon: User, color: '#10B981' },
     ];
-    const t = tabs.find(x => x.name === activeTab)!;
+    const t = tabs.find(x => x.name === activeTab) || tabs[2];
 
     const toggle = (key: string) => setExpanded(prev => prev === key ? null : key);
 
+    const onCreationSuccess = (type: string) => {
+        setActiveForm(null);
+        // Invalidate all relevant queries
+        queryClient.invalidateQueries({ queryKey: ['admin_hierarchy'] });
+        queryClient.invalidateQueries({ queryKey: ['admin_stats'] });
+        queryClient.invalidateQueries({ queryKey: ['admin_customers'] });
+        queryClient.invalidateQueries({ queryKey: ['admin_audit_logs'] });
+
+        setNotification({ type: 'success', message: `${type} created successfully!` });
+        setTimeout(() => setNotification(null), 5000);
+    };
+
     if (!isAuthenticated) return null;
+
 
     return (
         <div style={{
             height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column',
             padding: '24px', gap: '20px', overflow: 'hidden', background: '#F8FAFC',
         }}>
-            {/* ── Header bar ── */}
-            <div style={{
-                display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0,
-                background: '#FFF',
-                borderRadius: '16px', padding: '16px 24px',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
-            }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: t.color, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 10px ${t.color}40` }}>
-                    <t.icon size={20} color="#FFF" />
+            {/* Header Section */}
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{
+                    display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0,
+                    background: '#FFF', borderRadius: '24px', padding: '16px 28px',
+                    border: '1px solid #E2E8F0',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.03)'
+                }}
+            >
+                <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: t.color, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 8px 16px ${t.color}40` }}>
+                    <t.icon size={24} color="#FFF" />
                 </div>
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-                    <div>
-                        <span style={{ fontWeight: 800, fontSize: '18px', color: '#1E293B' }}>Administration</span>
-                        <span style={{ fontSize: '13px', marginLeft: '10px', background: `${t.color}15`, color: t.color, padding: '4px 8px', borderRadius: '6px', fontWeight: 700 }}>
-                            {t.subtitle} Mode
+                <div style={{ flex: 1 }}>
+                    <h1 style={{ fontWeight: 900, fontSize: '22px', color: '#1E293B', margin: 0, letterSpacing: '-0.02em' }}>Administration</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                        <span style={{ fontSize: '12px', background: `${t.color}10`, color: t.color, padding: '2px 10px', borderRadius: '20px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {t.subtitle}
                         </span>
+                        <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 500 }}>•</span>
+                        <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Real-time Governance</span>
                     </div>
-                    {user?.role === 'customer' && (
-                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px', background: '#F1F5F9', padding: '4px 8px', borderRadius: '12px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Simulate Plan:</span>
-                            <select
-                                value={demoPlan}
-                                onChange={(e) => setDemoPlan(e.target.value)}
-                                style={{
-                                    padding: '4px 8px', borderRadius: '8px', border: '1px solid #CBD5E1',
-                                    fontSize: '12px', fontWeight: 700, outline: 'none', cursor: 'pointer'
-                                }}
-                            >
-                                <option value="base">BASE</option>
-                                <option value="plus">PLUS</option>
-                                <option value="pro">PRO</option>
-                            </select>
+                </div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <button onClick={() => queryClient.invalidateQueries()} className="p-2.5 apple-glass-inner border border-slate-200 rounded-xl text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all">
+                        <RefreshCw size={18} className={loadingHierarchy || loadingStats ? 'animate-spin' : ''} />
+                    </button>
+                </div>
+            </motion.div>
+
+            {/* Dashboard Grid */}
+            {/* Premium Notification Toast */}
+            <AnimatePresence>
+                {notification && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        style={{
+                            position: 'fixed', bottom: '40px', left: '50%', transform: 'translateX(-50%)',
+                            zIndex: 2000, background: notification.type === 'success' ? '#10B981' : '#EF4444',
+                            color: '#FFF', padding: '16px 32px', borderRadius: '24px', fontWeight: 800,
+                            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+                            display: 'flex', alignItems: 'center', gap: '12px',
+                            border: '2px solid rgba(255,255,255,0.2)'
+                        }}
+                    >
+                        <span>{notification.type === 'success' ? '✅' : '⚠️'}</span>
+                        {notification.message}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <div style={{
+                flex: 1, display: 'grid', gap: '24px', minHeight: 0,
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gridAutoRows: 'minmax(200px, auto)',
+                gridAutoFlow: 'dense',
+                overflow: 'auto',
+                paddingBottom: '30px',
+                paddingRight: '12px'
+            }}>
+                {activeTab === 'Command' && (<>
+                    {/* SaaS Plan Usage - Visible when a distributor is selected */}
+                    {activeDistributor && stats && (
+                        <div style={{ gridColumn: 'span 3', marginBottom: '16px' }}>
+                            <div className="p-6 rounded-[32px] apple-glass border border-white/40 shadow-xl flex flex-col md:flex-row gap-8 items-center">
+                                <div className="flex-1 w-full">
+                                    <UsageMeter
+                                        label="Device Quota"
+                                        current={stats.total_nodes}
+                                        max={activeDistributor.plan?.max_devices || 5}
+                                    />
+                                </div>
+                                <div className="hidden md:block w-px h-12 bg-slate-200/50" />
+                                <div className="flex flex-col items-center md:items-start text-left">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Plan</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl font-black text-slate-800">{activeDistributor.plan?.name || 'Base'}</span>
+                                        <button className="text-[11px] font-bold text-indigo-500 hover:text-indigo-600 underline">View Limits</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
-                </div>
-            </div>
 
-            {/* ── Widget Grid ── */}
-            <div style={{
-                flex: 1, display: 'grid', gap: '20px', minHeight: 0,
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gridAutoRows: 'minmax(180px, 1fr)', // Ensure min height to prevent cutting
-                gridAutoFlow: 'dense', // Key for "adjusting in remaining space"
-                overflow: 'auto',
-                paddingBottom: '20px'
-            }}>
-                {/* ════════ SUPER ADMIN ════════ */}
-                {activeTab === 'Command' && (<>
-                    <Widget icon={Users} iconBg="#DC2626" title="Entity Management" summary="4 distributors · 5 customers"
-                        expanded={expanded === 'sa-entity'} onClick={() => toggle('sa-entity')}>
-                        <div style={{ paddingTop: '10px' }}>
-                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#1E40AF', marginBottom: '4px' }}>Distributors</div>
-                            {distributors.map(d => (
-                                <Row key={d.id} label={d.name} sub={`${d.region} · ${d.nodes} nodes`} dot={d.status === 'Active' ? '#22C55E' : '#94A3B8'} />
-                            ))}
-                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#166534', margin: '8px 0 4px' }}>Customers</div>
-                            {customers.map(c => (
-                                <Row key={c.id} label={c.name} sub={`${c.type} · ${c.devices} dev`} dot={c.status === 'Active' ? '#22C55E' : '#94A3B8'} />
-                            ))}
-                        </div>
-                    </Widget>
+                    {/* Real-time System Overview Badges */}
+                    <div style={{ gridColumn: 'span 3', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '8px' }}>
+                        <StatPill
+                            icon="🌍"
+                            value={String(stats?.total_regions || 0)}
+                            label="TOTAL ZONES"
+                            color="#6366F1"
+                            trend="Geographic"
+                        />
+                        <StatPill
+                            icon="🏘️"
+                            value={String(stats?.total_communities || 0)}
+                            label="COMMUNITIES"
+                            color="#3B82F6"
+                            trend="Operational"
+                        />
+                        <StatPill
+                            icon="👥"
+                            value={String(stats?.total_customers || 0)}
+                            label="TOTAL CUSTOMERS"
+                            color="#8B5CF6"
+                            trend={stats?.total_customers ? 'Active' : 'No users'}
+                        />
+                        <StatPill
+                            icon="📡"
+                            value={String(stats?.total_nodes || 0)}
+                            label="TOTAL DEVICES"
+                            color="#10B981"
+                            trend={stats?.weekly_growth ? `+${stats.weekly_growth} new` : 'Stable'}
+                        />
+                    </div>
 
-                    <Widget icon={Key} iconBg="#DC2626" title="Device Assignment" summary="Assign devices to entities"
-                        expanded={expanded === 'sa-assign'} onClick={() => toggle('sa-assign')}>
-                        <div style={{ paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {['Device', 'Distributor', 'Customer'].map(l => (
-                                <div key={l}>
-                                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#64748B', marginBottom: '2px', display: 'block' }}>{l}</label>
-                                    <select style={{ width: '100%', padding: '6px 8px', border: '1px solid #E2E8F0', borderRadius: '8px', fontSize: '12px', background: '#F8FAFC' }}>
-                                        <option>Select {l}...</option>
-                                    </select>
-                                </div>
-                            ))}
-                            <button style={{ padding: '8px', background: '#DC2626', color: '#FFF', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Assign Device</button>
-                        </div>
-                    </Widget>
+                    {/* Quick Actions (Always Expanded) */}
+                    <div style={{ gridColumn: 'span 3', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '8px' }}>
+                        <ActionCard color="indigo" icon={MapIcon} title="New Zone" description="Define geographical zone" onClick={() => setActiveForm('zone')} />
+                        <ActionCard color="blue" icon={LayoutGrid} title="New Community" description="Add residential cluster" onClick={() => setActiveForm('community')} />
+                        <ActionCard color="purple" icon={Users} title="Register Admin" description="Onboard distributor" onClick={() => setActiveForm('customer')} />
+                        <ActionCard color="amber" icon={PlusCircle} title="Provision Node" description="Connect new hardware" onClick={() => setActiveForm('node')} />
+                    </div>
 
-                    <Widget icon={Settings} iconBg="#DC2626" title="System Configuration" summary="Thresholds · Sampling · Firmware"
-                        expanded={expanded === 'sa-config'} onClick={() => toggle('sa-config')}>
-                        <div style={{ paddingTop: '10px' }}>
-                            {[
-                                { label: 'Tank Max', val: '95%' }, { label: 'Tank Min', val: '15%' },
-                                { label: 'Flow Max', val: '30 L/min' }, { label: 'Sampling Tank', val: '30s' },
-                                { label: 'Sampling Deep', val: '60s' }, { label: 'Sampling Flow', val: '15s' },
-                            ].map((c, i) => (
-                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #F8FAFC' }}>
-                                    <span style={{ fontSize: '12px', color: '#475569' }}>{c.label}</span>
-                                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#DC2626' }}>{c.val}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </Widget>
-
-                    <Widget icon={Globe} iconBg="#DC2626" title="System Analytics" summary="1,248 devices · 4 regions"
-                        expanded={expanded === 'sa-analytics'} onClick={() => toggle('sa-analytics')}>
-                        <div style={{ paddingTop: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                            <StatPill icon="📡" value="1,248" label="Devices" color="#2563EB" />
-                            <StatPill icon="✅" value="1,048" label="Online" color="#16A34A" />
-                            <StatPill icon="⚠️" value="38" label="Critical" color="#EF4444" />
-                            <StatPill icon="💤" value="20" label="Offline" color="#94A3B8" />
-                        </div>
-                    </Widget>
-
-                    <Widget icon={FileText} iconBg="#DC2626" title="System Logs" summary="Recent login & device events"
-                        expanded={expanded === 'sa-logs'} onClick={() => toggle('sa-logs')}>
-                        <div style={{ paddingTop: '10px' }}>
-                            {[
-                                { user: 'Arjun Reddy', action: 'Logged in', time: '2m ago' },
-                                { user: 'Priya Sharma', action: 'Logged in', time: '15m ago' },
-                                { user: 'ET-001', action: 'Connected', time: '1m ago' },
-                                { user: 'EF-002', action: 'Signal weak', time: '5m ago' },
-                                { user: 'Firmware v2.4', action: 'Pushed', time: '6h ago' },
-                            ].map((l, i) => (
-                                <Row key={i} label={l.user} sub={l.action} right={<span style={{ fontSize: '10px', color: '#94A3B8' }}>{l.time}</span>} />
-                            ))}
-                        </div>
-                    </Widget>
-
-                    <Widget icon={Monitor} iconBg="#DC2626" title="Device Overview" summary="Health & distribution"
-                        expanded={expanded === 'sa-overview'} onClick={() => toggle('sa-overview')}>
-                        <div style={{ paddingTop: '10px' }}>
-                            {distributors.map((d, i) => (
-                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #F8FAFC', fontSize: '12px' }}>
-                                    <span style={{ color: '#475569' }}>{d.name}</span>
-                                    <span style={{ fontWeight: 700, color: '#2563EB' }}>{d.nodes} nodes</span>
-                                </div>
-                            ))}
-                        </div>
-                    </Widget>
-                </>)}
-
-                {/* ════════ DISTRIBUTOR ════════ */}
-                {activeTab === 'Distributor' && (<>
-                    <Widget icon={Users} iconBg="#2563EB" title="Manage Entities" summary="120 customers · 3 locations · 5 techs"
-                        expanded={expanded === 'dt-entity'} onClick={() => toggle('dt-entity')}>
-                        <div style={{ paddingTop: '10px' }}>
-                            {[
-                                { name: 'Sunrise Apartments', sub: 'Residential · 3 dev' },
-                                { name: 'TechPark Office', sub: 'Commercial · 8 dev' },
-                                { name: 'Green Valley', sub: 'Residential · 12 dev' },
-                            ].map((c, i) => <Row key={i} label={c.name} sub={c.sub} dot="#22C55E" />)}
-                        </div>
-                    </Widget>
-
-                    <Widget icon={Key} iconBg="#2563EB" title="Device Assignment" summary="Assign & register devices"
-                        expanded={expanded === 'dt-assign'} onClick={() => toggle('dt-assign')}>
-                        <div style={{ paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <select style={{ width: '100%', padding: '6px 8px', border: '1px solid #E2E8F0', borderRadius: '8px', fontSize: '12px', background: '#F8FAFC' }}>
-                                <option>Select Device...</option>
-                            </select>
-                            <select style={{ width: '100%', padding: '6px 8px', border: '1px solid #E2E8F0', borderRadius: '8px', fontSize: '12px', background: '#F8FAFC' }}>
-                                <option>Select Customer...</option>
-                            </select>
-                            <button style={{ padding: '7px', background: '#2563EB', color: '#FFF', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Assign</button>
-                        </div>
-                    </Widget>
-
-                    <Widget icon={Monitor} iconBg="#2563EB" title="Device Analytics" summary="48 deployed · 42 online"
-                        expanded={expanded === 'dt-analytics'} onClick={() => toggle('dt-analytics')}>
-                        <div style={{ paddingTop: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                            <StatPill icon="📡" value="48" label="Deployed" color="#2563EB" />
-                            <StatPill icon="✅" value="42" label="Online" color="#16A34A" />
-                            <StatPill icon="⚠️" value="3" label="Alerts" color="#EF4444" />
-                            <StatPill icon="💚" value="87%" label="Health" color="#059669" />
-                        </div>
-                    </Widget>
-
-                    <Widget icon={Bell} iconBg="#EF4444" title="Alerts" summary="3 active alerts"
-                        expanded={expanded === 'dt-alerts'} onClick={() => toggle('dt-alerts')}>
-                        <div style={{ paddingTop: '10px' }}>
-                            {[
-                                { icon: '🚨', title: 'ET-003 offline', time: '5m ago' },
-                                { icon: '⚠️', title: 'EF-002 flow spike', time: '20m ago' },
-                                { icon: '✅', title: 'ET-001 back online', time: '2h ago' },
-                            ].map((a, i) => (
-                                <Row key={i} label={`${a.icon} ${a.title}`} sub="" right={<span style={{ fontSize: '10px', color: '#94A3B8' }}>{a.time}</span>} />
-                            ))}
-                        </div>
-                    </Widget>
-
-                    <Widget icon={FileText} iconBg="#2563EB" title="Export Reports" summary="PDF & Excel reports"
-                        expanded={expanded === 'dt-reports'} onClick={() => toggle('dt-reports')}>
-                        <div style={{ paddingTop: '10px' }}>
-                            {['Daily Usage (PDF)', 'Weekly Health (Excel)', 'Alert Summary (PDF)', 'Customer Report (Excel)'].map((r, i) => (
-                                <div key={i} style={{ padding: '5px 0', borderBottom: '1px solid #F8FAFC', fontSize: '12px', color: '#475569', display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>{r}</span>
-                                    <span style={{ fontSize: '10px', color: '#2563EB', fontWeight: 600, cursor: 'pointer' }}>↓</span>
+                    {/* Hierarchy Visualizer */}
+                    <Widget icon={Globe} iconBg="#6366F1" title="Infrastructure Mapping" summary={`${hierarchy.length} Zones · ${hierarchy.reduce((acc, r) => acc + (r.communities?.length || 0), 0)} Communities`}
+                        expanded={expanded === 'infra'} onClick={() => toggle('infra')}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {hierarchy.map(zone => (
+                                <div key={zone.id} className="p-5 rounded-3xl apple-glass-inner border border-slate-200 hover:border-indigo-300 transition-all group">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-extrabold text-slate-800 flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                                            {zone.name}
+                                        </h3>
+                                        <span className="text-[10px] font-black bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                                            {zone.communities?.length || 0} Clusters
+                                        </span>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {zone.communities?.map(c => (
+                                            <div key={c.id} className="text-xs text-slate-500 font-semibold pl-4 border-l-2 border-slate-200 flex items-center justify-between">
+                                                {c.name}
+                                                <span className="opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400">→</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     </Widget>
 
-                    <Widget icon={Shield} iconBg="#2563EB" title="Installation Status" summary="5 deployments tracked"
-                        expanded={expanded === 'dt-install'} onClick={() => toggle('dt-install')}>
-                        <div style={{ paddingTop: '10px' }}>
-                            {[
-                                { device: 'ET-006', status: 'Completed', color: '#16A34A' },
-                                { device: 'EF-007', status: 'In Progress', color: '#2563EB' },
-                                { device: 'ED-008', status: 'Scheduled', color: '#D97706' },
-                                { device: 'ET-009', status: 'Completed', color: '#16A34A' },
-                            ].map((r, i) => (
-                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #F8FAFC' }}>
-                                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#2563EB' }}>{r.device}</span>
-                                    <span style={{ fontSize: '10px', fontWeight: 700, color: r.color }}>{r.status}</span>
-                                </div>
-                            ))}
+                    {/* Operational Stats */}
+                    <Widget icon={Activity} iconBg="#10B981" title="System Vitality" summary={`${stats?.online_nodes || 0} / ${stats?.total_nodes || 0} Nodes Active`}
+                        expanded={expanded === 'stats'} onClick={() => toggle('stats')}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                            <StatPill icon="🌍" value={String(hierarchy.length)} label="REACH" color="#6366F1" />
+                            <StatPill icon="📡" value={String(stats?.total_nodes || 0)} label="PROVISIONED" color="#3B82F6" />
+                            <StatPill icon="⚡" value={`${stats?.total_nodes ? Math.round(((stats?.online_nodes || 0) / stats.total_nodes) * 100) : 0}%`} label="STABILITY" color="#10B981" />
+                            <StatPill icon="⚠️" value={String(stats?.active_alerts || 0)} label="CRITICAL" color="#EF4444" />
                         </div>
                     </Widget>
-                </>)}
 
-                {/* ════════ CUSTOMER ════════ */}
-                {activeTab === 'Customer' && (<>
-                    <Widget icon={Key} iconBg="#16A34A" title="Login Method" summary="Mobile OTP · Email active"
-                        expanded={expanded === 'cu-login'} onClick={() => toggle('cu-login')}>
-                        <div style={{ paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {[{ icon: '📱', label: 'Mobile OTP', sub: 'SMS-based' }, { icon: '📧', label: 'Email', sub: 'Password / magic link' }].map((m, i) => (
-                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#F0FDF4', borderRadius: '10px', padding: '10px', border: '1px solid #BBF7D0' }}>
-                                    <span style={{ fontSize: '20px' }}>{m.icon}</span>
+                    {/* Governance & Multi-Tenancy */}
+                    <div style={{ gridColumn: 'span 3', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '8px' }}>
+                        <div className="p-5 rounded-[28px] bg-indigo-50/50 border border-indigo-100 flex flex-col justify-center">
+                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Active Tenants</span>
+                            <span className="text-2xl font-black text-indigo-900 leading-none">{distributors.length}</span>
+                        </div>
+                        <div className="p-5 rounded-[28px] bg-emerald-50/50 border border-emerald-100 flex flex-col justify-center">
+                            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Global Health</span>
+                            <span className="text-2xl font-black text-emerald-900 leading-none">{stats?.system_health || 100}%</span>
+                        </div>
+                        <div className="p-5 rounded-[28px] bg-rose-50/50 border border-rose-100 flex flex-col justify-center">
+                            <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1">Alerts</span>
+                            <span className="text-2xl font-black text-rose-900 leading-none">{stats?.active_alerts || 0}</span>
+                        </div>
+                    </div>
+
+                    {/* Audit Timeline */}
+                    <Widget icon={FileText} iconBg="#64748B" title="Governance Audit" summary="Recent security & system events"
+                        expanded={expanded === 'audit'} onClick={() => toggle('audit')}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {auditLogs.map(log => (
+                                <div key={log.id} style={{ display: 'flex', gap: '16px', padding: '12px 0', borderBottom: '1px solid #F1F5F9' }}>
+                                    <div style={{ fontSize: '18px', padding: '8px', background: '#F8FAFC', borderRadius: '10px' }}>
+                                        {log.action.includes('create') ? '🆕' : log.action.includes('update') ? '📝' : '🔒'}
+                                    </div>
                                     <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 700, fontSize: '12px', color: '#166534' }}>{m.label}</div>
-                                        <div style={{ fontSize: '10px', color: '#64748B' }}>{m.sub}</div>
+                                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#334155' }}>{log.action || log.action_type}</div>
+                                        <div style={{ fontSize: '12px', color: '#64748B' }}>
+                                            {log.resource_type} • <span style={{ color: '#94A3B8' }}>{new Date(log.created_at).toLocaleString()}</span>
+                                        </div>
                                     </div>
-                                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E' }} />
-                                </div>
-                            ))}
-                        </div>
-                    </Widget>
-
-                    <Widget icon={Monitor} iconBg="#16A34A" title="My Devices" summary="3 registered · 2 online"
-                        expanded={expanded === 'cu-devices'} onClick={() => toggle('cu-devices')}>
-                        <div style={{ paddingTop: '10px' }}>
-                            {[
-                                { name: 'Kitchen Tank', id: 'ET-001', status: 'Online', health: 98, val: '72%' },
-                                { name: 'Main Line Flow', id: 'EF-002', status: 'Online', health: 91, val: '245 L/hr' },
-                                { name: 'Borewell', id: 'ED-003', status: 'Alert', health: 67, val: '185m' },
-                            ].map((d, i) => (
-                                <div key={i} style={{ background: '#F8FAFC', borderRadius: '10px', padding: '8px 10px', marginBottom: '6px', border: '1px solid #E2E8F0' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                                        <span style={{ fontWeight: 700, fontSize: '12px', color: '#1E293B' }}>{d.name}</span>
-                                        <span style={{ fontSize: '9px', fontWeight: 700, padding: '1px 6px', borderRadius: '4px', background: d.status === 'Online' ? '#DCFCE7' : '#FEE2E2', color: d.status === 'Online' ? '#16A34A' : '#DC2626' }}>{d.status}</span>
+                                    <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: '#6366F1' }}>
+                                        {log.user?.full_name || log.profiles?.full_name || 'System'}
                                     </div>
-                                    <div style={{ fontSize: '10px', color: '#94A3B8' }}>{d.id} · Health {d.health}%</div>
-                                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#16A34A', marginTop: '2px' }}>{d.val}</div>
                                 </div>
                             ))}
                         </div>
                     </Widget>
 
-                    <Widget icon={Database} iconBg="#0EA5E9" title="Consumption" summary="1,820 L today · ₹2,430 est."
-                        expanded={expanded === 'cu-consumption'} onClick={() => toggle('cu-consumption')}>
-                        <div style={{ paddingTop: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                            <StatPill icon="💧" value="1,820 L" label="Today" color="#0EA5E9" />
-                            <StatPill icon="📊" value="12.4K" label="Week" color="#2563EB" />
-                            <StatPill icon="📈" value="48.6K" label="Month" color="#7C3AED" />
-                            <StatPill icon="💰" value="₹2,430" label="Cost" color="#D97706" />
-                        </div>
-                    </Widget>
+                </>)}
 
-                    <Widget icon={FileText} iconBg="#7C3AED" title="Historical Trends" summary="Last 7 days usage data"
-                        expanded={expanded === 'cu-trends'} onClick={() => toggle('cu-trends')}>
-                        <div style={{ paddingTop: '10px' }}>
-                            {[
-                                { date: '12 Feb', usage: '2,450 L', trend: '↑ +3%', c: '#16A34A' },
-                                { date: '11 Feb', usage: '2,320 L', trend: '↑ +1%', c: '#16A34A' },
-                                { date: '10 Feb', usage: '2,580 L', trend: '↓ -2%', c: '#DC2626' },
-                                { date: '9 Feb', usage: '2,400 L', trend: '→ 0%', c: '#64748B' },
-                                { date: '8 Feb', usage: '2,200 L', trend: '↑ +5%', c: '#16A34A' },
-                            ].map((r, i) => (
-                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #F8FAFC', fontSize: '12px' }}>
-                                    <span style={{ color: '#1E293B', fontWeight: 600 }}>{r.date}</span>
-                                    <span style={{ color: '#475569' }}>{r.usage}</span>
-                                    <span style={{ fontWeight: 700, color: r.c }}>{r.trend}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </Widget>
-
-                    <Widget icon={Bell} iconBg="#EF4444" title="Alerts" summary="2 active notifications"
-                        expanded={expanded === 'cu-alerts'} onClick={() => toggle('cu-alerts')}>
-                        <div style={{ paddingTop: '10px' }}>
-                            {[
-                                { icon: '⚠️', title: 'Low Tank Level', msg: 'Below 30%', time: '15m' },
-                                { icon: '🚨', title: 'Abnormal Flow', msg: '42 L/min', time: '1h' },
-                                { icon: 'ℹ️', title: 'Maintenance', msg: '14 Feb', time: '3h' },
-                                { icon: '✅', title: 'Tank Refilled', msg: '95%', time: 'Yday' },
-                            ].map((a, i) => (
-                                <Row key={i} label={`${a.icon} ${a.title}`} sub={a.msg} right={<span style={{ fontSize: '10px', color: '#94A3B8' }}>{a.time}</span>} />
-                            ))}
-                        </div>
-                    </Widget>
-
-                    <Widget icon={FileText} iconBg="#16A34A" title="Reports" summary="Download usage reports"
-                        expanded={expanded === 'cu-reports'} onClick={() => toggle('cu-reports')}>
-                        <div style={{ paddingTop: '10px' }}>
-                            {['Daily Usage (PDF)', 'Weekly Consumption (Excel)', 'Monthly Summary (PDF)', 'Alert History (Excel)', 'Device Health (PDF)'].map((r, i) => (
-                                <div key={i} style={{ padding: '5px 0', borderBottom: '1px solid #F8FAFC', fontSize: '12px', color: '#475569', display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>{r}</span>
-                                    <span style={{ fontSize: '10px', color: '#16A34A', fontWeight: 600, cursor: 'pointer' }}>↓</span>
-                                </div>
-                            ))}
+                {activeTab === 'Customer' && (<>
+                    <Widget icon={Users} iconBg="#10B981" title="Subscribed Nodes" summary="Nodes linked to your profile"
+                        expanded={expanded === 'cust-nodes'} onClick={() => toggle('cust-nodes')}>
+                        <div className="p-4 text-center apple-glass-inner rounded-2xl">
+                            Customer nodes view...
                         </div>
                     </Widget>
                 </>)}
             </div>
+
+            {/* Creation Modals */}
+            <AnimatePresence>
+                {activeForm && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        style={{
+                            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                            background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            zIndex: 1000, padding: '20px'
+                        }}
+                        onClick={() => setActiveForm(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 30 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 30 }}
+                            onClick={e => e.stopPropagation()}
+                            style={{
+                                background: 'rgba(255, 255, 255, 0.95)',
+                                backdropFilter: 'blur(20px)',
+                                borderRadius: '40px',
+                                width: '100%', maxWidth: '640px',
+                                padding: '40px',
+                                boxShadow: '0 60px 100px -20px rgba(15, 23, 42, 0.3)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                maxHeight: '92vh', overflow: 'auto'
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                                <h2 style={{ fontSize: '24px', fontWeight: 900, color: '#1E293B', letterSpacing: '-0.02em' }}>
+                                    {activeForm === 'zone' && '🌍 Create New Zone'}
+                                    {activeForm === 'community' && '🏠 Add Community'}
+                                    {activeForm === 'customer' && '👥 Add New User'}
+                                    {activeForm === 'node' && '📡 Provision Hardware'}
+                                </h2>
+                                <button onClick={() => setActiveForm(null)} style={{ padding: '8px', borderRadius: '50%', background: '#F1F5F9' }}>
+                                    <X size={20} color="#64748B" />
+                                </button>
+                            </div>
+
+                            {activeForm === 'zone' && <AddZoneForm onSubmit={() => onCreationSuccess('Zone')} onCancel={() => setActiveForm(null)} />}
+                            {activeForm === 'community' && <AddCommunityForm onSubmit={() => onCreationSuccess('Community')} onCancel={() => setActiveForm(null)} />}
+                            {activeForm === 'customer' && <AddCustomerForm onSubmit={() => onCreationSuccess('User')} onCancel={() => setActiveForm(null)} />}
+                            {activeForm === 'node' && <AddDeviceForm onSubmit={() => onCreationSuccess('Device')} onCancel={() => setActiveForm(null)} />}
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

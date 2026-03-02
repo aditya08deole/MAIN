@@ -1,24 +1,48 @@
 import { X } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ModalProps {
     isOpen: boolean;
     onClose: () => void;
     title: string;
     children: React.ReactNode;
-    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'; // Added size prop
+    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+    animation?: 'scale' | 'slide-up' | 'slide-right' | 'flip';
 }
 
-export const Modal = ({ isOpen, onClose, title, children, size = 'md' }: ModalProps) => {
+export const Modal = ({ isOpen, onClose, title, children, size = 'md', animation = 'scale' }: ModalProps) => {
+    const [isClosing, setIsClosing] = useState(false);
+    const [render, setRender] = useState(isOpen);
+
+    useEffect(() => {
+        if (isOpen) {
+            setRender(true);
+            setIsClosing(false);
+        } else if (render) {
+            handleClose();
+        }
+    }, [isOpen]);
+
+    const handleClose = () => {
+        setIsClosing(true);
+        setTimeout(() => {
+            setRender(false);
+            onClose();
+        }, 300); // Wait for animation trick
+    };
+
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
+            if (e.key === 'Escape') handleClose();
         };
-        window.addEventListener('keydown', handleEsc);
+        if (render) {
+            window.addEventListener('keydown', handleEsc);
+        }
         return () => window.removeEventListener('keydown', handleEsc);
-    }, [onClose]);
+    }, [render, onClose]);
 
-    if (!isOpen) return null;
+    if (!render) return null;
 
     const sizeClasses = {
         sm: 'max-w-md',
@@ -28,32 +52,53 @@ export const Modal = ({ isOpen, onClose, title, children, size = 'md' }: ModalPr
         '2xl': 'max-w-6xl'
     };
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    const animationClasses = {
+        scale: isClosing
+            ? 'animate-out fade-out zoom-out-95 duration-200 ease-in'
+            : 'animate-in fade-in zoom-in-95 duration-300 ease-out',
+        'slide-up': isClosing
+            ? 'animate-out fade-out slide-out-to-bottom-8 duration-200 ease-in'
+            : 'animate-in fade-in slide-in-from-bottom-8 duration-300 ease-out',
+        'slide-right': isClosing
+            ? 'animate-out fade-out slide-out-to-left-8 duration-200 ease-in'
+            : 'animate-in fade-in slide-in-from-left-8 duration-300 ease-out',
+        flip: isClosing
+            ? 'animate-out fade-out zoom-out-90 duration-200 ease-in'
+            : 'animate-in fade-in zoom-in-90 duration-400 ease-[cubic-bezier(0.34,1.56,0.64,1)]'
+    };
+
+    return createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-                onClick={onClose}
+                className={`absolute inset-0 bg-[#1F2937]/40 backdrop-blur-sm transition-opacity ${isClosing ? 'animate-out fade-out duration-200' : 'animate-in fade-in duration-300'
+                    }`}
+                onClick={handleClose}
             />
 
             {/* Modal Dialog */}
-            <div className={`relative bg-white rounded-2xl w-full ${sizeClasses[size]} border border-slate-200 shadow-2xl transform transition-all animate-in fade-in zoom-in-95 duration-200`}>
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-                    <h3 className="text-lg font-bold text-slate-800">{title}</h3>
-                    <button
-                        onClick={onClose}
-                        className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                    >
-                        <X size={20} />
-                    </button>
-                </div>
+            <div className={`relative w-full ${sizeClasses[size]} transform transition-all ${animationClasses[animation]}`}>
+                <div className="apple-glass-card m-0">
+                    <div className="apple-glass-content">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-[rgba(255,255,255,0.1)]">
+                            <h3 className="text-[18px] font-[600] text-[#1F2937] tracking-[-0.3px]">{title}</h3>
+                            <button
+                                onClick={handleClose}
+                                className="p-1 rounded-lg text-[#1F2937] opacity-50 hover:opacity-100 hover:bg-[rgba(255,255,255,0.2)] transition-all"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
 
-                {/* Content */}
-                <div className="p-6 overflow-y-auto max-h-[80vh]">
-                    {children}
+                        {/* Content */}
+                        <div className="p-6 overflow-y-auto max-h-[80vh] custom-scrollbar">
+                            {children}
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };

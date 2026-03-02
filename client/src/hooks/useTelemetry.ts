@@ -1,37 +1,25 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getLiveTelemetry, type LiveTelemetry } from '../services/devices';
+import { useQuery } from '@tanstack/react-query';
+import { telemetryService, type TelemetryData } from '../services/TelemetryService';
 
 export const useTelemetry = (nodeId: string | undefined, intervalMs: number = 30000) => {
-    const [data, setData] = useState<LiveTelemetry | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const {
+        data,
+        isLoading: loading,
+        error: queryError,
+        refetch: refresh
+    } = useQuery<TelemetryData | null>({
+        queryKey: ['telemetry', nodeId],
+        queryFn: () => {
+            if (!nodeId) return Promise.resolve(null);
+            return telemetryService.getLiveTelemetry(nodeId);
+        },
+        enabled: !!nodeId,
+        refetchInterval: intervalMs,
+        refetchOnWindowFocus: true,
+        staleTime: intervalMs / 2,
+    });
 
-    const fetchTelemetry = useCallback(async () => {
-        if (!nodeId) return;
-        setLoading(true);
-        try {
-            const telemetry = await getLiveTelemetry(nodeId);
-            setData(telemetry);
-            setError(null);
-        } catch (err: any) {
-            setError(err.response?.data?.detail || "Failed to fetch telemetry");
-            console.error(`Telemetry Error for ${nodeId}:`, err);
-        } finally {
-            setLoading(false);
-        }
-    }, [nodeId]);
+    const error = queryError ? (queryError as Error).message : null;
 
-    useEffect(() => {
-        if (!nodeId) return;
-
-        // Initial fetch
-        fetchTelemetry();
-
-        // Polling loop
-        const interval = setInterval(fetchTelemetry, intervalMs);
-
-        return () => clearInterval(interval);
-    }, [nodeId, fetchTelemetry, intervalMs]);
-
-    return { data, loading, error, refresh: fetchTelemetry };
+    return { data, loading, error, refresh };
 };

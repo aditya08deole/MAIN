@@ -1,16 +1,24 @@
 {
-    "name": "evara-monorepo",
-    "private": true,
-    "scripts": {
-        "install:client": "cd client && npm install",
-        "install:server": "cd server && pip install -r requirements.txt",
-        "setup": "npm run install:client && npm run install:server",
-        "dev:client": "cd client && npm run dev",
-        "dev:server": "cd server && uvicorn main:app --reload --port 8000",
-        "start": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-        "build": "cd client && npm install && npm run build"
-    },
-    "devDependencies": {
-        "concurrently": "^8.2.2"
-    }
+  "name": "evara-monorepo",
+  "private": true,
+  "scripts": {
+    "install:client": "cd client && npm install",
+    "install:server": "cd server && pip install -r requirements.txt",
+    "setup": "npm run install:client && npm run install:server",
+    "dev:client": "cd client && npm run dev",
+    "dev:server": "cd server && .\\venv\\Scripts\\python -m uvicorn main:app --reload --port 8000",
+    "start": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build": "cd client && npm install && npm run build",
+    "db:types": "supabase gen types typescript --project-id tihrvotigvaozizlcxse > client/src/types/database.types.ts",
+    "openclaw": "npx openclaw@latest",
+    "mcp:openclaw": "npx -y @freema/openclaw-mcp",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1",
+    "supabase": "^2.76.15"
+  }
 }

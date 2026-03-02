@@ -30,7 +30,7 @@ export const useCreateCustomer = () => {
             try {
                 const response = await api.post<User>('/customers', customerData);
                 return response.data;
-            } catch (error: any) {
+            } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
                 console.error('[useCreateCustomer] Failed to create customer:', error);
                 throw error;
             }

@@ -1,519 +1,230 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-import {
-    Activity, ArrowUpRight, AlertTriangle,
-    Server, Clock, Download, FileText
-} from 'lucide-react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useDashboardSummary } from '../hooks/useDashboardSummary';
+import { useMapDevices } from '../hooks/useMapDevices';
+import { useMapPipelines } from '../hooks/useMapPipelines';
+import { adminService } from '../services/admin';
+import { ArrowUpRight, ListFilter, X, Shield } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import clsx from 'clsx';
 
-import { useDevices } from '../hooks/useDevices';
-import { useSystemHealth, useActiveAlerts } from '../hooks/useDashboard';
-import { useAuth } from '../context/AuthContext';
-import { useToast } from '../components/ToastProvider';
+// Operational Components
+import KPIAuthoritativeCard from '../components/dashboard/KPIAuthoritativeCard';
+import ProductPieChart from '../components/dashboard/ProductPieChart';
+import AlertsActivityPanel from '../components/dashboard/AlertsActivityPanel';
+import LiveLogsPanel from '../components/dashboard/LiveLogsPanel';
+import NodeDataExplorer from '../components/dashboard/NodeDataExplorer';
+import SharedMap from '../components/map/SharedMap';
 import ErrorBoundary from '../components/ErrorBoundary';
-import { useTelemetry } from '../hooks/useTelemetry';
-import type { Device } from '../hooks/useDevices';
 
-// Custom Icons (Leaflet)
-const createIcon = (color: string) => L.divIcon({
-    className: `custom-${color}-icon`,
-    html: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="${color}" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin drop-shadow-md"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 24],
-    popupAnchor: [0, -24]
-});
-
-const purpleIcon = createIcon('#9333ea');
-const greenIcon = createIcon('#16a34a');
-const blueIcon = createIcon('#2563eb');
-const yellowIcon = createIcon('#eab308');
-const blackIcon = createIcon('#1e293b');
-const redIcon = createIcon('#ef4444');
-
-const ChangeView = ({ devices }: { devices: Device[] }) => {
-    const map = useMap();
-    useEffect(() => {
-        if (devices.length > 0) {
-            const bounds = L.latLngBounds(devices.map(d => [d.latitude || 17.44, d.longitude || 78.34]));
-            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
-        }
-    }, [devices, map]);
-    return null;
-};
-
-// Sub-components
-const MiniMap = ({ onExpand, devices }: { onExpand: () => void, devices: Device[] }) => {
-    return (
-        <div
-            className="relative h-full w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm group hover:shadow-md hover:ring-2 hover:ring-blue-100 transition-all duration-300"
-        >
-            <MapContainer
-                center={[17.4456, 78.3490]}
-                zoom={14}
-                className="h-full w-full"
-                zoomControl={true}
-                dragging={true}
-                doubleClickZoom={true}
-                scrollWheelZoom={true}
-                attributionControl={false}
-            >
-                <ChangeView devices={devices} />
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                {devices.map(device => {
-                    let icon = blueIcon;
-                    if (device.status === 'Alert' || device.status === 'Offline' || device.status === 'Not Working') icon = redIcon;
-                    else if (device.asset_type === 'pump') icon = purpleIcon;
-                    else if (device.asset_type === 'sump') icon = greenIcon;
-                    else if (device.asset_type === 'tank') icon = blueIcon;
-                    else if (device.asset_type === 'bore') icon = yellowIcon;
-                    else if (device.asset_type === 'govt') icon = blackIcon;
-
-                    return (
-                        <Marker
-                            key={device.id}
-                            position={[device.latitude || 17.44, device.longitude || 78.34]}
-                            icon={icon}
-                        />
-                    );
-                })}
-            </MapContainer>
-
-            <button
-                onClick={onExpand}
-                className="absolute inset-0 z-[400] bg-transparent hover:bg-blue-600/5 transition-colors group cursor-pointer flex items-center justify-center"
-                title="Open Full Map"
-            >
-                <div className="bg-white/90 backdrop-blur text-blue-600 px-4 py-2 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center gap-2 font-bold z-[401]">
-                    <ArrowUpRight size={20} />
-                    Open Full Map
-                </div>
-            </button>
-
-            <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur px-3 py-2 rounded-lg shadow-lg border border-white/50 z-[402] flex gap-3 scale-90 origin-bottom-left pointer-events-none">
-                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-600 inline-block" /><span className="text-[10px] font-semibold text-slate-600">PH</span></div>
-                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-600 inline-block" /><span className="text-[10px] font-semibold text-slate-600">Sump</span></div>
-                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-600 inline-block" /><span className="text-[10px] font-semibold text-slate-600">OHT</span></div>
-                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-500 inline-block" /><span className="text-[10px] font-semibold text-slate-600">Bore</span></div>
-            </div>
+/**
+ * KPI Unit for simple metric display
+ */
+const KPIUnitCard = ({ label, value, trend, trendLabel, variant = 'default' }: any) => (
+    <div className="apple-glass-card p-[20px] rounded-[30px] flex-1 flex flex-col justify-center shadow-sm">
+        <span className="text-[12px] font-[800] text-[#1f2937]/70 uppercase tracking-[0.1em] mb-2">{label}</span>
+        <div className="flex items-baseline gap-2">
+            <h2 className={clsx(
+                "text-[26px] font-[800] leading-none tracking-tight",
+                variant === 'alert' ? "text-red-600" : "text-[#004ba0]"
+            )}>
+                {value}
+            </h2>
+            {trend !== undefined && (
+                <span className="text-[10px] font-bold text-gray-400 uppercase">
+                    {trend} {trendLabel}
+                </span>
+            )}
         </div>
-    );
-};
-
-const LiveFeedCard = ({ nodeId }: { nodeId?: string }) => {
-    const { data: telemetry, loading, error } = useTelemetry(nodeId);
-
-    if (!nodeId) return (
-        <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white/50 flex flex-col justify-center items-center opacity-50">
-            <p className="text-xs font-bold text-slate-400 uppercase">No Active Source</p>
-        </div>
-    );
-
-    const firstMetric = telemetry ? Object.entries(telemetry.metrics)[0] : null;
-
-    return (
-        <div className="bg-white/100 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-blue-100 flex flex-col justify-between hover:shadow-md transition-all duration-300">
-            <div className="flex justify-between items-start">
-                <div>
-                    <p className="text-xs font-bold text-blue-500 mb-1 uppercase tracking-tighter">Live Feed</p>
-                    {loading ? (
-                        <div className="h-8 w-16 bg-slate-100 animate-pulse rounded" />
-                    ) : error ? (
-                        <h2 className="text-sm font-bold text-red-400">Check Credentials</h2>
-                    ) : firstMetric ? (
-                        <h2 className="text-3xl font-black text-slate-800">
-                            {typeof firstMetric[1] === 'number' ? firstMetric[1].toFixed(1) : firstMetric[1]}
-                            <span className="text-sm font-bold text-slate-400 ml-1 capitalize">{firstMetric[0]}</span>
-                        </h2>
-                    ) : (
-                        <h2 className="text-3xl font-bold text-slate-300">--</h2>
-                    )}
-                </div>
-                <div className="p-3 bg-cyan-50 text-cyan-600 rounded-xl animate-pulse">
-                    <Activity className="w-5 h-5" />
-                </div>
-            </div>
-            <div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-slate-400 bg-slate-50 w-fit px-2 py-1 rounded-lg">
-                <Clock className="w-3 h-3 text-blue-400" />
-                {telemetry?.timestamp ? new Date(telemetry.timestamp).toLocaleTimeString() : 'Waiting for feed...'}
-            </div>
-        </div>
-    );
-};
+    </div>
+);
 
 function Dashboard() {
-    const navigate = useNavigate();
-    const { user, loading: authLoading } = useAuth();
+    const { data: summary, isLoading: statsLoading } = useDashboardSummary();
+    const { data: devices = [], isLoading: devicesLoading } = useMapDevices();
+    const { pipelines } = useMapPipelines();
+    const [showLogsDrawer, setShowLogsDrawer] = useState(false);
 
-    // State for Search
-    const [searchQuery, setSearchQuery] = useState('');
-    // Debounce logic could be added here, but for now passing directly to verify responsiveness
-    // const debouncedQuery = useDebounce(searchQuery, 300); 
+    const { data: auditLogs = [] } = useQuery({
+        queryKey: ['dashboard_audit_logs'],
+        queryFn: async () => {
+            const logs = await adminService.getAuditLogs(15);
+            return logs.map(l => ({
+                id: l.id,
+                device_id: l.resource_id || 'SYSTEM',
+                event_type: l.action_type,
+                timestamp: new Date(l.created_at).toLocaleTimeString(),
+                severity: (l.action_type.toLowerCase().includes('critical') ? 'critical' :
+                    l.action_type.toLowerCase().includes('warn') ? 'warning' : 'info') as 'critical' | 'warning' | 'info'
+            }));
+        },
+        staleTime: 1000 * 60 * 5,
+    });
 
-    // Toast notifications
-    const { showToast } = useToast();
+    const isLoading = statsLoading || devicesLoading;
 
-    // Data Hooks
-    const { devices, loading: devicesLoading, error: devicesError, refresh: refreshDevices } = useDevices(searchQuery);
-    const { data: healthData } = useSystemHealth();
-    const { data: recentAlerts = [] } = useActiveAlerts();
+    // Map devices to Explorer format
+    const explorerNodes = devices.map(d => {
+        const lastSeen = d.last_seen;
+        const lastSeenDate = lastSeen ? new Date(lastSeen) : null;
+        const isStale = lastSeenDate
+            ? (new Date().getTime() - lastSeenDate.getTime()) > 10 * 60 * 1000
+            : true;
 
-    // Track shown errors to prevent notification spam
-    const shownErrorsRef = useRef<Set<string>>(new Set());
+        return {
+            id: d.id,
+            name: d.label || d.name || d.node_key || 'Unknown Node',
+            type: (d.asset_type === 'tank' || d.asset_type === 'sump' || (d as any).analytics_template === 'EvaraTank') ? 'tank' :
+                ((d.asset_type === 'flow' || d.asset_type === 'flow_meter' || (d as any).analytics_template === 'EvaraFlow') ? 'flow' : 'deep') as 'tank' | 'flow' | 'deep',
+            status: (d.status === 'Online' && !isStale ? 'Online' : 'Offline') as 'Online' | 'Offline',
+            isStale,
+            lastSeen: lastSeen || undefined,
+            metrics: d.last_telemetry || {},
+            location: d.name?.includes('Sector') ? 'Sector 1' : 'Main Campus',
+            device: d.asset_category || d.asset_type || 'Sensor'
+        };
+    });
 
-    // Show toast notification ONCE per unique error - prevents flooding
-    useEffect(() => {
-        if (devicesError && !shownErrorsRef.current.has(devicesError)) {
-            shownErrorsRef.current.add(devicesError);
-            showToast(`Unable to fetch devices: ${devicesError}`, 'error');
-        }
-    }, [devicesError, showToast]);
-
-    // Time state
-    const [now] = useState(() => new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
-    const [isNavigating, setIsNavigating] = useState(false);
-
-    const loading = authLoading || devicesLoading;
-
-    if (loading) {
-        return (
-            <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
-                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-        );
-    }
-
-    // REMOVED ERROR PANEL - Now shows toast notification instead and dashboard continues working
-    // Dashboard always shows even if there's an API error - graceful degradation
-
-    // Derived local stats from Devices (Real-time fallback/companion)
-    // If devices is empty due to error, stats will show zeros gracefully
-    const tanks = devices.filter(d => ['tank', 'sump', 'pump'].includes(d.asset_type));
-    const flow = devices.filter(d => d.asset_type === 'flow'); // If flow meters exist
-    const borewells = devices.filter(d => ['bore', 'govt'].includes(d.asset_type));
-
-    // We can use either stats (from DB count) or local calc. Local calc is instant if devices loaded.
-    const localStats = {
-        tanks: { active: tanks.filter(d => d.status === 'Online' || d.status === 'Working' || d.status === 'Running').length, total: tanks.length },
-        flow: { active: flow.filter(d => d.status === 'Online' || d.status === 'Working').length, total: flow.length },
-        deep: { active: borewells.filter(d => d.status === 'Online' || d.status === 'Working' || d.status === 'Running').length, total: borewells.length },
-        alerts: devices.filter(d => d.status === 'Alert' || d.status === 'Offline' || d.status === 'Not Working' || d.status === 'Critical').length
-    };
-
-    const deviceFleet = devices.slice(0, 5).map(d => ({
-        id: d.id,
-        name: d.name,
-        type: d.asset_type,
-        status: d.status,
-        lastComm: 'Just now', // Mock
-        health: (d.status === 'Online' || d.status === 'Working' || d.status === 'Running') ? 95 : 40 // Mock
-    }));
-
-    const handleMapClick = () => {
-        setIsNavigating(true);
-        setTimeout(() => {
-            navigate('/home');
-        }, 300);
-    };
+    const totalStale = explorerNodes.filter(n => n.isStale).length;
+    const systemStatus = totalStale > (devices.length * 0.2) ? 'Attention' : 'Optimal';
 
     return (
-        <div className="h-screen flex flex-col p-5 bg-slate-50 font-sans overflow-hidden">
-            {/* Navigation Overlay Animation */}
-            <div className={`fixed inset-0 bg-white/40 backdrop-blur-[2px] z-[9999] pointer-events-none transition-opacity duration-500 ease-in-out ${isNavigating ? 'opacity-100' : 'opacity-0'}`} />
-            <div className={`fixed top-0 left-0 right-0 h-1 bg-blue-500 z-[10000] pointer-events-none transition-all duration-700 ${isNavigating ? 'w-full opacity-100' : 'w-0 opacity-0'}`} />
+        <div className="w-full h-screen overflow-hidden bg-transparent relative flex flex-col">
+            <div className="absolute inset-0 opacity-[0.015] pointer-events-none z-0" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
 
-            {/* Header */}
-            <div className="flex-none flex items-center justify-between mb-5">
-                <div>
-                    <h1 className="text-4xl font-extrabold text-blue-600 tracking-tight">System Dashboard</h1>
-                </div>
-                <div className="flex items-center gap-4">
-                    {/* Live Indicator */}
-                    <div className="flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1.5 rounded-full border border-green-100 animate-pulse">
-                        <span className="relative flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                        </span>
-                        <span className="text-xs font-bold uppercase tracking-wide">Live System</span>
+            <div className="flex-1 w-full px-8 pt-[110px] pb-[40px] overflow-hidden flex flex-col relative z-10 gap-[24px]">
+
+                <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
+                    <div>
+                        <h1 className="text-[36px] font-[800] tracking-tight text-[#004ba0] leading-none mb-2">System Dashboard</h1>
+                        <p className="text-[12px] text-blue-500 font-bold uppercase tracking-[0.2em] leading-none">REAL-TIME NETWORK INTELLIGENCE</p>
                     </div>
 
-                    {/* Search Bar */}
-                    <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Activity className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => setShowLogsDrawer(true)}
+                            className="flex items-center gap-3 px-6 py-2.5 rounded-[24px] bg-white/40 hover:bg-white text-[13px] font-[800] text-blue-600 shadow-sm border border-white/60 transition-all backdrop-blur-md group"
+                        >
+                            <ListFilter size={16} className="group-hover:rotate-12 transition-transform" />
+                            SEE LIVE SYSTEM LOGS
+                        </button>
+
+                        <div className="flex items-center gap-2 px-6 py-2.5 rounded-[24px] bg-white/60 border border-white/80 shadow-sm backdrop-blur-md">
+                            <div className={clsx("w-2 h-2 rounded-full", isLoading ? "bg-amber-400 animate-pulse" : "bg-green-500 shadow-[0_0_10px_rgba(22,163,74,0.5)]")} />
+                            <span className="text-[12px] font-[800] text-gray-600 uppercase tracking-tighter leading-none">Live System</span>
                         </div>
-                        <input
-                            type="text"
-                            placeholder="Search assets..."
-                            className="pl-10 pr-4 py-2 w-64 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm group-hover:shadow-md"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                    </div>
+                </header>
+
+                <div className="flex-1 grid grid-cols-12 gap-[24px] min-h-0" style={{ gridTemplateRows: '38% minmax(0, 1fr)' }}>
+
+                    {/* ROW 1 */}
+                    <div className="col-span-3 h-full">
+                        <KPIAuthoritativeCard
+                            total={summary?.total_devices || 0}
+                            online={summary?.online_devices || 0}
+                            offline={Math.max(0, (summary?.total_devices || 0) - (summary?.online_devices || 0))}
+                            className="h-full"
                         />
                     </div>
 
-                    <span className="text-base font-semibold text-slate-400 hidden lg:inline">Last updated: <span className="text-slate-600">{now}</span></span>
+                    <div className="col-span-3 h-full">
+                        <AlertsActivityPanel
+                            total={summary?.alerts_active || 0}
+                            critical={summary?.alerts_critical || 0}
+                            warning={summary?.alerts_warning || 0}
+                            recentAlerts={auditLogs.slice(0, 3)}
+                            className="h-full"
+                        />
+                    </div>
 
-                    <button
-                        onClick={() => refreshDevices()}
-                        className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                        title="Refresh Data"
-                    >
-                        <Activity size={20} />
-                    </button>
-                    {(user?.role === 'superadmin' || user?.role === 'distributor') && (
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => navigate('/nodes')}
-                                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+                    <div className="col-span-2 h-full flex flex-col gap-[24px]">
+                        <div className="apple-glass-card p-[20px] rounded-[30px] flex-1 flex flex-col justify-center shadow-sm">
+                            <span className="text-[12px] font-[800] text-[#1f2937]/70 uppercase tracking-[0.1em] mb-2">System Health</span>
+                            <div className="flex items-center gap-2">
+                                <span className={clsx(
+                                    "w-3 h-3 rounded-full shadow-lg",
+                                    systemStatus === 'Optimal' ? "bg-green-500 shadow-green-500/50" : "bg-amber-500 shadow-amber-500/50"
+                                )} />
+                                <span className="text-[18px] font-[800] text-gray-800 leading-none">{summary?.system_health || 100}%</span>
+                            </div>
+                        </div>
+                        <KPIUnitCard
+                            label="Active Alerts"
+                            value={summary?.alerts_active || 0}
+                            trend={summary?.alerts_critical || 0}
+                            trendLabel="Critical"
+                            variant="alert"
+                        />
+                    </div>
+
+                    <div className="col-span-4 h-full relative group rounded-[50px] overflow-hidden border border-white/40 shadow-sm">
+                        <SharedMap
+                            devices={devices}
+                            pipelines={pipelines}
+                            height="100%"
+                            showZoom={false}
+                            className="h-full"
+                        />
+                        <div className="absolute top-4 right-4 z-[500]">
+                            <Link
+                                to="/map"
+                                className="px-5 py-2 rounded-[20px] bg-white text-[11px] font-[800] text-blue-600 shadow-xl border border-white flex items-center gap-2 transition-all opacity-0 group-hover:opacity-100 uppercase tracking-widest"
                             >
-                                <Server size={18} />
-                                <span className="font-medium">Manage</span>
-                            </button>
+                                Expand Map <ArrowUpRight size={14} />
+                            </Link>
                         </div>
-                    )}
-                </div>
-            </div>
+                    </div>
 
-            {/* Top Row */}
-            <div className="flex-none grid grid-cols-12 gap-4 mb-4" style={{ height: '250px' }}>
-                {/* Left 8 cols: stacked KPI rows */}
-                <div className="col-span-8 flex flex-col gap-4 h-full">
-                    {/* Top Row: Stats & Health */}
-                    <div className="col-span-12 grid grid-cols-1 md:grid-cols-4 gap-6">
-                        {/* Stat Cards */}
-                        <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white/50 flex flex-col justify-between hover:shadow-md transition-all duration-300">
-                            <div className="flex justify-between items-start">
+                    {/* ROW 2 */}
+                    <div className="col-span-4 h-full">
+                        <ProductPieChart
+                            tank={devices.filter(d => (d as any).analytics_template === 'EvaraTank' || d.asset_type === 'tank' || d.asset_type === 'sump').length}
+                            flow={devices.filter(d => (d as any).analytics_template === 'EvaraFlow' || d.asset_type === 'flow' || d.asset_type === 'flow_meter').length}
+                            deep={devices.filter(d => (d as any).analytics_template === 'EvaraDeep' || d.asset_type === 'bore' || d.asset_type === 'govt').length}
+                            className="h-full"
+                        />
+                    </div>
+
+                    <div className="col-span-8 h-full min-h-0">
+                        <NodeDataExplorer
+                            nodes={explorerNodes}
+                            className="h-full"
+                        />
+                    </div>
+                </div>
+
+                {showLogsDrawer && (
+                    <div className="fixed inset-0 z-[1000] flex justify-end">
+                        <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px]" onClick={() => setShowLogsDrawer(false)} />
+                        <aside className="w-full max-w-[450px] bg-white/80 backdrop-blur-2xl border-l border-white/40 shadow-2xl relative z-10 flex flex-col animate-in slide-in-from-right duration-500">
+                            <div className="p-8 flex items-center justify-between border-b border-gray-100">
                                 <div>
-                                    <p className="text-sm font-medium text-slate-500 mb-1">Total Assets</p>
-                                    <h2 className="text-3xl font-bold text-slate-800">{localStats.tanks.total + localStats.flow.total + localStats.deep.total}</h2>
+                                    <h3 className="text-[20px] font-[800] text-gray-800 tracking-tight leading-none mb-1">System Event Logs</h3>
+                                    <p className="text-[12px] text-gray-400 font-bold uppercase tracking-widest leading-none">Real-time Telemetry Stream</p>
                                 </div>
-                                <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                                    <Activity className="w-5 h-5" />
-                                </div>
+                                <button
+                                    onClick={() => setShowLogsDrawer(false)}
+                                    className="p-2 rounded-full hover:bg-gray-100 text-gray-400 transition-colors"
+                                >
+                                    <X size={24} />
+                                </button>
                             </div>
-                            <div className="mt-4 flex items-center gap-2 text-xs font-medium text-green-600 bg-green-50 w-fit px-2 py-1 rounded-lg">
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span>
-                                All Systems Operational
+                            <div className="flex-1 overflow-hidden p-4">
+                                <LiveLogsPanel logs={auditLogs} className="h-full !bg-transparent !border-none !shadow-none !p-0" />
                             </div>
-                        </div>
-
-                        <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white/50 flex flex-col justify-between hover:shadow-md transition-all duration-300">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="text-sm font-medium text-slate-500 mb-1">Active Alerts</p>
-                                    <h2 className="text-3xl font-bold text-slate-800">{recentAlerts.length}</h2>
-                                </div>
-                                <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
-                                    <AlertTriangle className="w-5 h-5" />
-                                </div>
-                            </div>
-                            <div className="mt-4 flex items-center gap-2 text-xs font-medium text-slate-500 cursor-pointer" onClick={() => navigate('/alerts')}>
-                                View all alerts &rarr;
-                            </div>
-                        </div>
-
-                        <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-white/50 flex flex-col justify-between hover:shadow-md transition-all duration-300">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="text-sm font-medium text-slate-500 mb-1">System Health</p>
-                                    <h2 className="text-xl font-bold text-slate-800 capitalize">{healthData?.status || 'Active'}</h2>
-                                </div>
-                                <div className={`p-3 rounded-xl ${healthData?.status === 'ok' ? 'bg-green-50 text-green-600' : 'bg-green-50 text-green-600'}`}>
-                                    <Server className="w-5 h-5" />
-                                </div>
-                            </div>
-                            <div className="mt-4 flex flex-col gap-1 text-xs text-slate-500">
-                                <div className="flex justify-between">
-                                    <span>DB:</span>
-                                    <span className={healthData?.services?.database === 'ok' ? 'text-green-600' : 'text-red-600'}>
-                                        {healthData?.services?.database || 'Unknown'}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>IoT Broker:</span>
-                                    <span className={healthData?.services?.thingspeak === 'ok' ? 'text-green-600' : 'text-red-600'}>
-                                        {healthData?.services?.thingspeak || 'Unknown'}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <LiveFeedCard nodeId={devices.find(d => d.status === 'Online' || d.status === 'Working' || d.status === 'Running')?.id} />
+                        </aside>
                     </div>
-
-                    {/* Row 2 — 4 device-type counters */}
-                    <div className="flex-1 grid grid-cols-4 gap-4">
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 flex flex-col justify-center items-start gap-1 hover:shadow-md transition-shadow">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Tanks</span>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-4xl font-extrabold text-blue-600">{localStats.tanks.active}</span>
-                                <span className="text-2xl font-bold text-slate-300">/{localStats.tanks.total}</span>
-                            </div>
-                        </div>
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 flex flex-col justify-center items-start gap-1 hover:shadow-md transition-shadow">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Flow</span>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-4xl font-extrabold text-cyan-600">{localStats.flow.active}</span>
-                                <span className="text-2xl font-bold text-slate-300">/{localStats.flow.total}</span>
-                            </div>
-                        </div>
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-5 flex flex-col justify-center items-start gap-1 hover:shadow-md transition-shadow">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Deep</span>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-4xl font-extrabold text-purple-600">{localStats.deep.active}</span>
-                                <span className="text-2xl font-bold text-slate-300">/{localStats.deep.total}</span>
-                            </div>
-                        </div>
-                        <div className="bg-white rounded-2xl border-l-4 border-l-red-500 border border-red-100 shadow-sm px-5 flex flex-col justify-center items-start gap-1 hover:shadow-md transition-shadow">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Alerts</span>
-                            <span className="text-4xl font-extrabold text-red-600">{localStats.alerts}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right 4 cols: Map */}
-                <div className="col-span-4 h-full">
-                    <MiniMap onExpand={handleMapClick} devices={devices} />
-                </div>
-            </div>
-
-            {/* Bottom Row */}
-            <div className="flex-1 min-h-0 grid grid-cols-3 gap-4">
-                {/* Col 1: Device Fleet */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="px-5 py-4 border-b border-slate-50 flex justify-between items-center flex-none">
-                        <div>
-                            <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
-                                <Server size={24} className="text-blue-500" /> Device Fleet
-                            </h2>
-                        </div>
-                        <button className="text-blue-500 hover:text-blue-600 transition-colors font-bold text-2xl" onClick={() => navigate('/home')}>+</button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        <table className="w-full text-left">
-                            <thead className="sticky top-0 bg-white z-10">
-                                <tr className="border-b border-slate-50 text-xs font-extrabold text-slate-400 uppercase tracking-widest">
-                                    <th className="px-5 py-3">Device</th>
-                                    <th className="px-5 py-3">Status</th>
-                                    <th className="px-5 py-3 text-right">Health</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50 text-base">
-                                {deviceFleet.map(dev => (
-                                    <tr key={dev.id} className="hover:bg-slate-50/60 transition-colors cursor-pointer" onClick={() => navigate(`/devices/${dev.id}`)}>
-                                        <td className="px-5 py-4">
-                                            <div className="font-bold text-slate-700 text-base">{dev.name}</div>
-                                            <div className="text-xs text-blue-400 font-mono">{dev.type}</div>
-                                        </td>
-                                        <td className="px-5 py-4">
-                                            <div className={`flex items-center gap-2 font-bold text-sm ${dev.status === 'Online' ? 'text-green-600' :
-                                                dev.status === 'Alert' ? 'text-red-600' :
-                                                    dev.status === 'Maintenance' ? 'text-amber-600' : 'text-slate-500'
-                                                }`}>
-                                                <div className={`w-2 h-2 rounded-full ${dev.status === 'Online' ? 'bg-green-500' :
-                                                    dev.status === 'Alert' ? 'bg-red-500' :
-                                                        dev.status === 'Maintenance' ? 'bg-amber-500' : 'bg-slate-400'
-                                                    }`} />
-                                                {dev.status}
-                                            </div>
-                                            <div className="text-xs text-slate-400 mt-1">{dev.lastComm}</div>
-                                        </td>
-                                        <td className="px-5 py-4 text-right">
-                                            <div className={`font-bold text-sm ${dev.health > 90 ? 'text-green-600' : dev.health > 50 ? 'text-amber-600' : 'text-red-600'}`}>
-                                                {dev.health}%
-                                            </div>
-                                            <div className="w-full h-1.5 bg-slate-100 rounded-full mt-1.5 overflow-hidden">
-                                                <div className={`h-full rounded-full ${dev.health > 90 ? 'bg-green-500' : dev.health > 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${dev.health}%` }} />
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Col 2: Alerts */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="px-5 py-4 border-b border-slate-50 flex justify-between items-center flex-none">
-                        <div>
-                            <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
-                                <AlertTriangle size={24} className="text-red-500" /> Alerts
-                            </h2>
-                        </div>
-                        <span className="px-3 py-1 bg-red-50 text-red-600 font-extrabold text-xs rounded-full">{recentAlerts.length} Active</span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                        {recentAlerts.length === 0 ? (
-                            <div className="text-center text-slate-400 mt-10">No active alerts</div>
-                        ) : recentAlerts.map(a => (
-                            <div key={a.id} className="p-4 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer group border border-transparent hover:border-slate-100">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className="flex items-center gap-2 text-base font-bold text-slate-800">
-                                        <AlertTriangle size={16} className="text-amber-500 flex-shrink-0" />
-                                        {a.rule?.name || 'Alert'}
-                                    </div>
-                                    <span className="text-xs text-slate-400 font-medium whitespace-nowrap ml-2">{new Date(a.triggered_at).toLocaleTimeString()}</span>
-                                </div>
-                                <p className="text-sm text-slate-500 pl-6 group-hover:text-slate-700 transition-colors leading-relaxed">
-                                    Value {a.value_at_time} {a.rule?.condition} {a.rule?.threshold}
-                                </p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Col 3: Quick Reports */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="px-5 py-4 border-b border-slate-50 flex-none">
-                        <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
-                            <FileText size={24} className="text-purple-500" /> Quick Reports
-                        </h2>
-                    </div>
-                    <div className="flex-1 p-5 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
-                        <button className="w-full flex items-center gap-5 p-5 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition-all text-left group">
-                            <div className="p-3 bg-white rounded-xl shadow-sm text-slate-400 group-hover:text-blue-500 transition-colors">
-                                <Download size={24} />
-                            </div>
-                            <div>
-                                <div className="text-lg font-bold text-slate-700 group-hover:text-blue-700">Daily Report</div>
-                                <div className="text-sm text-slate-400 font-medium">Download PDF Format</div>
-                            </div>
-                        </button>
-                        <button className="w-full flex items-center gap-5 p-5 bg-slate-50 rounded-xl border border-slate-100 hover:border-purple-200 hover:bg-purple-50 transition-all text-left group">
-                            <div className="p-3 bg-white rounded-xl shadow-sm text-slate-400 group-hover:text-purple-500 transition-colors">
-                                <Download size={24} />
-                            </div>
-                            <div>
-                                <div className="text-lg font-bold text-slate-700 group-hover:text-purple-700">Custom Export</div>
-                                <div className="text-sm text-slate-400 font-medium">Excel / CSV Format</div>
-                            </div>
-                        </button>
-
-                        <div className="mt-auto bg-purple-50 p-5 rounded-xl border border-purple-100">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Clock size={16} className="text-purple-500" />
-                                <span className="text-xs font-extrabold text-purple-700 uppercase tracking-wider">Scheduled</span>
-                            </div>
-                            <p className="text-sm font-medium text-purple-700 leading-snug">
-                                Monthly compliance report will be generated on <strong>28th Feb</strong>.
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                )}
             </div>
         </div>
     );
 }
 
-const DashboardWithBoundary = () => (
-    <ErrorBoundary>
-        <Dashboard />
-    </ErrorBoundary>
-);
-
-export default DashboardWithBoundary;
+export default function DashboardWithBoundary() {
+    return (
+        <ErrorBoundary>
+            <Dashboard />
+        </ErrorBoundary>
+    );
+}

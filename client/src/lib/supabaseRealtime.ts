@@ -53,7 +53,7 @@ export function createRealtimeChannel<T extends Record<string, any> = any>(
         console.warn(`[Realtime] Channel '${channelName}' already exists, cleaning up old subscription`);
         unsubscribeChannel(channelName);
     }
-    
+
     // Enforce connection limit
     if (activeChannels.size >= MAX_CHANNELS) {
         const oldestChannel = Array.from(activeChannels.keys())[0];
@@ -63,9 +63,9 @@ export function createRealtimeChannel<T extends Record<string, any> = any>(
         );
         unsubscribeChannel(oldestChannel);
     }
-    
+
     console.log(`[Realtime] 🔌 Creating subscription: ${channelName} (table: ${tableName})`);
-    
+
     // Create channel with postgres_changes listener
     const channel = supabase
         .channel(channelName)
@@ -93,10 +93,10 @@ export function createRealtimeChannel<T extends Record<string, any> = any>(
                 console.log(`[Realtime] 🔌 ${channelName} - Closed`);
             }
         });
-    
+
     // Track channel
     activeChannels.set(channelName, channel);
-    
+
     // Return cleanup function
     return () => unsubscribeChannel(channelName);
 }
@@ -153,12 +153,12 @@ export function unsubscribeAll(): void {
 export function createRealtimeChannelWithCache<T extends Record<string, any> = any>(
     channelName: string,
     tableName: string,
-    queryClient: any, // QueryClient from @tanstack/react-query
-    queryKey: any[],
+    queryClient: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+    queryKey: unknown[],
     updateCache: (oldData: T[] | undefined, payload: RealtimePostgresChangesPayload<T>) => T[] | undefined
 ): () => void {
     return createRealtimeChannel<T>(channelName, tableName, (payload) => {
-        // Update React Query cache directly (no invalidation = faster UX)
+        // Update React Query cache directly (no invalidation = faster UX)  
         queryClient.setQueryData(queryKey, (oldData: T[] | undefined) => {
             return updateCache(oldData, payload);
         });

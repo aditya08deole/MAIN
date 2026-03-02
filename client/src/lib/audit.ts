@@ -7,7 +7,7 @@ interface AuditLogCreate {
     action: string;
     resource_type: string;
     resource_id?: string | null;
-    details?: Record<string, any> | null;
+    details?: Record<string, unknown> | null;
 }
 
 /**
@@ -25,7 +25,7 @@ export async function logAction(
             console.warn('[Audit] No auth token found, skipping audit log');
             return;
         }
-        
+
         // Call FastAPI audit endpoint
         await axios.post(
             `${API_URL}/audit-logs`,

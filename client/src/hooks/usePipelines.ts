@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import api from '../services/api';
+import { supabase } from '../lib/supabase';
 import type { PipelineRow, PipelineInsert } from '../types/database';
 
 interface UsePipelinesResult {
@@ -19,11 +19,12 @@ export function usePipelines(): UsePipelinesResult {
     const fetchPipelines = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await api.get<PipelineRow[]>('/pipelines/');
-            setPipelines(response.data);
+            const { data, error } = await supabase.from('pipelines').select('*');
+            if (error) throw error;
+            setPipelines((data || []) as PipelineRow[]);
             setError(null);
         } catch (err: any) {
-            setError(err.response?.data?.detail || "Failed to fetch pipelines");
+            setError(err.message || "Failed to fetch pipelines");
             console.error("Error fetching pipelines:", err);
         } finally {
             setLoading(false);
@@ -38,12 +39,12 @@ export function usePipelines(): UsePipelinesResult {
         p: Omit<PipelineInsert, 'created_by'>
     ): Promise<PipelineRow | null> => {
         try {
-            const response = await api.post<PipelineRow>('/pipelines/', p);
-            const row = response.data;
-            setPipelines(prev => [...prev, row]);
-            return row;
+            const { data, error } = await supabase.from('pipelines').insert(p as any).select().single();
+            if (error) throw error;
+            setPipelines(prev => [...prev, data as unknown as PipelineRow]);
+            return data;
         } catch (err: any) {
-            setError(err.response?.data?.detail || "Failed to add pipeline");
+            setError(err.message || "Failed to add pipeline");
             return null;
         }
     }, []);
@@ -53,19 +54,21 @@ export function usePipelines(): UsePipelinesResult {
         p: Partial<Omit<PipelineInsert, 'created_by'>>
     ): Promise<void> => {
         try {
-            await api.patch(`/pipelines/${id}`, p);
-            setPipelines(prev => prev.map(pl => pl.id === id ? { ...pl, ...p } : pl));
+            const { error } = await (supabase.from('pipelines') as any).update(p).eq('id', id);
+            if (error) throw error;
+            setPipelines(prev => prev.map(pl => pl.id === id ? { ...pl, ...(p as any) } : pl));
         } catch (err: any) {
-            setError(err.response?.data?.detail || "Failed to update pipeline");
+            setError(err.message || "Failed to update pipeline");
         }
     }, []);
 
     const deletePipeline = useCallback(async (id: string): Promise<void> => {
         try {
-            await api.delete(`/pipelines/${id}`);
+            const { error } = await supabase.from('pipelines').delete().eq('id', id);
+            if (error) throw error;
             setPipelines(prev => prev.filter(pl => pl.id !== id));
         } catch (err: any) {
-            setError(err.response?.data?.detail || "Failed to delete pipeline");
+            setError(err.message || "Failed to delete pipeline");
         }
     }, []);
 

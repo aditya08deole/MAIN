@@ -3,8 +3,9 @@ Configuration management using Pydantic Settings.
 Simple and clean - all environment variables in one place.
 """
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import Field, field_validator
 from functools import lru_cache
+from typing import Any
 
 
 class Settings(BaseSettings):
@@ -16,6 +17,13 @@ class Settings(BaseSettings):
         case_sensitive=True
     )
     
+    @classmethod
+    @field_validator("SUPABASE_JWT_SECRET", mode="before")
+    def strip_quotes(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.strip("'\"")
+        return v
+    
     # Application
     ENVIRONMENT: str = "production"
     PROJECT_NAME: str = "EvaraTech Backend"
@@ -26,9 +34,10 @@ class Settings(BaseSettings):
     
     # Supabase Authentication
     SUPABASE_URL: str
+    SUPABASE_JWT_SECRET: str = "your-secret-here" # Default for startup, should be set in .env
     # Accept both SUPABASE_ANON_KEY and SUPABASE_KEY (backwards compatibility)
-    SUPABASE_ANON_KEY: str = Field(validation_alias="SUPABASE_KEY")
-    SUPABASE_JWT_SECRET: str
+    SUPABASE_ANON_KEY: str = Field(default="", validation_alias="SUPABASE_KEY")
+    SUPABASE_SERVICE_KEY: str = Field(default="", validation_alias="SUPABASE_SERVICE_ROLE_KEY")
     
     # CORS
     CORS_ORIGINS: str = Field(
@@ -43,6 +52,11 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         """Parse CORS origins into a list."""
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
+    
+    @property
+    def is_development(self) -> bool:
+        """Check if running in development environment."""
+        return self.ENVIRONMENT.lower() in ["development", "dev", "local"]
 
 
 @lru_cache()

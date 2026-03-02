@@ -1,87 +1,109 @@
-import { useState } from 'react';
+/**
+ * ConfigForm — Global system configuration.
+ * Refactored to use Zod + React Hook Form + Framer Motion.
+ */
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { motion } from 'framer-motion';
+import { Save, AlertTriangle, Loader2, Smartphone } from 'lucide-react';
+import { z } from 'zod';
+
 import { adminService } from '../../../services/admin';
-import { Loader2 } from 'lucide-react';
+import { useToast } from '../../ToastProvider';
+import { FormField } from '../../forms/FormField';
 
-export const ConfigForm = ({ onSubmit, onCancel }: { onSubmit: (data: any) => void; onCancel: () => void }) => {
-    const [rate, setRate] = useState('60');
-    const [firmware, setFirmware] = useState('v2.1.0');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+const configSchema = z.object({
+    rate: z.coerce.number().min(1, 'Sampling rate must be at least 1 second').max(3600, 'Sampling rate cannot exceed 1 hour'),
+    firmware: z.string().min(2, 'Firmware version is required'),
+});
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
+type ConfigInput = z.infer<typeof configSchema>;
 
+interface Props {
+    onSubmit: (data: any) => void;
+    onCancel: () => void;
+}
+
+export const ConfigForm = ({ onSubmit, onCancel }: Props) => {
+    const { showToast } = useToast();
+
+    const {
+        register,
+        handleSubmit,
+        formState: { errors, isSubmitting },
+    } = useForm<ConfigInput>({
+        resolver: zodResolver(configSchema) as any,
+        defaultValues: {
+            rate: 60,
+            firmware: 'v2.1.0',
+        }
+    });
+
+    const onFormSubmit = async (data: ConfigInput) => {
         try {
-            const result = await adminService.updateSystemConfig({ rate: parseInt(rate), firmware });
+            const result = await adminService.updateSystemConfig(data);
+            showToast('System Configuration Updated', 'success');
             onSubmit(result);
-        } catch (err) {
-            setError('Failed to update system config.');
-            console.error(err);
-        } finally {
-            setLoading(false);
+        } catch (err: any) {
+            showToast(err.message || 'Failed to update config', 'error');
         }
     };
 
-    const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-800 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-all placeholder:text-slate-400";
-    const labelCls = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2";
+    const inputClass = (error?: any) => `
+        w-full px-4 py-3 rounded-2xl border transition-all duration-300 outline-none text-sm
+        ${error
+            ? 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-4 focus:ring-red-500/10'
+            : 'border-slate-200 apple-glass-inner focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 focus:apple-glass-card'}
+    `;
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-                <div className="p-3 bg-red-50 border border-red-100 text-red-600 text-xs rounded-lg">
-                    {error}
+        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6 p-1">
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex gap-3">
+                <AlertTriangle className="text-amber-600 shrink-0" size={20} />
+                <div className="text-xs text-amber-800 leading-relaxed">
+                    <strong>Critical System Setting:</strong> Changes applied here will update the polling interval and target firmware for <strong>all provisioned nodes</strong> in the next sync cycle.
                 </div>
-            )}
-
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl mb-4">
-                <p className="text-xs text-amber-800">
-                    <strong>Warning:</strong> Changes here will affect all connected devices immediately.
-                </p>
             </div>
 
-            <div>
-                <label className={labelCls}>Global Data Sampling Rate (Seconds)</label>
-                <input
-                    type="number"
-                    value={rate}
-                    onChange={e => setRate(e.target.value)}
-                    className={inputCls}
-                    disabled={loading}
-                />
-            </div>
-            <div>
-                <label className={labelCls}>Target Firmware Version</label>
-                <select
-                    value={firmware}
-                    onChange={e => setFirmware(e.target.value)}
-                    className={inputCls}
-                    disabled={loading}
-                >
-                    <option value="v2.1.0">v2.1.0 (Stable)</option>
-                    <option value="v2.2.0-beta">v2.2.0-beta</option>
-                    <option value="v1.9.8-LTS">v1.9.8-LTS</option>
-                </select>
+            <div className="space-y-4">
+                <FormField label="Sampling Rate (Seconds)" required icon={Smartphone as any} error={errors.rate?.message}>
+                    <input
+                        {...register('rate')}
+                        type="number"
+                        placeholder="e.g. 60"
+                        className={inputClass(errors.rate)}
+                    />
+                </FormField>
+
+                <FormField label="Target Firmware Version" required icon={Save} error={errors.firmware?.message}>
+                    <select {...register('firmware')} className={inputClass(errors.firmware)}>
+                        <option value="v1.9.8-LTS">v1.9.8-LTS (Legacy)</option>
+                        <option value="v2.1.0">v2.1.0 (Current Stable)</option>
+                        <option value="v2.2.0-beta">v2.2.0-beta (Internal Only)</option>
+                    </select>
+                </FormField>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4">
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
                 <button
                     type="button"
                     onClick={onCancel}
-                    disabled={loading}
-                    className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors"
+                    disabled={isSubmitting}
+                    className="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-2xl transition-all"
                 >
                     Cancel
                 </button>
-                <button
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     type="submit"
-                    disabled={loading}
-                    className="flex items-center gap-2 px-6 py-2 bg-amber-600 text-white text-sm font-bold rounded-xl hover:bg-amber-700 transition-colors"
+                    disabled={isSubmitting}
+                    className="flex items-center gap-2 px-10 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white text-sm font-black rounded-2xl hover:shadow-xl hover:shadow-amber-500/30 transition-all shadow-lg shadow-amber-200"
                 >
-                    {loading && <Loader2 size={14} className="animate-spin" />}
-                    {loading ? 'Applying...' : 'Apply Config'}
-                </button>
+                    {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                    {isSubmitting ? 'Syncing...' : 'Broadcast Config'}
+                </motion.button>
             </div>
         </form>
     );

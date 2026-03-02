@@ -43,7 +43,7 @@ export default function AuditLogsPage() {
                 <div className="flex gap-2">
                     <button
                         onClick={() => exportAuditLogs()}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
+                        className="flex items-center gap-2 px-4 py-2 apple-glass-card border border-slate-200 rounded-lg text-slate-600 hover:bg-white/30 transition-colors shadow-sm"
                     >
                         <Download className="w-4 h-4" /> Export CSV
                     </button>
@@ -51,7 +51,7 @@ export default function AuditLogsPage() {
             </div>
 
             {/* Filters (Basic) */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex gap-4">
+            <div className="apple-glass-card p-4 rounded-xl border border-slate-200 shadow-sm flex gap-4">
                 <div className="flex-1 relative">
                     <Search className="absolute left-3 top-2.5 w-5 h-5 text-slate-400" />
                     <input
@@ -64,10 +64,10 @@ export default function AuditLogsPage() {
             </div>
 
             {/* Data Table */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="apple-glass-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                        <thead className="bg-slate-50 border-b border-slate-200">
+                        <thead className="apple-glass-inner border-b border-slate-200">
                             <tr>
                                 <th className="p-4 text-xs font-bold text-slate-500 uppercase">Timestamp</th>
                                 <th className="p-4 text-xs font-bold text-slate-500 uppercase">User</th>
@@ -83,7 +83,7 @@ export default function AuditLogsPage() {
                                 <tr><td colSpan={5} className="p-8 text-center text-slate-400 italic">No logs found matching your criteria.</td></tr>
                             ) : (
                                 filteredLogs.map(log => (
-                                    <tr key={log.id} className="hover:bg-slate-50 transition-colors group">
+                                    <tr key={log.id} className="hover:bg-white/30 transition-colors group">
                                         <td className="p-4 text-sm text-slate-500 whitespace-nowrap font-mono">
                                             {new Date(log.timestamp).toLocaleString()}
                                         </td>

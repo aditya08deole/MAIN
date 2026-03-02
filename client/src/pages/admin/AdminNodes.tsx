@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Server, MapPin, Radio, Activity, Database, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { createNode } from '../../services/devices';
+import { adminService } from '../../services/admin';
 import type { NodeCategory, AnalyticsType } from '../../types/database';
 
 const AdminNodes = () => {
@@ -22,23 +22,31 @@ const AdminNodes = () => {
 
     const categories: NodeCategory[] = ['OHT', 'Sump', 'Borewell', 'GovtBorewell', 'PumpHouse', 'FlowMeter'];
 
-    const handleSumbit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setStatus('idle');
 
-        // Auto-assign analytics_type based on category
-        let analytics_type: AnalyticsType = 'EvaraTank';
-        if (formData.category === 'Borewell' || formData.category === 'GovtBorewell') analytics_type = 'EvaraDeep';
-        if (formData.category === 'PumpHouse' || formData.category === 'FlowMeter') analytics_type = 'EvaraFlow';
+        // Auto-assign analytics_template based on category
+        let analytics_template: AnalyticsType = 'EvaraTank';
+        if (formData.category === 'Borewell' || formData.category === 'GovtBorewell') analytics_template = 'EvaraDeep';
+        if (formData.category === 'PumpHouse' || formData.category === 'FlowMeter') analytics_template = 'EvaraFlow';
 
         try {
-            await createNode({
-                ...formData,
+            await adminService.createDevice({
+                label: formData.label,
+                node_key: formData.node_key,
+                category: formData.category,
+                location_name: formData.location_name,
+                capacity: formData.capacity,
+                thingspeak_channel_id: formData.thingspeak_channel_id,
+                thingspeak_read_key: formData.thingspeak_read_api_key,
                 lat: parseFloat(formData.lat) || 0,
                 lng: parseFloat(formData.lng) || 0,
-                analytics_type,
-                status: 'Online'
+                latitude: parseFloat(formData.lat) || 0,
+                longitude: parseFloat(formData.lng) || 0,
+                analytics_template,
+                status: 'online'
             });
             setStatus('success');
             setFormData({
@@ -76,8 +84,8 @@ const AdminNodes = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Main Form */}
                 <div className="lg:col-span-2 space-y-6">
-                    <form onSubmit={handleSumbit} className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
-                        <div className="p-1 px-8 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                    <form onSubmit={handleSubmit} className="apple-glass-card rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+                        <div className="p-1 px-8 apple-glass-inner border-b border-slate-100 flex items-center justify-between">
                             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest py-4">New Asset Provisioning</span>
                             <Server className="w-4 h-4 text-slate-300" />
                         </div>
@@ -105,7 +113,7 @@ const AdminNodes = () => {
                                         type="text"
                                         required
                                         placeholder="e.g. Pump House 1"
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300 text-slate-700"
+                                        className="w-full px-4 py-3 apple-glass-inner border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300 text-slate-700"
                                         value={formData.label}
                                         onChange={e => setFormData({ ...formData, label: e.target.value })}
                                     />
@@ -116,7 +124,7 @@ const AdminNodes = () => {
                                         type="text"
                                         required
                                         placeholder="e.g. ph-01"
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300 font-mono text-sm"
+                                        className="w-full px-4 py-3 apple-glass-inner border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300 font-mono text-sm"
                                         value={formData.node_key}
                                         onChange={e => setFormData({ ...formData, node_key: e.target.value.toLowerCase() })}
                                     />
@@ -127,7 +135,7 @@ const AdminNodes = () => {
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Category</label>
                                     <select
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
+                                        className="w-full px-4 py-3 apple-glass-inner border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
                                         value={formData.category}
                                         onChange={e => setFormData({ ...formData, category: e.target.value as NodeCategory })}
                                     >
@@ -141,7 +149,7 @@ const AdminNodes = () => {
                                     <input
                                         type="text"
                                         placeholder="e.g. ATM Gate"
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-slate-700"
+                                        className="w-full px-4 py-3 apple-glass-inner border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-slate-700"
                                         value={formData.location_name}
                                         onChange={e => setFormData({ ...formData, location_name: e.target.value })}
                                     />
@@ -157,7 +165,7 @@ const AdminNodes = () => {
                                         <input
                                             type="text"
                                             placeholder="17.4456"
-                                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-mono text-sm"
+                                            className="w-full pl-10 pr-4 py-3 apple-glass-inner border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-mono text-sm"
                                             value={formData.lat}
                                             onChange={e => setFormData({ ...formData, lat: e.target.value })}
                                         />
@@ -170,7 +178,7 @@ const AdminNodes = () => {
                                         <input
                                             type="text"
                                             placeholder="78.3516"
-                                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-mono text-sm"
+                                            className="w-full pl-10 pr-4 py-3 apple-glass-inner border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-mono text-sm"
                                             value={formData.lng}
                                             onChange={e => setFormData({ ...formData, lng: e.target.value })}
                                         />
@@ -181,7 +189,7 @@ const AdminNodes = () => {
                                     <input
                                         type="text"
                                         placeholder="e.g. 5.0L L"
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-slate-700"
+                                        className="w-full px-4 py-3 apple-glass-inner border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-slate-700"
                                         value={formData.capacity}
                                         onChange={e => setFormData({ ...formData, capacity: e.target.value })}
                                     />
@@ -201,7 +209,7 @@ const AdminNodes = () => {
                                         <input
                                             type="text"
                                             placeholder="e.g. 3212670"
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-mono text-sm"
+                                            className="w-full px-4 py-3 apple-glass-inner border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-mono text-sm"
                                             value={formData.thingspeak_channel_id}
                                             onChange={e => setFormData({ ...formData, thingspeak_channel_id: e.target.value })}
                                         />
@@ -211,7 +219,7 @@ const AdminNodes = () => {
                                         <input
                                             type="text"
                                             placeholder="e.g. UXORK5..."
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-mono text-sm"
+                                            className="w-full px-4 py-3 apple-glass-inner border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-mono text-sm"
                                             value={formData.thingspeak_read_api_key}
                                             onChange={e => setFormData({ ...formData, thingspeak_read_api_key: e.target.value })}
                                         />
@@ -247,7 +255,7 @@ const AdminNodes = () => {
                         </p>
                     </div>
 
-                    <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+                    <div className="apple-glass-card rounded-3xl border border-slate-100 p-6 shadow-sm">
                         <h4 className="text-xs font-bold text-slate-400 uppercase mb-4 tracking-widest">Analytics Mapping</h4>
                         <div className="space-y-4">
                             <div className="flex items-start gap-3">

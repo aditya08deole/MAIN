@@ -2,10 +2,7 @@ import { useState, useEffect } from 'react';
 import {
     AlertTriangle, Plus, Trash2, CheckCircle, XCircle
 } from 'lucide-react';
-import {
-    getAlertRules, createAlertRule, deleteAlertRule, getActiveAlerts,
-    type AlertRule, type AlertHistory
-} from '../services/alerts';
+import { adminService, type AlertRule, type AlertHistory } from '../services/admin';
 import { useNodes } from '../hooks/useNodes';
 
 export default function AlertsPage() {
@@ -27,14 +24,14 @@ export default function AlertsPage() {
     const fetchData = async () => {
         try {
             const [rulesData, alertsData] = await Promise.all([
-                getAlertRules(),
-                getActiveAlerts()
+                adminService.getAlertRules(),
+                adminService.getActiveAlerts()
             ]);
             setRules(rulesData);
             setActiveAlerts(alertsData);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to fetch alerts data", err);
-        } finally {
+        } finally { /* empty */
         }
     };
 
@@ -44,10 +41,10 @@ export default function AlertsPage() {
             return;
         }
         try {
-            await createAlertRule(newRule as any);
+            await adminService.createAlertRule(newRule as Omit<AlertRule, 'id'>);
             setShowForm(false);
             fetchData();
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to create rule", err);
         }
     };
@@ -55,9 +52,9 @@ export default function AlertsPage() {
     const handleDeleteRule = async (id: string) => {
         if (!confirm("Are you sure?")) return;
         try {
-            await deleteAlertRule(id);
+            await adminService.deleteAlertRule(id);
             setRules(prev => prev.filter(r => r.id !== id));
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to delete rule", err);
         }
     };
@@ -66,7 +63,7 @@ export default function AlertsPage() {
         <div className="p-6 max-w-7xl mx-auto space-y-8">
 
             {/* Active Alerts Section */}
-            <div className="bg-white rounded-2xl shadow-sm border border-red-100 overflow-hidden">
+            <div className="apple-glass-card rounded-2xl shadow-sm border border-red-100 overflow-hidden">
                 <div className="p-6 bg-red-50 border-b border-red-100 flex items-center justify-between">
                     <h2 className="text-lg font-bold text-red-700 flex items-center gap-2">
                         <AlertTriangle className="w-5 h-5" /> Active Alerts
@@ -111,7 +108,7 @@ export default function AlertsPage() {
                 </div>
 
                 {showForm && (
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-6 animate-in slide-in-from-top-4">
+                    <div className="apple-glass-card p-6 rounded-xl border border-slate-200 shadow-sm mb-6 animate-in slide-in-from-top-4">
                         <h3 className="text-sm font-bold text-slate-500 uppercase mb-4">Define Notification Logic</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                             <input
@@ -134,7 +131,7 @@ export default function AlertsPage() {
                             <div className="flex gap-2">
                                 <select
                                     className="p-2 border rounded-lg"
-                                    onChange={e => setNewRule({ ...newRule, condition: e.target.value as any })}
+                                    onChange={e => setNewRule({ ...newRule, condition: e.target.value as ">" | "<" | "==" })}
                                 >
                                     <option value=">">&gt;</option>
                                     <option value="<">&lt;</option>
@@ -157,9 +154,9 @@ export default function AlertsPage() {
                     </div>
                 )}
 
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="apple-glass-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <table className="w-full text-left">
-                        <thead className="bg-slate-50 border-b border-slate-200">
+                        <thead className="apple-glass-inner border-b border-slate-200">
                             <tr>
                                 <th className="p-4 text-xs font-bold text-slate-500 uppercase">Rule Name</th>
                                 <th className="p-4 text-xs font-bold text-slate-500 uppercase">Conditions</th>
@@ -170,7 +167,7 @@ export default function AlertsPage() {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {rules.map(rule => (
-                                <tr key={rule.id} className="hover:bg-slate-50 transition-colors">
+                                <tr key={rule.id} className="hover:bg-white/30 transition-colors">
                                     <td className="p-4 font-medium text-slate-700">{rule.name}</td>
                                     <td className="p-4 text-slate-600 font-mono text-sm">
                                         {rule.metric} <span className="text-blue-600 font-bold">{rule.condition}</span> {rule.threshold}

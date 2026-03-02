@@ -1,7 +1,24 @@
-# Phase 19: Docker Compose for local development
+# Docker Compose for local development
 version: "3.8"
 
 services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: evara
+      POSTGRES_PASSWORD: evara_local
+      POSTGRES_DB: evaratech
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U evara -d evaratech" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: .
@@ -10,9 +27,13 @@ services:
       - "8000:8000"
     environment:
       - ENVIRONMENT=development
-      - DATABASE_URL=sqlite+aiosqlite:///./test.db
+      - DATABASE_URL=postgresql+asyncpg://evara:evara_local@db:5432/evaratech
+      - ALLOW_DEV_BYPASS=true
     volumes:
       - ./server:/app/server
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s
@@ -31,3 +52,6 @@ services:
       - backend
     volumes:
       - ./client/src:/app/src
+
+volumes:
+  pgdata:

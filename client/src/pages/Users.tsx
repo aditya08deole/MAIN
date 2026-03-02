@@ -1,12 +1,13 @@
 
 import { useState, useEffect } from 'react';
 import { Users, Edit2, Save, X } from 'lucide-react';
-import { getUsers, updateUserRole, type UserProfile } from '../services/users';
+import { adminService, type Profile } from '../services/admin';
+import type { UserRole } from '../types/database';
 
 export default function UserManagementPage() {
-    const [users, setUsers] = useState<UserProfile[]>([]);
+    const [users, setUsers] = useState<Profile[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [selectedRole, setSelectedRole] = useState('');
+    const [selectedRole, setSelectedRole] = useState<UserRole>('customer');
 
     useEffect(() => {
         fetchUsers();
@@ -15,7 +16,7 @@ export default function UserManagementPage() {
     const fetchUsers = async () => {
         try {
             // setLoading(true);
-            const data = await getUsers();
+            const data = await adminService.getCustomers();
             setUsers(data);
         } catch (err) {
             console.error("Failed to fetch users", err);
@@ -24,18 +25,18 @@ export default function UserManagementPage() {
         }
     };
 
-    const startEdit = (user: UserProfile) => {
+    const startEdit = (user: Profile) => {
         setEditingId(user.id);
-        setSelectedRole(user.role);
+        setSelectedRole(user.role as UserRole);
     };
 
     const saveRole = async () => {
         if (!editingId) return;
         try {
-            await updateUserRole(editingId, selectedRole);
+            await adminService.updateProfileRole(editingId, selectedRole);
             setUsers(users.map(u => u.id === editingId ? { ...u, role: selectedRole } : u));
             setEditingId(null);
-        } catch (err) {
+        } catch {
             alert("Failed to update role");
         }
     };
@@ -50,9 +51,9 @@ export default function UserManagementPage() {
                 </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="apple-glass-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200">
+                    <thead className="apple-glass-inner border-b border-slate-200">
                         <tr>
                             <th className="p-4 text-xs font-bold text-slate-500 uppercase">User</th>
                             <th className="p-4 text-xs font-bold text-slate-500 uppercase">Email</th>
@@ -62,7 +63,7 @@ export default function UserManagementPage() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {users.map(user => (
-                            <tr key={user.id} className="hover:bg-slate-50 transition-colors">
+                            <tr key={user.id} className="hover:bg-white/30 transition-colors">
                                 <td className="p-4 font-medium text-slate-700">{user.full_name || 'N/A'}</td>
                                 <td className="p-4 text-slate-500">{user.email}</td>
                                 <td className="p-4">
@@ -70,12 +71,12 @@ export default function UserManagementPage() {
                                         <select
                                             className="p-1 border rounded text-sm"
                                             value={selectedRole}
-                                            onChange={(e) => setSelectedRole(e.target.value)}
+                                            onChange={(e) => setSelectedRole(e.target.value as UserRole)}
                                         >
-                                            <option value="super_admin">Super Admin</option>
-                                            <option value="org_admin">Org Admin</option>
-                                            <option value="region_admin">Region Admin</option>
-                                            <option value="community_admin">Community Admin</option>
+                                            <option value="superadmin">Super Admin</option>
+                                            <option value="distributor">Distributor</option>
+                                            <option value="customer">Customer</option>
+                                            <option value="operator">Operator</option>
                                             <option value="viewer">Viewer</option>
                                         </select>
                                     ) : (

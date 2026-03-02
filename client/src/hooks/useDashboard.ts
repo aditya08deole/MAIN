@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import api from '../services/api';
-import type { AlertHistory } from '../services/alerts';
+import { adminService } from '../services/admin';
+import { useAuth } from '../context/AuthContext';
 
 export interface DashboardStats {
     total_nodes: number;
@@ -18,13 +18,13 @@ export interface SystemHealth {
 }
 
 export const useDashboardStats = () => {
+    const { isAuthenticated } = useAuth(); // Depend on true Supabase auth instead of stale localStorage
+
     return useQuery({
         queryKey: ['dashboard_stats'],
         queryFn: async () => {
-            // Check if user is authenticated before making request
-            const stored = localStorage.getItem('evara_session');
-            if (!stored) {
-                console.warn('[useDashboardStats] No authentication found, returning zeros');
+            if (!isAuthenticated) {
+                console.warn('[useDashboardStats] No active Supabase session, returning zeros');
                 return {
                     total_nodes: 0,
                     online_nodes: 0,
@@ -34,15 +34,16 @@ export const useDashboardStats = () => {
             }
 
             try {
-                const { data } = await api.get<DashboardStats>('/dashboard/stats');
-                return data;
-            } catch (error: any) {
-                // Return zeros if endpoint fails (graceful degradation)
-                if (error.response?.status === 401 || error.response?.status === 403) {
-                    console.warn('[useDashboardStats] Authentication failed, returning zeros');
-                } else {
-                    console.warn('[useDashboardStats] Request failed:', error.message);
-                }
+                // Fetch stats directly via Supabase View
+                const stats = await adminService.getStats() as any;
+                return {
+                    total_nodes: stats.total_nodes || 0,
+                    online_nodes: stats.online_nodes || 0,
+                    active_alerts: stats.active_alerts || 0,
+                    system_health: 'ok' // Usually retrieved from backend /health
+                };
+            } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+                console.warn('[useDashboardStats] Request failed:', error.message);
                 return {
                     total_nodes: 0,
                     online_nodes: 0,
@@ -53,7 +54,8 @@ export const useDashboardStats = () => {
         },
         staleTime: 1000 * 60 * 2, // 2 minutes
         refetchInterval: 1000 * 60 * 5, // Auto-refresh every 5 mins
-        retry: false // Don't retry auth failures
+        retry: false,
+        enabled: isAuthenticated // Only run if authenticated
     });
 };
 
@@ -77,31 +79,20 @@ export const useSystemHealth = () => {
 };
 
 export const useActiveAlerts = () => {
+    const { isAuthenticated } = useAuth();
+
     return useQuery({
         queryKey: ['active_alerts'],
         queryFn: async () => {
-            // Check if user is authenticated before making request
-            const stored = localStorage.getItem('evara_session');
-            if (!stored) {
-                console.warn('[useActiveAlerts] No authentication found, returning empty array');
+            if (!isAuthenticated) {
                 return [];
             }
-
-            try {
-                const { data } = await api.get<AlertHistory[]>('/dashboard/alerts');
-                return data; // Backend returns List[Dict] which matches AlertHistory[]
-            } catch (error: any) {
-                // Return empty array if endpoint fails
-                if (error.response?.status === 401 || error.response?.status === 403) {
-                    console.warn('[useActiveAlerts] Authentication failed, returning empty array');
-                } else {
-                    console.warn('[useActiveAlerts] Request failed:', error.message);
-                }
-                return [];
-            }
+            // Temporarily returning empty array until alerts are moved to Supabase DB
+            return [];
         },
         staleTime: 1000 * 30, // 30 seconds
         refetchInterval: 1000 * 60, // Auto-refresh every 1 min
-        retry: false // Don't retry auth failures
+        retry: false,
+        enabled: isAuthenticated
     });
 };
