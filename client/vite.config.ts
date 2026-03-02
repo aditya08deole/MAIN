@@ -32,7 +32,7 @@ export default defineConfig({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-ui': ['framer-motion', 'lucide-react', 'clsx', 'tailwind-merge'],
-          'vendor-charts': ['recharts', 'chart.js'],
+          'vendor-charts': ['recharts'],
           'vendor-maps': ['leaflet', 'react-leaflet'],
           'vendor-utils': ['@supabase/supabase-js']
         }
