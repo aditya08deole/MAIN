@@ -39,7 +39,7 @@ interface HoverPanel {
 
 // â”€â”€â”€ Badge Icon Factory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-function buildBadgeIcon(template: string, status: string): L.DivIcon {
+function buildBadgeIcon(template: string, status: string, label?: string): L.DivIcon {
     const isOnline = status === 'Online';
     const statusDot = isOnline ? '#10b981' : '#94a3b8';
 
@@ -52,9 +52,14 @@ function buildBadgeIcon(template: string, status: string): L.DivIcon {
 
 
 
-    const html = `<div style="position:relative;width:52px;height:52px;display:flex;align-items:center;justify-content:center;">
+    const labelChip = label
+        ? `<div style="position:absolute;top:55px;left:50%;transform:translateX(-50%);white-space:nowrap;background:rgba(255,255,255,0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.75);border-radius:7px;padding:2px 7px;font-size:9.5px;font-weight:700;color:#1C1C1E;letter-spacing:0.02em;box-shadow:0 2px 10px rgba(0,0,0,0.13),inset 0 1px 0 rgba(255,255,255,0.6);pointer-events:none;line-height:1.4;">${label}</div>`
+        : '';
+
+    const html = `<div style="position:relative;width:52px;height:52px;display:flex;align-items:center;justify-content:center;overflow:visible;">
   <img src="${imgSrc}" style="width:50px;height:50px;object-fit:contain;display:block;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.35)) drop-shadow(0 1px 3px rgba(0,0,0,0.25));" />
   <div style="position:absolute;bottom:0px;right:0px;width:13px;height:13px;border-radius:50%;background:${statusDot};border:2.5px solid #fff;box-shadow:0 2px 8px ${statusDot}90;"></div>
+  ${labelChip}
 </div>`;
 
     return L.divIcon({
@@ -151,35 +156,60 @@ const DeviceHoverPanel = ({ device, x, y, onNavigate }: {
     return createPortal(
         <div style={{
             position: 'fixed', left: cx, top: cy, width: panelW, zIndex: 9999,
-            background: 'rgba(255,255,255,0.88)',
-            backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255,255,255,0.55)',
-            borderRadius: '20px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.13),0 1px 4px rgba(0,0,0,0.06)',
-            padding: '14px 16px',
+            background: 'rgba(255,255,255,0.55)',
+            backdropFilter: 'blur(40px) saturate(200%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(200%)',
+            border: '1px solid rgba(255,255,255,0.7)',
+            borderRadius: '24px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.10), inset 0 1px 0 0 rgba(255,255,255,0.65)',
+            padding: '16px 18px',
             pointerEvents: 'none',
-            animation: 'hoverFadeIn 0.18s ease-out',
+            animation: 'hoverFadeIn 0.2s cubic-bezier(0.16,1,0.3,1)',
+            overflow: 'hidden',
         }}>
-            <style>{`@keyframes hoverFadeIn{from{opacity:0;transform:translateY(4px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}`}</style>
-            <div style={{ position: 'absolute', top: 0, left: 16, right: 16, height: '2px', background: accent, borderRadius: '2px' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '6px', marginBottom: '6px' }}>
+            <style>{`
+              @keyframes hoverFadeIn{from{opacity:0;transform:translateY(6px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+              .map-popup-btn:hover{filter:brightness(1.08);transform:scale(0.98)}
+            `}</style>
+            {/* Top sheen line */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.8)' }} />
+            {/* Header row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '8px', marginBottom: '8px', position: 'relative', zIndex: 1 }}>
                 <div>
-                    <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#1e293b', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+                    <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#1C1C1E', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
                         {device.label || device.name || device.node_key || 'Unnamed'}
                     </h3>
-                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b', fontWeight: 600 }}>{template}</p>
+                    <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#636366', fontWeight: 600 }}>{template}</p>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: isOnline ? 'rgba(34,197,94,0.1)' : 'rgba(148,163,184,0.12)', borderRadius: '999px', padding: '3px 8px', flexShrink: 0 }}>
-                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: isOnline ? '#22c55e' : '#94a3b8' }} />
-                    <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: isOnline ? '#16a34a' : '#64748b' }}>{device.status}</span>
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: '4px',
+                    background: isOnline ? 'rgba(52,199,89,0.12)' : 'rgba(142,142,147,0.12)',
+                    border: `1px solid ${isOnline ? 'rgba(52,199,89,0.25)' : 'rgba(142,142,147,0.2)'}`,
+                    borderRadius: '999px', padding: '3px 9px', flexShrink: 0
+                }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: isOnline ? '#34C759' : '#8E8E93', boxShadow: isOnline ? '0 0 6px rgba(52,199,89,0.7)' : 'none' }} />
+                    <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: isOnline ? '#34C759' : '#8E8E93' }}>{device.status}</span>
                 </div>
             </div>
-            <div style={{ height: '1px', background: 'rgba(0,0,0,0.06)', margin: '6px 0' }} />
-            <MiniTelemetryViz device={device} />
-            <div style={{ marginTop: '12px', pointerEvents: 'auto' }}>
+            {/* Divider */}
+            <div style={{ height: '1px', background: 'linear-gradient(90deg,transparent,rgba(0,0,0,0.07),transparent)', margin: '8px 0', position: 'relative', zIndex: 1 }} />
+            <div style={{ position: 'relative', zIndex: 1 }}>
+                <MiniTelemetryViz device={device} />
+            </div>
+            {/* Action button */}
+            <div style={{ marginTop: '14px', pointerEvents: 'auto', position: 'relative', zIndex: 1 }}>
                 <button
+                    className="map-popup-btn"
                     onClick={() => onNavigate(route)}
-                    style={{ width: '100%', padding: '7px 0', background: accent, color: '#fff', borderRadius: '10px', fontSize: '11px', fontWeight: 700, border: 'none', cursor: 'pointer', letterSpacing: '0.3px' }}
+                    style={{
+                        width: '100%', padding: '9px 0',
+                        background: `linear-gradient(135deg,${accent},${accent}cc)`,
+                        color: '#fff', borderRadius: '14px',
+                        fontSize: '12px', fontWeight: 700, border: 'none',
+                        cursor: 'pointer', letterSpacing: '0.3px',
+                        boxShadow: `0 4px 16px ${accent}55`,
+                        transition: 'filter 0.15s, transform 0.15s',
+                    }}
                 >
                     View Details
                 </button>
@@ -213,13 +243,13 @@ const SharedMap = ({
         [pipelines, activePipeline]
     );
 
-    // Pre-build icons keyed by template+status â€” avoids rebuilding per-marker per-render
+    // Pre-build icons keyed by device.id — labels are per-device
     const iconMap = useMemo(() => {
         const m = new Map<string, L.DivIcon>();
         for (const d of filteredDevices) {
             const t = (d as any).analytics_template || d.asset_type || '';
-            const k = `${t}__${d.status}`;
-            if (!m.has(k)) m.set(k, buildBadgeIcon(t, d.status));
+            const lbl = (d.label || d.name || (d as any).node_key || '').toString();
+            m.set(d.id, buildBadgeIcon(t, d.status, lbl));
         }
         return m;
     }, [filteredDevices]);
@@ -258,7 +288,8 @@ const SharedMap = ({
                     {filteredDevices.map((device) => {
                         if (!device.latitude || !device.longitude) return null;
                         const t = (device as any).analytics_template || device.asset_type || '';
-                        const icon = iconMap.get(`${t}__${device.status}`) ?? buildBadgeIcon(t, device.status);
+                        const lbl = (device.label || device.name || (device as any).node_key || '').toString();
+                        const icon = iconMap.get(device.id) ?? buildBadgeIcon(t, device.status, lbl);
                         return (
                             <Marker
                                 key={device.id}

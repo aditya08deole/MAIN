@@ -7,7 +7,9 @@ from sqlalchemy.orm import declarative_base
 from config import get_settings
 import ssl
 import uuid
+import logging
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # Fix URL for asyncpg driver
@@ -17,24 +19,19 @@ if db_url.startswith("postgres://"):
 elif db_url.startswith("postgresql://") and "+asyncpg" not in db_url:
     db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-# Remove any URL query parameters (asyncpg doesn't support sslmode in URL)
+# Remove URL query parameters — asyncpg requires SSL to be passed via connect_args,
+# not as URL query strings like ?ssl=require or ?sslmode=require.
+# SSL IS still enforced below via connect_args={"ssl": ssl_context}.
 if "?" in db_url:
     db_url = db_url.split("?")[0]
-    print("[INFO] Cleaned URL query parameters (SSL configured in connect_args)")
+    logger.debug("Stripped URL query parameters (e.g. ?ssl=require). SSL enforced via connect_args.")
 
 # Verify Supabase connection pooler usage
 if "supabase.co" in db_url or "pooler.supabase.com" in db_url:
     if ":5432/" in db_url:
-        print("[WARNING] DATABASE_URL uses port 5432 (direct connection)")
-        print("          Supabase requires port 6543 (connection pooler) for external access")
+        logger.warning("DATABASE_URL uses port 5432 (direct). Supabase requires port 6543 (pooler) for external access.")
     elif ":6543/" in db_url:
-        print("[OK] Using Supabase connection pooler (port 6543)")
-        
-        # Detect zone from URL
-        if "aws-1-ap-northeast-2" in db_url:
-            print("[OK] Zone: Seoul (ap-northeast-2)")
-        elif "aws-0-ap-south-1" in db_url:
-            print("[OK] Zone: Mumbai (ap-south-1)")
+        logger.debug("Using Supabase connection pooler (port 6543)")
 
 # Configure SSL for Supabase (required for all connections)
 ssl_context = ssl.create_default_context()
@@ -53,8 +50,10 @@ engine = create_async_engine(
         "ssl": ssl_context,
         "timeout": 30,
         "command_timeout": 60,
-        # Strictly disable prepared statement cache for PgBouncer
+        # Disable prepared statement cache for PgBouncer transaction mode.
+        # Both keys cover different asyncpg versions.
         "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
     }
 )
 

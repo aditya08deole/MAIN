@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useDashboardSummary } from '../hooks/useDashboardSummary';
 import { useMapDevices } from '../hooks/useMapDevices';
@@ -7,10 +7,12 @@ import { adminService } from '../services/admin';
 import { ArrowUpRight, ListFilter, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
+import { computeOnlineStatus } from '../utils/telemetryPipeline';
 
 // Operational Components
 import KPIAuthoritativeCard from '../components/dashboard/KPIAuthoritativeCard';
-import ProductPieChart from '../components/dashboard/ProductPieChart';
+// Lazy-load echarts-based chart to keep initial bundle small
+const ProductPieChart = lazy(() => import('../components/dashboard/ProductPieChart'));
 import AlertsActivityPanel from '../components/dashboard/AlertsActivityPanel';
 import LiveLogsPanel from '../components/dashboard/LiveLogsPanel';
 import NodeDataExplorer from '../components/dashboard/NodeDataExplorer';
@@ -65,11 +67,8 @@ function Dashboard() {
 
     // Map devices to Explorer format
     const explorerNodes = devices.map(d => {
-        const lastSeen = d.last_seen;
-        const lastSeenDate = lastSeen ? new Date(lastSeen) : null;
-        const isStale = lastSeenDate
-            ? (new Date().getTime() - lastSeenDate.getTime()) > 10 * 60 * 1000
-            : true;
+        const template = d.analytics_template || (d.asset_type === 'tank' || d.asset_type === 'sump' ? 'EvaraTank' : d.asset_type === 'flow' || d.asset_type === 'flow_meter' ? 'EvaraFlow' : 'EvaraDeep');
+        const isStale = computeOnlineStatus(d.last_seen, template) === 'Offline';
 
         return {
             id: d.id,
@@ -78,7 +77,7 @@ function Dashboard() {
                 ((d.asset_type === 'flow' || d.asset_type === 'flow_meter' || (d as any).analytics_template === 'EvaraFlow') ? 'flow' : 'deep') as 'tank' | 'flow' | 'deep',
             status: (d.status === 'Online' && !isStale ? 'Online' : 'Offline') as 'Online' | 'Offline',
             isStale,
-            lastSeen: lastSeen || undefined,
+            lastSeen: d.last_seen || undefined,
             metrics: d.last_telemetry || {},
             location: d.name?.includes('Sector') ? 'Sector 1' : 'Main Campus',
             device: d.asset_category || d.asset_type || 'Sensor'
@@ -178,12 +177,14 @@ function Dashboard() {
 
                     {/* ROW 2 */}
                     <div className="col-span-4 h-full">
-                        <ProductPieChart
-                            tank={devices.filter(d => (d as any).analytics_template === 'EvaraTank' || d.asset_type === 'tank' || d.asset_type === 'sump').length}
-                            flow={devices.filter(d => (d as any).analytics_template === 'EvaraFlow' || d.asset_type === 'flow' || d.asset_type === 'flow_meter').length}
-                            deep={devices.filter(d => (d as any).analytics_template === 'EvaraDeep' || d.asset_type === 'bore' || d.asset_type === 'govt').length}
-                            className="h-full"
-                        />
+                        <Suspense fallback={<div className="h-full animate-pulse rounded-xl bg-white/10" />}>
+                            <ProductPieChart
+                                tank={devices.filter(d => (d as any).analytics_template === 'EvaraTank' || d.asset_type === 'tank' || d.asset_type === 'sump').length}
+                                flow={devices.filter(d => (d as any).analytics_template === 'EvaraFlow' || d.asset_type === 'flow' || d.asset_type === 'flow_meter').length}
+                                deep={devices.filter(d => (d as any).analytics_template === 'EvaraDeep' || d.asset_type === 'bore' || d.asset_type === 'govt').length}
+                                className="h-full"
+                            />
+                        </Suspense>
                     </div>
 
                     <div className="col-span-8 h-full min-h-0">

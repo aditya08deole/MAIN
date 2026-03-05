@@ -32,9 +32,12 @@ export const useDashboardSummary = () => {
             }
             return await adminService.getDashboardSummary();
         },
-        staleTime: 1000 * 30,         // 30 seconds stale
-        refetchInterval: 5000,        // background refresh every 5 seconds for "instant" feel
-        retry: 0,                       // fail fast, don't retry & delay
+        staleTime: 1000 * 30,              // 30 seconds stale
+        gcTime: 5 * 60_000,                // P28: keep data in cache 5 min after unmount
+        refetchInterval: 5000,             // background refresh every 5 seconds for "instant" feel
+        retry: 1,                          // P28: retry once instead of failing permanently
+        retryDelay: 2000,                  // P28: 2s delay before retry
+        refetchOnWindowFocus: true,        // P28: immediately refresh when user tabs back
         enabled: isAuthenticated,
         placeholderData: keepPreviousData, // show last known data immediately while refetching
     });

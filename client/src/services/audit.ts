@@ -27,11 +27,22 @@ export const exportAuditLogs = async (): Promise<void> => {
     // For CSV export in a serverless way, we fetch data and generate blob on client
     const logs = await getAuditLogs(1000);
     const headers = ['id', 'user_id', 'action', 'resource_type', 'resource_id', 'created_at'];
-    const csvRows = [headers.join(',')];
+
+    // FIX: escape CSV fields to handle commas, quotes, and newlines inside values
+    const escapeCsvField = (value: unknown): string => {
+        if (value == null) return '';
+        const str = String(value);
+        if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+            return '"' + str.replace(/"/g, '""') + '"';
+        }
+        return str;
+    };
+
+    const csvRows = [headers.map(escapeCsvField).join(',')];
 
     logs.forEach(log => {
         const row = [log.id, log.user_id, log.action, log.resource_type, log.resource_id, log.created_at];
-        csvRows.push(row.join(','));
+        csvRows.push(row.map(escapeCsvField).join(','));
     });
 
     const url = window.URL.createObjectURL(new Blob([csvRows.join('\n')], { type: 'text/csv' }));

@@ -6,10 +6,8 @@ import MainLayout from './layouts/MainLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Home, Dashboard, AllNodes, Admin, NodeDetails, EvaraTankAnalytics, EvaraDeepAnalytics, EvaraFlowAnalytics, Login } from './pages';
 import AdminLayout from './layouts/AdminLayout';
-// import SuperAdminOverview from './pages/SuperAdminOverview';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminCustomers from './pages/admin/AdminCustomers';
-// import AdminNodes from './pages/admin/AdminNodes';
 import AdminConfig from './pages/admin/AdminConfig';
 import ZonesOverview from './pages/admin/hierarchy/ZonesOverview';
 import ZoneCommunities from './pages/admin/hierarchy/ZoneCommunities';
@@ -139,7 +137,8 @@ function App() {
                                             </Route>
                                         </Route>
 
-                                        {/* Catch-all redirect to Map */}
+                                        {/* Catch-all — redirect unknown paths to Map */}
+                                        <Route path="*" element={<Navigate to="/map" replace />} />
                                     </Routes>
                                 </GlobalBackground>
                             </Router>
@@ -147,7 +146,8 @@ function App() {
                     </TenancyProvider>
                 </AuthProvider>
             )}
-            <ReactQueryDevtools initialIsOpen={false} />
+            {/* DevTools only loaded in development builds */}
+            {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
         </QueryClientProvider>
     );
 }

@@ -290,7 +290,7 @@ class AuditLogCreate(BaseModel):
 class AuditLogResponse(BaseModel):
     """Audit log response."""
     id: str
-    user_id: str
+    user_id: Optional[str] = None  # nullable — superadmin actions may not have a customers row
     action: str
     resource_type: str
     resource_id: Optional[str] = None
@@ -411,21 +411,29 @@ class RegionStatsResponse(BaseModel):
 
 class DashboardSummaryResponse(BaseModel):
     """Consolidated dashboard summary metrics."""
-    total_devices: int
-    deployed_active: int
-    deployed_inactive: int
-    health_working: int
-    health_not_working: int
-    product_tank: int
-    product_flow: int
-    product_deep: int
-    alerts_active: int
-    alerts_critical: int
-    alerts_warning: int
-    tanks_full: int
-    tanks_not_full: int
-    system_health: int
-    timestamp: datetime
+    total_devices: int = 0
+    deployed_active: int = 0
+    deployed_inactive: int = 0
+    health_working: int = 0
+    health_not_working: int = 0
+    product_tank: int = 0
+    product_flow: int = 0
+    product_deep: int = 0
+    alerts_active: int = 0
+    alerts_critical: int = 0
+    alerts_warning: int = 0
+    tanks_full: int = 0
+    tanks_not_full: int = 0
+    # Legacy aliases kept for backward compatibility
+    online_devices: int = 0
+    tanks_low: int = 0
+    system_health: int = 100
+    timestamp: datetime = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.timestamp is None:
+            from datetime import timezone
+            self.timestamp = datetime.now(timezone.utc)
 
 
 

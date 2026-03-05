@@ -10,6 +10,7 @@ import { motion } from 'framer-motion';
 import { User, Mail, Phone, Building2, MapPin, FileText, Loader2, CheckCircle } from 'lucide-react';
 
 import { adminService } from '../../../services/admin';
+import api from '../../../services/api';
 import { useZones } from '../../../hooks/useZones';
 import { useCommunities } from '../../../hooks/useCommunities';
 import { useToast } from '../../ToastProvider';
@@ -17,7 +18,7 @@ import { FormField } from '../../forms/FormField';
 
 const clientSchema = z.object({
     name: z.string().min(2, 'Name is required'),
-    email: z.string().email('Invalid email').optional().or(z.literal('')),
+    email: z.string().email('Invalid email address').min(1, 'Email is required'),
     phone: z.string().optional(),
     address: z.string().optional(),
     community_id: z.string().uuid('Please select a community'),
@@ -52,10 +53,41 @@ export const AddCustomerForm = ({ onSubmit, onCancel }: Props) => {
         zones ? [...zones].sort((a, b) => a.name.localeCompare(b.name)) : [],
         [zones]);
 
+    const pollJobStatus = async (jobId: string) => {
+        for (let i = 0; i < 60; i++) {
+            try {
+                const r = await api.get(`/admin/provision/${jobId}`);
+                const s = r.data;
+                if (!s) break;
+                if (s.status === 'succeeded') return { ok: true, result: s.result };
+                if (s.status === 'failed') return { ok: false, error: s.error };
+            } catch (e) {
+                // ignore and retry
+            }
+            await new Promise(res => setTimeout(res, 2000));
+        }
+        return { ok: false, error: 'timeout' };
+    };
+
     const handleFormSubmit = async (data: ClientInput) => {
         try {
             const { regionFilter: _r, ...payload } = data;
             const result = await adminService.createClient(payload);
+
+            // Backend may return an accepted job when provisioning is backgrounded
+            if (result && (result as any).status === 'accepted' && (result as any).job_id) {
+                showToast('Provisioning started — waiting for completion', 'info');
+                const jobId = (result as any).job_id;
+                const res = await pollJobStatus(jobId);
+                if (res.ok) {
+                    showToast('Customer provisioning completed', 'success');
+                    onSubmit(res.result);
+                } else {
+                    showToast(`Provisioning failed: ${res.error}`, 'error');
+                }
+                return;
+            }
+
             showToast('Customer added successfully', 'success');
             onSubmit(result);
         } catch (err: any) {
@@ -81,7 +113,7 @@ export const AddCustomerForm = ({ onSubmit, onCancel }: Props) => {
                     <FormField label="Full Name" required icon={User} error={errors.name?.message} className="md:col-span-2">
                         <input {...register('name')} placeholder="e.g. Ramesh Sharma" className={inputClass(errors.name)} />
                     </FormField>
-                    <FormField label="Email" icon={Mail} error={errors.email?.message}>
+                    <FormField label="Email" required icon={Mail} error={errors.email?.message}>
                         <input {...register('email')} type="email" placeholder="customer@example.com" className={inputClass(errors.email)} />
                     </FormField>
                     <FormField label="Phone" icon={Phone} error={errors.phone?.message}>

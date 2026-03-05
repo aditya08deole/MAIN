@@ -18,6 +18,10 @@ env/
 .env
 .env.*
 !.env.example
+
+# Security — never commit debug log files that may contain tokens/JWTs
+auth_debug.log
+*.debug.log
 # Vite
 *.local
 
@@ -35,3 +39,11 @@ env/
 *.njsproj
 *.sln
 *.sw?
+
+# Telemetry cache — auto-generated, should not be committed
+.telemetry_cache/
+server/.telemetry_cache/
+
+# Temporary debug/test JSON files
+tmp_*.json
+*.tmp.json

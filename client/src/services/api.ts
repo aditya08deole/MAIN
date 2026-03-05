@@ -1,7 +1,9 @@
 import axios, { type AxiosResponse, type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { supabase } from '../lib/supabase';
 
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+// Use relative path so requests go through the Vite dev-server proxy (→ backend)
+// In production, nginx handles /api routing. Absolute localhost:8000 bypasses the proxy.
+const baseURL = import.meta.env.VITE_API_URL || '/api/v1';
 
 // Create Axios Instance
 const api = axios.create({
@@ -9,7 +11,7 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    timeout: 10000, // 10 seconds global timeout
+    timeout: 10000, // 10 seconds — fail fast, show error instead of hanging
 });
 
 // Request Interceptor: Inject Supabase Session Token

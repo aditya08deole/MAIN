@@ -25,3 +25,9 @@ python-dotenv==1.0.1
 # Performance Monitoring
 psutil==5.9.8
 diskcache==5.6.3
+
+# Background ingestion scheduler
+apscheduler==3.10.4
+
+# Optional: Redis-backed durable job queue
+redis==5.2.0

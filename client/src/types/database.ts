@@ -1021,8 +1021,30 @@ export type RegionRow = Tables<'zones'>
 export type CommunityRow = Tables<'communities'>
 export type ProfileRow = Tables<'customers'>
 export type UserProfileRow = Tables<'customers'>
-export type DeviceRow = Tables<'devices'>
 export type DistributorRow = Tables<'distributors'>
+
+// Unified device row — common fields across evaratank / evaraflow / evaradeep
+export interface DeviceRow {
+  id: string
+  name: string | null
+  node_key: string | null
+  analytics_template: string | null
+  asset_type: string | null
+  community_id: string | null
+  customer_id: string | null
+  latitude: number | null
+  longitude: number | null
+  status: string | null
+  is_active: boolean | null
+  thingspeak_channel_id: string | null
+  thingspeak_read_key: string | null
+  thingspeak_write_key: string | null
+  last_seen: string | null
+  created_at: string | null
+  updated_at: string | null
+  device_type?: string
+  [key: string]: unknown
+}
 
 export type CustomerWithDevices = ProfileRow & {
   devices?: DeviceRow[]

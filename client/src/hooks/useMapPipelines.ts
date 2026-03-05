@@ -16,20 +16,8 @@ export const useMapPipelines = () => {
     const { data: pipelines = [], isLoading, error, refetch } = useQuery<MapPipeline[]>({
         queryKey: ['map_pipelines'],
         queryFn: async () => {
-            const { data, error } = await supabase
-                .from('pipelines')
-                .select('*');
-
-            if (error) {
-                console.error('[useMapPipelines] Failed to fetch pipelines:', error);
-                throw error;
-            }
-
-            // Map to positions format if needed (assuming DB stores GeoJSON or similar)
-            return (data || []).map((p: any) => ({
-                ...p,
-                positions: p.coordinates || []
-            }));
+            // pipelines table has been removed in the current schema — return empty array
+            return [] as MapPipeline[];
         },
         staleTime: 1000 * 60 * 5,
         retry: 2,

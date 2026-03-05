@@ -33,12 +33,7 @@ export function useDeviceRealtime(enabled: boolean = true) {
         // Check if realtime is enabled via environment variable
         const realtimeEnabled = import.meta.env.VITE_ENABLE_REALTIME === 'true';
         
-        if (!enabled || !realtimeEnabled) {
-            console.log('[Realtime] Disabled via config or prop');
-            return;
-        }
-        
-        console.log('[Realtime] 🔌 Setting up device subscription');
+        if (!enabled || !realtimeEnabled) return;
         
         // Subscribe to devices table changes
         const unsubscribe = createRealtimeChannelWithCache<NodeRow>(
@@ -51,20 +46,14 @@ export function useDeviceRealtime(enabled: boolean = true) {
                 
                 switch (payload.eventType) {
                     case 'INSERT':
-                        // Add new device to cache
-                        console.log('[Realtime] ➕ Device added:', payload.new);
                         return [payload.new, ...oldDevices];
                         
                     case 'UPDATE':
-                        // Update existing device in cache
-                        console.log('[Realtime] ✏️ Device updated:', payload.new);
                         return oldDevices.map(device =>
                             device.id === payload.new.id ? payload.new : device
                         );
                         
                     case 'DELETE':
-                        // Remove device from cache
-                        console.log('[Realtime] 🗑️ Device deleted:', payload.old);
                         return oldDevices.filter(device => device.id !== payload.old.id);
                         
                     default:
@@ -73,11 +62,7 @@ export function useDeviceRealtime(enabled: boolean = true) {
             }
         );
         
-        // Cleanup on unmount
-        return () => {
-            console.log('[Realtime] 🔌 Cleaning up device subscription');
-            unsubscribe();
-        };
+        return () => { unsubscribe(); };
     }, [queryClient, enabled]);
 }
 

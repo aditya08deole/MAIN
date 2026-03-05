@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { computeOnlineStatus } from '../utils/telemetryPipeline';
 
 // Map DB asset_type → NodeCategory for AllNodes display
 function mapCategory(assetType: string | null, template: string | null): string {
@@ -22,46 +23,59 @@ export const useNodes = (searchQuery: string = '') => {
     const { data: nodes = [], isLoading, error, refetch } = useQuery({
         queryKey: ['nodes', searchQuery],
         queryFn: async () => {
-            console.log('[useNodes] Fetching devices with search:', searchQuery);
-            let query = supabase
-                .from('devices')
-                .select('*, communities(name, zones(name))')
-                .is('deleted_at', null)
-                .order('created_at', { ascending: false });
+            // Fetch only the columns that actually exist in the unified device tables
+            const cols = 'id, label, node_key, last_seen, latitude, longitude, is_active, community_id, created_at, updated_at, communities(name)';
+            const [tankRes, flowRes, deepRes] = await Promise.all([
+                supabase.from('evaratank' as any).select(cols).is('deleted_at', null),
+                supabase.from('evaraflow' as any).select(cols).is('deleted_at', null),
+                supabase.from('evaradeep' as any).select(cols).is('deleted_at', null),
+            ]);
 
-            if (searchQuery) {
-                query = query.or(`label.ilike.%${searchQuery}%,node_key.ilike.%${searchQuery}%`);
-            }
+            const firstError = tankRes.error || flowRes.error || deepRes.error;
+            if (firstError) throw new Error(firstError.message);
 
-            const { data, error } = await query;
-            if (error) {
-                console.error('[useNodes] Query error:', error);
-                throw new Error(error.message);
-            }
+            const allRows = [
+                ...(tankRes.data || []).map((d: any) => ({ ...d, _device_type: 'EvaraTank' })),
+                ...(flowRes.data || []).map((d: any) => ({ ...d, _device_type: 'EvaraFlow' })),
+                ...(deepRes.data || []).map((d: any) => ({ ...d, _device_type: 'EvaraDeep' })),
+            ].sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
 
-            console.log('[useNodes] Fetched', data?.length || 0, 'devices');
-
-            return (data || []).map((d: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
-                id: d.id,
-                node_key: d.node_key,
-                label: d.label || d.node_key || 'Unnamed Node',
-                name: d.label || d.node_key || 'Unnamed Node',
-                analytics_template: d.analytics_template || 'EvaraTank',
-                asset_type: d.asset_type || 'tank',
-                category: mapCategory(d.asset_type, d.analytics_template),
-                status: d.status || 'Offline',
-                latitude: d.latitude,
-                longitude: d.longitude,
-                is_active: d.is_active,
-                capacity: null as string | null,
-                location_name: (d.communities as any)?.name || '',
-                community_id: d.community_id,
-                created_at: d.created_at,
-                updated_at: d.updated_at,
-            }));
+            return allRows
+                .filter(d => !searchQuery ||
+                    (d.label || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (d.node_key || '').toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((d: any) => {
+                    const template = d._device_type as 'EvaraTank' | 'EvaraFlow' | 'EvaraDeep';
+                    const isStale = computeOnlineStatus(d.last_seen, template) === 'Offline';
+                    // Derive asset_type from device template (no asset_type column in unified tables)
+                    const assetType = template === 'EvaraTank' ? 'tank'
+                        : template === 'EvaraFlow' ? 'flow_meter'
+                            : 'borewell';
+                    const displayName = d.label || d.node_key || 'Unnamed Node';
+                    return {
+                        id: d.id,
+                        node_key: d.node_key,
+                        label: displayName,
+                        name: displayName,
+                        analytics_template: template,
+                        asset_type: assetType,
+                        category: mapCategory(assetType, template),
+                        status: isStale ? 'Offline' : 'Online',
+                        last_seen: d.last_seen ?? null,
+                        latitude: d.latitude,
+                        longitude: d.longitude,
+                        is_active: d.is_active,
+                        capacity: null as string | null,
+                        location_name: (d.communities as any)?.name || '',
+                        community_id: d.community_id,
+                        created_at: d.created_at,
+                        updated_at: d.updated_at,
+                    };
+                });
         },
-        staleTime: 1000 * 30, // 30 seconds - reduced from 60s for fresher data
-        gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
+        staleTime: 2 * 60_000,  // 2 min — Realtime handles live updates, no aggressive poll needed
+        gcTime: 5 * 60_000,     // Keep in cache 5 minutes after unmount
         retry: 2,
         retryDelay: 1000,
         placeholderData: keepPreviousData,
@@ -69,23 +83,26 @@ export const useNodes = (searchQuery: string = '') => {
 
     // ─── Supabase Real-time Listener (Faster than WebSocket) ───
     useEffect(() => {
-        console.log('[useNodes] Setting up Supabase real-time subscriptions');
-        
         const channel = supabase
-            .channel('devices-changes')
-            .on('postgres_changes', 
-                { event: '*', schema: 'public', table: 'devices' },
-                (payload) => {
-                    console.log('[useNodes] Device change detected:', payload.eventType);
-                    queryClient.invalidateQueries({ queryKey: ['nodes'] });
-                    queryClient.invalidateQueries({ queryKey: ['map_devices'] });
-                    queryClient.invalidateQueries({ queryKey: ['dashboard_summary'] });
-                }
-            )
+            .channel('device-tables-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'evaratank' }, () => {
+                queryClient.invalidateQueries({ queryKey: ['nodes'] });
+                queryClient.invalidateQueries({ queryKey: ['map_devices'] });
+                queryClient.invalidateQueries({ queryKey: ['dashboard_summary'] });
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'evaraflow' }, () => {
+                queryClient.invalidateQueries({ queryKey: ['nodes'] });
+                queryClient.invalidateQueries({ queryKey: ['map_devices'] });
+                queryClient.invalidateQueries({ queryKey: ['dashboard_summary'] });
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'evaradeep' }, () => {
+                queryClient.invalidateQueries({ queryKey: ['nodes'] });
+                queryClient.invalidateQueries({ queryKey: ['map_devices'] });
+                queryClient.invalidateQueries({ queryKey: ['dashboard_summary'] });
+            })
             .subscribe();
 
         return () => {
-            console.log('[useNodes] Cleaning up Supabase subscriptions');
             supabase.removeChannel(channel);
         };
     }, [queryClient]);

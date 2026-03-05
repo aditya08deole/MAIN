@@ -38,6 +38,81 @@
   --animate-fade-in: fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-slide-up: slide-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-float: float 6s ease-in-out infinite;
+
+  /* EvaraTank iOS animations */
+  --animate-wave-slow: ios-wave 8s linear infinite;
+  --animate-wave-fast: ios-wave 5s linear infinite;
+  --animate-bubble: ios-bubble 4s ease-in-out infinite;
+  --animate-blob: ios-blob 10s infinite;
+  --animate-grow-up: ios-grow-up 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-draw-path: ios-draw-path 2s ease-out forwards;
+  --animate-ping-slow: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+
+  /* iOS color tokens */
+  --color-ios-bg-light: #F2F2F7;
+  --color-ios-bg-dark: #000000;
+  --color-ios-primary: #FF9500;
+  --color-ios-accent: #0A84FF;
+  --color-ios-success: #34C759;
+}
+
+@keyframes ios-wave {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes ios-bubble {
+  0%   { transform: translateY(100%) scale(0.5); opacity: 0; }
+  50%  { opacity: 0.8; }
+  100% { transform: translateY(-20%) scale(1.2); opacity: 0; }
+}
+
+@keyframes ios-blob {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  33%       { transform: translate(30px, -50px) scale(1.1); }
+  66%       { transform: translate(-20px, 20px) scale(0.9); }
+}
+
+@keyframes ios-grow-up {
+  0%   { height: 0%; opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes ios-draw-path {
+  0%   { stroke-dasharray: 1500; stroke-dashoffset: 1500; }
+  100% { stroke-dasharray: 1500; stroke-dashoffset: 0; }
+}
+
+/* iOS glass panel utility — always light (matches app glassmorphism palette) */
+.ios-glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(255, 255, 255, 0.8) inset;
+}
+
+.ios-input {
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  outline: none;
+  transition: all 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+  color: inherit;
+}
+
+.ios-input:focus {
+  outline: 2px solid rgba(10, 132, 255, 0.5);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.tank-glass {
+  box-shadow: inset 0 0 20px rgba(255,255,255,0.5), inset 2px 2px 5px rgba(255,255,255,0.8), inset -5px -5px 15px rgba(0,0,0,0.1);
 }
 
 @keyframes fade-in {
@@ -420,6 +495,13 @@ body {
 }
 
 /* Base Apple Glass Card — exact same recipe as the Navbar */
+/* Map badge icon — allow label chip to overflow Leaflet's clipped container */
+.evara-map-badge {
+  overflow: visible !important;
+  background: transparent !important;
+  border: none !important;
+}
+
 .apple-glass-card {
   position: relative;
   /* EXACT match to navbar: rgba(255,255,255,0.2) */
@@ -633,4 +715,64 @@ a:active {
 @keyframes panelSlideIn {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LEAFLET MAP — Device Labels & Glassmorphism Popups
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Always-visible device name chip (permanent Tooltip) ────────────── */
+.device-name-label {
+  background: rgba(15, 23, 42, 0.72) !important;
+  backdrop-filter: blur(8px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(150%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  color: #f8fafc !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.03em !important;
+  padding: 3px 8px !important;
+  border-radius: 99px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+}
+/* Hide the default Leaflet tooltip arrow for the name chip */
+.device-name-label::before {
+  display: none !important;
+}
+
+/* ── Glassmorphism Popup container ───────────────────────────────────── */
+.leaflet-glass-popup .leaflet-popup-content-wrapper {
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.55) !important;
+  border-radius: 16px !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.14),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  padding: 14px 16px !important;
+}
+.leaflet-glass-popup .leaflet-popup-content {
+  margin: 0 !important;
+  width: auto !important;
+}
+/* Glassmorphism tip/tail */
+.leaflet-glass-popup .leaflet-popup-tip-container .leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  box-shadow: none !important;
+}
+/* Close button */
+.leaflet-glass-popup .leaflet-popup-close-button {
+  color: #64748b !important;
+  font-size: 18px !important;
+  top: 10px !important;
+  right: 12px !important;
+}
+.leaflet-glass-popup .leaflet-popup-close-button:hover {
+  color: #0f172a !important;
 }

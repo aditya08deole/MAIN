@@ -48,10 +48,9 @@ const NodeDetails = () => {
     const { data: device, isLoading: deviceLoading } = useQuery<MapDevice>({
         queryKey: ['device', id],
         queryFn: async () => {
-            const response = await api.get<MapDevice[]>('/devices/map/all');
-            const found = response.data.find(d => d.id === id);
-            if (!found) throw new Error('Device not found');
-            return found;
+            // FIX: use dedicated single-device endpoint instead of fetching all
+            const response = await api.get<MapDevice>(`/nodes/${id}`);
+            return response.data;
         },
         enabled: !!id,
     });

@@ -316,9 +316,6 @@ const AllNodes = () => {
                                     to={getDeviceAnalyticsRoute({ id: node.node_key, analytics_template: node.analytics_template || undefined, device_type: node.category || undefined })}
                                     className="group apple-glass-card flex flex-col"
                                 >
-                                    {/* Card top accent — analytics color */}
-                                    <div className={clsx('h-1 w-full', anCfg.dot)} />
-
                                     <div className="p-5 flex flex-col flex-1">
                                         {/* Icon + status */}
                                         <div className="flex items-start justify-between mb-4">

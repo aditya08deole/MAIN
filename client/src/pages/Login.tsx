@@ -31,8 +31,7 @@ const Login = () => {
         setStep('credentials');
         setError('');
         // Pre-fill email for demo convenience if desired, or leave blank
-        if (role === 'superadmin') setEmail('ritik@evaratech.com');
-        else setEmail('');
+        setEmail('');
     };
 
     const handleBack = () => {

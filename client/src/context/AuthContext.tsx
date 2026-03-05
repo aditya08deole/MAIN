@@ -13,6 +13,7 @@ export interface User {
     role: UserRole;
     plan: UserPlan;
     community_id?: string;
+    distributor_id?: string;
 }
 
 interface AuthContextType {
@@ -31,12 +32,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState<boolean>(true);
 
     // Extract user metadata from Supabase session
-    const extractUser = useCallback((supabaseUser: SupabaseUser, profile?: any): User => {
+    const extractUser = useCallback((supabaseUser: SupabaseUser, profile?: Record<string, unknown>): User => {
         const metadata = supabaseUser.user_metadata || {};
         const profileRole = profile?.role as UserRole;
         const metadataRole = metadata.role as UserRole;
 
-        const finalRole = profileRole || metadataRole || 'customer';
+        // Normalize to lowercase to prevent case-mismatch on role comparisons (e.g. 'SuperAdmin' vs 'superadmin')
+        const rawRole = profileRole || metadataRole || 'customer';
+        const finalRole = (typeof rawRole === 'string' ? rawRole.toLowerCase() : rawRole) as UserRole;
 
         return {
             id: supabaseUser.id,
@@ -45,6 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role: finalRole,
             plan: (metadata.plan as UserPlan) || 'pro',
             community_id: profile?.community_id || metadata.community_id,
+            distributor_id: profile?.distributor_id || metadata.distributor_id,
         };
     }, []);
 
@@ -61,7 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } else {
                 setUser(extractUser(supabaseUser, profile));
             }
-        } catch (err) {
+        } catch {
             setUser(extractUser(supabaseUser));
         } finally {
             setLoading(false);
@@ -126,7 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     .eq('id', data.user.id)
                     .single();
 
-                const finalUser = extractUser(data.user, profile);
+                const finalUser = extractUser(data.user, profile ?? undefined);
 
                 setUser(finalUser);
                 setLoading(false);
@@ -142,7 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 error: err instanceof Error ? err.message : 'Login failed'
             };
         }
-    }, [fetchProfile]);
+    }, [extractUser]);
 
     const signup = useCallback(async (
         email: string, password: string, displayName: string

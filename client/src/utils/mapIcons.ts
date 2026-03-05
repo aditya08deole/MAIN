@@ -69,6 +69,29 @@ const createCustomIcon = (svgFn: () => string, bgColor: string, size = 30) => {
     });
 };
 
+/** Creates a per-device icon without a status dot. */
+const createDynamicIcon = (svgFn: () => string, bgColor: string, size: number, _online: boolean) => {
+    return L.divIcon({
+        className: 'custom-map-marker',
+        html: `<div style="
+            position: relative;
+            background-color: ${bgColor};
+            width: ${size}px;
+            height: ${size}px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+            transition: transform 0.2s;
+        ">${svgFn()}</div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        popupAnchor: [0, -size / 2],
+    });
+};
+
 // ── Pre-built icon sets ─────────────────────────────────────────────────
 // Colors from user styles: 
 // bg-pump: #5e2a7b
@@ -106,16 +129,19 @@ export const isOnline = (status: string) =>
 export const isOffline = (status: string) =>
     (OFFLINE_STATUSES as readonly string[]).includes(status);
 
-/** Pick the correct icon based on asset_type and status. */
+/** Pick the correct icon based on asset_type and status.
+ *  Returns a dynamically-created icon with a green (online) or gray (offline) status dot.
+ */
 export const getDeviceIcon = (assetType: string | null, status: string, iconSet = fullIcons) => {
-    if (isOffline(status)) return iconSet.notWorking;
+    const online = isOnline(status);
+    const size = (iconSet as unknown) === (miniIcons as unknown) ? 24 : 34;
     switch (assetType) {
-        case 'pump': return iconSet.pump;
-        case 'sump': return iconSet.sump;
-        case 'tank': return iconSet.tank;
-        case 'bore': return iconSet.bore;
-        case 'govt': return iconSet.govt;
-        default: return iconSet.sump;
+        case 'pump': return createDynamicIcon(pumpSvg, '#5e2a7b', size, online);
+        case 'sump': return createDynamicIcon(sumpSvg, '#3E9A3E', size, online);
+        case 'tank': return createDynamicIcon(tankSvg, '#0b4f82', size, online);
+        case 'bore': return createDynamicIcon(() => boreSvg(20), '#E53935', size, online);
+        case 'govt': return createDynamicIcon(() => boreSvg(20), '#000000', size, online);
+        default:     return createDynamicIcon(sumpSvg, '#3E9A3E', size, online);
     }
 };
 

@@ -14,7 +14,7 @@ const Sidebar = () => {
     const menuItems = [
         { path: '/superadmin/dashboard', icon: LayoutDashboard, label: 'Overview' },
         { path: '/superadmin/customers', icon: Users, label: 'Customers' },
-        { path: '/superadmin/zones', icon: Map, label: 'Zones & Zones' },
+        { path: '/superadmin/zones', icon: Map, label: 'Zones & Communities' },
         { path: '/superadmin/config', icon: Settings, label: 'System Config' },
     ];
 

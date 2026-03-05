@@ -1,321 +1,387 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Float, DateTime, JSON, Boolean, Integer, ForeignKey, UUID
+from sqlalchemy import Column, String, Float, DateTime, JSON, Boolean, Integer, BigInteger, ForeignKey, Text, UUID
 from sqlalchemy.orm import relationship
 from database import Base
 
+# NOTE: UUID(as_uuid=False) keeps UUIDs as plain strings — compatible with
+# asyncpg + PgBouncer transaction mode. Do NOT change to as_uuid=True.
 
+
+# ============================================================
+# ZONES
+# ============================================================
 class Zone(Base):
-    """Enterprise-grade geographic zones for organizing communities."""
     __tablename__ = "zones"
 
-    id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = Column(String, unique=True, nullable=False, index=True)
-    state = Column(String, nullable=True)
-    country = Column(String, default="India")
-    zone_code = Column(String, nullable=True, index=True)
-    description = Column(String, nullable=True)
-    is_active = Column(Boolean, default=True, index=True)
-    geo_boundary = Column(JSON, nullable=True)  # GeoJSON polygon
+    id             = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name           = Column(String, unique=True, nullable=False, index=True)
+    state          = Column(String, nullable=True)
+    country        = Column(String, default="India")
+    zone_code      = Column(String, nullable=True, index=True)
+    description    = Column(String, nullable=True)
+    is_active      = Column(Boolean, default=True, index=True)
+    geo_boundary   = Column(JSON, nullable=True)
     distributor_id = Column(UUID(as_uuid=False), ForeignKey("distributors.id", ondelete="CASCADE"), nullable=True, index=True)
-    deleted_at = Column(DateTime, nullable=True)
-    regional_admin_id = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at     = Column(DateTime, nullable=True)
+    created_at     = Column(DateTime, default=datetime.utcnow)
+    updated_at     = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
     communities = relationship("Community", back_populates="zone")
     distributor = relationship("Distributor", back_populates="zones")
 
+
+# ============================================================
+# PLANS
+# ============================================================
 class Plan(Base):
-    """SaaS Subscription Plans for Distributors."""
     __tablename__ = "plans"
 
-    id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = Column(String, unique=True, nullable=False)
-    max_devices = Column(Integer, default=5)
+    id             = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name           = Column(String, unique=True, nullable=False)
+    max_devices    = Column(Integer, default=5)
     retention_days = Column(Integer, default=30)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at     = Column(DateTime, default=datetime.utcnow)
+    updated_at     = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
     distributors = relationship("Distributor", back_populates="plan")
 
+
+# ============================================================
+# DISTRIBUTOR
+# ============================================================
 class Distributor(Base):
-    """Top-level tenancy abstraction (B2B/Resellers)."""
     __tablename__ = "distributors"
 
-    id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = Column(String, nullable=False)
-    region = Column(String, nullable=True)
-    status = Column(String, default="active") # active, inactive, suspended
-    plan_id = Column(UUID(as_uuid=False), ForeignKey("plans.id", ondelete="SET NULL"), nullable=True)
-    tenant_metadata = Column('metadata', JSON, default={})
+    id         = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name       = Column(String, nullable=False)
+    region     = Column(String, nullable=True)
+    status     = Column(String, default="active")
+    plan_id    = Column(UUID(as_uuid=False), ForeignKey("plans.id", ondelete="SET NULL"), nullable=True)
     deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
-    plan = relationship("Plan", back_populates="distributors")
-    zones = relationship("Zone", back_populates="distributor")
+    plan      = relationship("Plan", back_populates="distributors")
+    zones     = relationship("Zone", back_populates="distributor")
     customers = relationship("Customer", back_populates="distributor")
 
+
+# ============================================================
+# COMMUNITY
+# ============================================================
 class Community(Base):
-    """Enterprise communities within zones where devices are deployed."""
     __tablename__ = "communities"
 
-    id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = Column(String, nullable=False)
-    zone_id = Column(UUID(as_uuid=False), ForeignKey("zones.id", ondelete="CASCADE"), nullable=False, index=True)
-    address = Column(String, nullable=True)
-    pincode = Column(String, nullable=True, index=True)
-    contact_person = Column(String, nullable=True)
-    contact_email = Column(String, nullable=True)
-    contact_phone = Column(String, nullable=True)
+    id                 = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name               = Column(String, nullable=False)
+    zone_id            = Column(UUID(as_uuid=False), ForeignKey("zones.id", ondelete="CASCADE"), nullable=False, index=True)
+    address            = Column(String, nullable=True)
+    pincode            = Column(String, nullable=True, index=True)
+    contact_person     = Column(String, nullable=True)
+    contact_email      = Column(String, nullable=True)
+    contact_phone      = Column(String, nullable=True)
     operational_status = Column(String, default="active", index=True)
-    contact_info = Column(JSON, nullable=True) # Actual column in DB
-    meta_data = Column('metadata', JSON, default={})
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    contact_info       = Column(JSON, nullable=True)
+    created_at         = Column(DateTime, default=datetime.utcnow)
+    updated_at         = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
-    zone = relationship("Zone", back_populates="communities")
-    users = relationship("Customer", back_populates="community")
-    devices = relationship("Device", back_populates="community")
+    zone      = relationship("Zone",        back_populates="communities")
+    customers = relationship("Customer",    back_populates="community")
+    tanks     = relationship("EvaraTank",   back_populates="community")
+    flows     = relationship("EvaraFlow",   back_populates="community")
+    deeps     = relationship("EvaraDeep",   back_populates="community")
 
-class Customer(Base):
-    """Authoritative tenant/customer profile (Identical to profiles table)."""
-    __tablename__ = "customers"
- 
-    id = Column(UUID(as_uuid=False), primary_key=True)  # Supabase UUID
-    email = Column(String, unique=True, nullable=False, index=True)
+
+# ============================================================
+# SUPERADMIN  (Supabase Auth linked profile)
+# ============================================================
+class SuperAdmin(Base):
+    __tablename__ = "superadmin"
+
+    id           = Column(UUID(as_uuid=False), primary_key=True)  # Supabase Auth UUID
+    email        = Column(String, unique=True, nullable=False, index=True)
     display_name = Column(String, nullable=True)
-    full_name = Column(String, nullable=True)
-    phone_number = Column(String, nullable=True, index=True)
-    role = Column(String, default="customer", index=True)
-    community_id = Column(UUID(as_uuid=False), ForeignKey("communities.id", ondelete="SET NULL"), nullable=True, index=True)
+    created_at   = Column(DateTime, default=datetime.utcnow)
+    updated_at   = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ============================================================
+# CUSTOMER  (Supabase Auth linked profile)
+# ============================================================
+class Customer(Base):
+    __tablename__ = "customers"
+
+    id             = Column(UUID(as_uuid=False), primary_key=True)  # Supabase Auth UUID
+    email          = Column(String, unique=True, nullable=False, index=True)
+    display_name   = Column(String, nullable=True)
+    full_name      = Column(String, nullable=True)
+    phone_number   = Column(String, nullable=True, index=True)
+    role           = Column(String, default="customer", index=True)
+    community_id   = Column(UUID(as_uuid=False), ForeignKey("communities.id", ondelete="SET NULL"), nullable=True, index=True)
     distributor_id = Column(UUID(as_uuid=False), ForeignKey("distributors.id", ondelete="SET NULL"), nullable=True, index=True)
-    status = Column(String, default="active", index=True)
-    meta_data = Column('metadata', JSON, default={})
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
- 
-    # Relationships
-    community = relationship("Community", back_populates="users")
+    status         = Column(String, default="active", index=True)
+    created_at     = Column(DateTime, default=datetime.utcnow)
+    updated_at     = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    community   = relationship("Community",   back_populates="customers")
     distributor = relationship("Distributor", back_populates="customers")
-    devices = relationship("Device", back_populates="owner", foreign_keys="Device.user_id", lazy="selectin")
+    tanks       = relationship("EvaraTank",   back_populates="client", foreign_keys="EvaraTank.client_id")
+    flows       = relationship("EvaraFlow",   back_populates="client", foreign_keys="EvaraFlow.client_id")
+    deeps       = relationship("EvaraDeep",   back_populates="client", foreign_keys="EvaraDeep.client_id")
 
 
-class Device(Base):
-    """Refined IoT Device model focusing on core functionality."""
-    __tablename__ = "devices"
+# ============================================================
+# EVARATANK  — identity + config in one table
+# ============================================================
+class EvaraTank(Base):
+    __tablename__ = "evaratank"
 
-    id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id       = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     node_key = Column(String, unique=True, nullable=False, index=True)
-    label = Column(String, nullable=False)
-    name = Column(String, nullable=True, index=True)
-    asset_type = Column(String, nullable=True)
-    status = Column(String, default="active")
+    label    = Column(String, nullable=False)
 
-    # Geographic Coordinates (Normalized)
-    latitude = Column(Float, nullable=True, index=True)
-    longitude = Column(Float, nullable=True, index=True)
+    latitude  = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
 
-    # Technical/IoT Fields
-    device_type = Column(String, nullable=True)
-    last_seen = Column(DateTime, nullable=True, index=True)
-    is_active = Column(Boolean, default=True)
-
-    # Telemetry Configuration (Normalized into JSON)
-    device_telemetry_config = Column(JSON, default={})
-    last_fetched_at = Column(DateTime, nullable=True)
-
-    # Hierarchy & Ownership
     community_id = Column(UUID(as_uuid=False), ForeignKey("communities.id", ondelete="SET NULL"), nullable=True, index=True)
-    user_id = Column(UUID(as_uuid=False), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
+    client_id    = Column(UUID(as_uuid=False), ForeignKey("customers.id",   ondelete="SET NULL"), nullable=True, index=True)
+
+    thingspeak_channel_id = Column(String, nullable=True)
+    thingspeak_read_key   = Column(String, nullable=True)
+    thingspeak_write_key  = Column(String, nullable=True)
+
+    water_level_field = Column(String, default="field1")
+    temperature_field = Column(String, default="field2")
+
+    tank_shape      = Column(String, default="rectangular")
+    height_m        = Column(Float, nullable=True)
+    length_m        = Column(Float, nullable=True)
+    breadth_m       = Column(Float, nullable=True)
+    radius_m        = Column(Float, nullable=True)
+    capacity_liters = Column(Float, nullable=True)
+
+    is_active       = Column(Boolean, default=True)
+    webhook_secret  = Column(String,  nullable=True)
+    last_seen       = Column(DateTime, nullable=True, index=True)
+    last_fetched_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True)
 
-    # Relationships
-    community = relationship("Community", back_populates="devices")
-    owner = relationship("Customer", back_populates="devices", foreign_keys=[user_id])
-    telemetry_snapshot = relationship("DeviceTelemetrySnapshot", back_populates="device", uselist=False, cascade="all, delete-orphan")
-    
-    # Normalized Configs (1:1)
-    config_tank = relationship("DeviceConfigTank", back_populates="device", uselist=False, cascade="all, delete-orphan")
-    config_flow = relationship("DeviceConfigFlow", back_populates="device", uselist=False, cascade="all, delete-orphan")
-    config_deep = relationship("DeviceConfigDeep", back_populates="device", uselist=False, cascade="all, delete-orphan")
+    community = relationship("Community", back_populates="tanks")
+    client    = relationship("Customer",  back_populates="tanks", foreign_keys=[client_id])
+    snapshot  = relationship("EvaraTankSnapshot", back_populates="device", uselist=False, cascade="all, delete-orphan")
 
-class DeviceConfigTank(Base):
-    """Normalized configuration for Tank-type devices."""
-    __tablename__ = "device_config_tank"
 
-    device_id = Column(UUID(as_uuid=False), ForeignKey("devices.id", ondelete="CASCADE"), primary_key=True)
-    tank_shape = Column(String) # cylinder, rectangular
-    dimension_unit = Column(String, default="m")
-    radius = Column(Float)
-    height = Column(Float)
-    length = Column(Float)
-    breadth = Column(Float)
-    
-    # Isolated Credentials
+# ============================================================
+# EVARAFLOW  — identity + config in one table
+# ============================================================
+class EvaraFlow(Base):
+    __tablename__ = "evaraflow"
+
+    id       = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    node_key = Column(String, unique=True, nullable=False, index=True)
+    label    = Column(String, nullable=False)
+
+    latitude  = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+
+    community_id = Column(UUID(as_uuid=False), ForeignKey("communities.id", ondelete="SET NULL"), nullable=True, index=True)
+    client_id    = Column(UUID(as_uuid=False), ForeignKey("customers.id",   ondelete="SET NULL"), nullable=True, index=True)
+
     thingspeak_channel_id = Column(String, nullable=True)
-    thingspeak_read_key = Column(String, nullable=True)
+    thingspeak_read_key   = Column(String, nullable=True)
+    thingspeak_write_key  = Column(String, nullable=True)
+
+    meter_reading_field = Column(String, default="field1")
+    flow_rate_field     = Column(String, default="field2")
+
+    pipe_diameter = Column(Float, nullable=True)
+    max_flow_rate = Column(Float, nullable=True)
+
+    is_active       = Column(Boolean, default=True)
+    webhook_secret  = Column(String,  nullable=True)
+    last_seen       = Column(DateTime, nullable=True, index=True)
+    last_fetched_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
 
-    device = relationship("Device", back_populates="config_tank")
+    community = relationship("Community", back_populates="flows")
+    client    = relationship("Customer",  back_populates="flows", foreign_keys=[client_id])
+    snapshot  = relationship("EvaraFlowSnapshot", back_populates="device", uselist=False, cascade="all, delete-orphan")
 
-class DeviceConfigFlow(Base):
-    """Normalized configuration for Flow-type devices."""
-    __tablename__ = "device_config_flow"
 
-    device_id = Column(UUID(as_uuid=False), ForeignKey("devices.id", ondelete="CASCADE"), primary_key=True)
-    max_flow_rate = Column(Float)
-    pipe_diameter = Column(Float)
-    abnormal_threshold = Column(Float)
-    
-    # Isolated Credentials
+# ============================================================
+# EVARADEEP  — identity + config in one table
+# ============================================================
+class EvaraDeep(Base):
+    __tablename__ = "evaradeep"
+
+    id       = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    node_key = Column(String, unique=True, nullable=False, index=True)
+    label    = Column(String, nullable=False)
+
+    latitude  = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+
+    community_id = Column(UUID(as_uuid=False), ForeignKey("communities.id", ondelete="SET NULL"), nullable=True, index=True)
+    client_id    = Column(UUID(as_uuid=False), ForeignKey("customers.id",   ondelete="SET NULL"), nullable=True, index=True)
+
     thingspeak_channel_id = Column(String, nullable=True)
-    thingspeak_read_key = Column(String, nullable=True)
+    thingspeak_read_key   = Column(String, nullable=True)
+    thingspeak_write_key  = Column(String, nullable=True)
+
+    depth_field       = Column(String, default="field2")
+    temperature_field = Column(String, default="field1")
+
+    total_bore_depth    = Column(Float, nullable=True)
+    static_water_level  = Column(Float, nullable=True)
+    dynamic_water_level = Column(Float, nullable=True)
+    recharge_threshold  = Column(Float, default=0)
+
+    is_active       = Column(Boolean, default=True)
+    webhook_secret  = Column(String,  nullable=True)
+    last_seen       = Column(DateTime, nullable=True, index=True)
+    last_fetched_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
 
-    device = relationship("Device", back_populates="config_flow")
-
-class DeviceConfigDeep(Base):
-    """Normalized configuration for Deep Well devices."""
-    __tablename__ = "device_config_deep"
-
-    device_id = Column(UUID(as_uuid=False), ForeignKey("devices.id", ondelete="CASCADE"), primary_key=True)
-    static_depth = Column(Float)
-    dynamic_depth = Column(Float)
-    recharge_threshold = Column(Float)
-    
-    # Isolated Credentials
-    thingspeak_channel_id = Column(String, nullable=True)
-    thingspeak_read_key = Column(String, nullable=True)
-
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    device = relationship("Device", back_populates="config_deep")
+    community = relationship("Community", back_populates="deeps")
+    client    = relationship("Customer",  back_populates="deeps", foreign_keys=[client_id])
+    snapshot  = relationship("EvaraDeepSnapshot", back_populates="device", uselist=False, cascade="all, delete-orphan")
 
 
-# ============================================================================
-# TELEMETRY SNAPSHOT
-# ============================================================================
+# ============================================================
+# TELEMETRY SNAPSHOTS  (one row per device, always overwritten)
+# ============================================================
+class EvaraTankSnapshot(Base):
+    __tablename__ = "evaratank_snapshots"
 
-class DeviceTelemetrySnapshot(Base):
-    """Core Telemetry Snapshot table. The single source of truth for Realtime UI broadcast."""
-    __tablename__ = "telemetry_snapshots"
+    device_id           = Column(UUID(as_uuid=False), ForeignKey("evaratank.id", ondelete="CASCADE"), primary_key=True)
+    thingspeak_entry_id = Column(Integer,  nullable=True)
+    last_timestamp      = Column(DateTime, nullable=False, index=True)
+    raw_payload         = Column(JSON,     nullable=True)
+    level_percentage    = Column(Float,    nullable=True)
+    temperature_value   = Column(Float,    nullable=True)
+    updated_at          = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    device_id = Column(UUID(as_uuid=False), ForeignKey("devices.id", ondelete="CASCADE"), index=True, unique=True)
-    payload = Column(JSON, nullable=False) # Raw ThingSpeak feed
-    mapped_values = Column(JSON) # Legacy JSON storage
-    thingspeak_entry_id = Column(Integer, nullable=True)
-    last_timestamp = Column(DateTime, nullable=False, index=True)
-    
-    # Strongly Typed Columns (Phase 1)
-    level_percentage = Column(Float, nullable=True, index=True)
-    depth_value = Column(Float, nullable=True)
-    temperature_value = Column(Float, nullable=True)
-    flow_rate = Column(Float, nullable=True, index=True)
-    total_liters = Column(Integer, nullable=True) # Using Integer for simplicity in SQLAlchemy mapping
-
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationships
-    device = relationship("Device", back_populates="telemetry_snapshot")
+    device = relationship("EvaraTank", back_populates="snapshot")
 
 
-# ============================================================================
-# AUDIT LOG
-# ============================================================================
+class EvaraFlowSnapshot(Base):
+    __tablename__ = "evaraflow_snapshots"
 
+    device_id           = Column(UUID(as_uuid=False), ForeignKey("evaraflow.id", ondelete="CASCADE"), primary_key=True)
+    thingspeak_entry_id = Column(Integer,    nullable=True)
+    last_timestamp      = Column(DateTime,   nullable=False, index=True)
+    raw_payload         = Column(JSON,       nullable=True)
+    flow_rate           = Column(Float,      nullable=True)
+    total_liters        = Column(BigInteger, nullable=True)
+    updated_at          = Column(DateTime,   default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    device = relationship("EvaraFlow", back_populates="snapshot")
+
+
+class EvaraDeepSnapshot(Base):
+    __tablename__ = "evaradeep_snapshots"
+
+    device_id           = Column(UUID(as_uuid=False), ForeignKey("evaradeep.id", ondelete="CASCADE"), primary_key=True)
+    thingspeak_entry_id = Column(Integer,  nullable=True)
+    last_timestamp      = Column(DateTime, nullable=False, index=True)
+    raw_payload         = Column(JSON,     nullable=True)
+    depth_value         = Column(Float,    nullable=True)
+    temperature_value   = Column(Float,    nullable=True)
+    updated_at          = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    device = relationship("EvaraDeep", back_populates="snapshot")
+
+
+# ============================================================
+# TELEMETRY HISTORY  (append-only time-series)
+# ============================================================
+class TelemetryHistory(Base):
+    __tablename__ = "telemetry_history"
+
+    id                  = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    device_id           = Column(UUID(as_uuid=False), nullable=False, index=True)  # no FK — polymorphic
+    device_type         = Column(String, nullable=True)  # 'EvaraTank'|'EvaraFlow'|'EvaraDeep'
+    thingspeak_entry_id = Column(Integer,  nullable=True, index=True)
+    timestamp           = Column(DateTime, nullable=False, index=True)
+
+    field1 = Column(Float, nullable=True)
+    field2 = Column(Float, nullable=True)
+    field3 = Column(Float, nullable=True)
+    field4 = Column(Float, nullable=True)
+    field5 = Column(Float, nullable=True)
+    field6 = Column(Float, nullable=True)
+    field7 = Column(Float, nullable=True)
+    field8 = Column(Float, nullable=True)
+
+    level_percentage  = Column(Float,      nullable=True)
+    depth_value       = Column(Float,      nullable=True)
+    temperature_value = Column(Float,      nullable=True)
+    flow_rate         = Column(Float,      nullable=True)
+    total_liters      = Column(BigInteger, nullable=True)
+
+    ingested_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ============================================================
+# ALERT EVENTS
+# ============================================================
+class AlertEvent(Base):
+    __tablename__ = "alert_events"
+
+    id          = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    device_id   = Column(UUID(as_uuid=False), nullable=False, index=True)  # no FK — polymorphic
+    device_type = Column(String,  nullable=True)  # 'EvaraTank'|'EvaraFlow'|'EvaraDeep'
+    alert_type  = Column(String,  nullable=False)
+    field_name  = Column(String,  nullable=True)
+    value       = Column(Float,   nullable=True)
+    threshold   = Column(Float,   nullable=True)
+    message     = Column(String,  nullable=True)
+    resolved    = Column(Boolean, default=False)
+    fired_at    = Column(DateTime, default=datetime.utcnow, index=True)
+    resolved_at = Column(DateTime, nullable=True)
+
+
+# ============================================================
+# AUDIT LOGS
+# ============================================================
 class AuditLog(Base):
-    """Audit log for tracking user actions."""
     __tablename__ = "audit_logs"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(UUID(as_uuid=False), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
+    id             = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id        = Column(UUID(as_uuid=False), nullable=True, index=True)  # nullable — superadmin too
     distributor_id = Column(UUID(as_uuid=False), ForeignKey("distributors.id", ondelete="SET NULL"), nullable=True, index=True)
-    action = Column(String, nullable=False)
-    resource_type = Column(String, nullable=False)
-    resource_id = Column(String, nullable=True)
-    details = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
-
-    # Relationships
-    user = relationship("Customer", foreign_keys=[user_id])
+    action         = Column(String, nullable=False)
+    resource_type  = Column(String, nullable=False)
+    resource_id    = Column(String, nullable=True)
+    details        = Column(JSON,   nullable=True)
+    created_at     = Column(DateTime, default=datetime.utcnow, index=True)
 
 
-# ============================================================================
-# FRONTEND ERROR
-# ============================================================================
+# ============================================================
+# BACKGROUND JOBS
+# ============================================================
+class Job(Base):
+    __tablename__ = "jobs"
 
-class FrontendError(Base):
-    """Frontend error logs for monitoring and debugging."""
-    __tablename__ = "frontend_errors"
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    error_message = Column(String, nullable=False)
-    stack_trace = Column(String, nullable=True)
-    url = Column(String, nullable=False)
-    user_agent = Column(String, nullable=True)
-    user_id = Column(String, nullable=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
-
-
-# ============================================================================
-# PIPELINE
-# ============================================================================
-
-class Pipeline(Base):
-    """Water distribution pipelines for map visualization."""
-    __tablename__ = "pipelines"
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = Column(String, nullable=False)
-    pipeline_type = Column(String, nullable=False)
-
-    from_device_id = Column(String, ForeignKey("devices.id", ondelete="SET NULL"), nullable=True)
-    to_device_id = Column(String, ForeignKey("devices.id", ondelete="SET NULL"), nullable=True)
-
-    coordinates = Column(JSON, nullable=False)
-
-    diameter = Column(String, nullable=True)
-    material = Column(String, nullable=True)
-    installation_type = Column(String, nullable=True)
-
-    color = Column(String, default='#00b4d8')
-
-    status = Column(String, default='Active')
-    is_active = Column(Boolean, default=True)
-
-    description = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    created_by = Column(String, nullable=True)
+    id          = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    type        = Column(String, nullable=False, index=True)
+    payload     = Column(JSON, nullable=True)
+    status      = Column(String, default="queued", index=True)
+    result      = Column(JSON, nullable=True)
+    error       = Column(Text, nullable=True)
+    created_at  = Column(DateTime, default=datetime.utcnow, index=True)
+    started_at  = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+    updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-# ============================================================================
-# DEVICE SHARE
-# ============================================================================
-
-class DeviceShare(Base):
-    """Refined model for tracking device sharing/access permissions."""
-    __tablename__ = "device_shares"
-
-    id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    device_id = Column(UUID(as_uuid=False), ForeignKey("devices.id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(UUID(as_uuid=False), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False)
-    access_level = Column(String, default="viewer")  # viewer, admin
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -1,8 +1,29 @@
 import { supabase } from '../lib/supabase';
 import api from './api';
-import type { Database } from '../types/database';
+import { computeOnlineStatus } from '../utils/telemetryPipeline';
 
-type DeviceRow = Database['public']['Tables']['devices']['Row'];
+// Unified device row — common fields across evaratank / evaraflow / evaradeep
+export interface DeviceRow {
+    id: string;
+    name: string | null;
+    node_key: string | null;
+    analytics_template: string | null;
+    asset_type: string | null;
+    community_id: string | null;
+    customer_id: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    status: string | null;
+    is_active: boolean | null;
+    thingspeak_channel_id: string | null;
+    thingspeak_read_key: string | null;
+    thingspeak_write_key: string | null;
+    last_seen: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+    device_type?: string;
+    [key: string]: unknown;
+}
 
 export interface DeviceDetails extends DeviceRow {
     calibration_factor?: number;
@@ -43,20 +64,13 @@ export interface MapDevice {
 
 /**
  * Determine device online/offline status from telemetry timestamp freshness.
- * EvaraDeep (borewell): offline if no data for > 2 hours.
- * EvaraTank / EvaraFlow: offline if no data for > 30 minutes.
+ * Uses the unified computeOnlineStatus from telemetryPipeline.
  */
 export function computeDeviceStatus(
     analytics_template: string | null,
     lastTimestamp: string | null | undefined
 ): 'Online' | 'Offline' {
-    if (!lastTimestamp) return 'Offline';
-    const ageMs = Date.now() - new Date(lastTimestamp).getTime();
-    const thresholdMs =
-        analytics_template === 'EvaraDeep'
-            ? 2 * 60 * 60 * 1000   // 2 hours
-            : 30 * 60 * 1000;      // 30 minutes
-    return ageMs < thresholdMs ? 'Online' : 'Offline';
+    return computeOnlineStatus(lastTimestamp, analytics_template || 'EvaraTank');
 }
 
 export interface ProvisioningResult {
@@ -81,51 +95,46 @@ class DeviceService {
     }
 
     /**
-     * Subscribe to real-time device updates (Supabase Realtime)
+     * Subscribe to real-time device updates (Supabase Realtime) across all device tables.
      */
-    subscribeToDeviceUpdates(callback: (payload: any) => void, filter?: string) {
-        let channelName = 'public:devices';
-        if (filter) channelName += `:${filter.replace(/[^a-zA-Z0-9=]/g, '_')}`;
-
-        const channel = supabase
-            .channel(channelName)
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'devices', filter }, callback)
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
+    subscribeToDeviceUpdates(callback: (payload: any) => void, _filter?: string) {
+        const tables = ['evaratank', 'evaraflow', 'evaradeep'];
+        const channels = tables.map(table =>
+            supabase
+                .channel(`public:${table}:updates`)
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table }, callback)
+                .subscribe()
+        );
+        return () => channels.forEach(ch => supabase.removeChannel(ch));
     }
 
     /**
-     * Subscribe to new device registrations (Supabase Realtime)
+     * Subscribe to new device registrations (Supabase Realtime) across all device tables.
      */
-    subscribeToNewDevices(callback: (payload: any) => void, filter?: string) {
-        let channelName = 'public:devices:new';
-        if (filter) channelName += `:${filter.replace(/[^a-zA-Z0-9=]/g, '_')}`;
-
-        const channel = supabase
-            .channel(channelName)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'devices', filter }, callback)
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
+    subscribeToNewDevices(callback: (payload: any) => void, _filter?: string) {
+        const tables = ['evaratank', 'evaraflow', 'evaradeep'];
+        const channels = tables.map(table =>
+            supabase
+                .channel(`public:${table}:inserts`)
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table }, callback)
+                .subscribe()
+        );
+        return () => channels.forEach(ch => supabase.removeChannel(ch));
     }
 
     /**
-     * Fetch a single device details.
+     * Fetch a single device details — tries all 3 unified tables in order.
      */
     async getDeviceDetails(id: string): Promise<DeviceDetails> {
-        const { data, error } = await supabase
-            .from('devices')
-            .select('*')
-            .eq('id', id)
-            .single();
-
-        if (error) throw error;
-        return data as DeviceDetails;
+        for (const table of ['evaratank', 'evaraflow', 'evaradeep'] as const) {
+            const { data, error } = await supabase
+                .from(table as any)
+                .select('*')
+                .eq('id', id)
+                .maybeSingle();
+            if (!error && data) return { ...(data as any), device_type: table } as DeviceDetails;
+        }
+        throw new Error(`Device ${id} not found in any device table`);
     }
 
     /**
@@ -134,45 +143,40 @@ class DeviceService {
      */
     async getMapDevices(): Promise<MapDevice[]> {
         try {
-            console.log('[DeviceService] Fetching from backend /nodes...');
-            // NOTE: api interceptor already unwraps { status, data } envelope,
-            // so response.data is already the MapDevice[] array.
             const response = await api.get<MapDevice[]>('/nodes');
-            console.log('[DeviceService] Backend response:', response.data);
-            console.log('[DeviceService] Fetched devices from backend:', response.data?.length || 0);
             return response.data || [];
         } catch (error) {
             console.error('[DeviceService] Failed to fetch map devices from backend, falling back to Supabase:', error);
 
-            // Fallback to Supabase direct in case backend is down
-            const { data, error: sbError } = await supabase
-                .from('devices')
-                .select(
-                    'id, label, node_key, asset_type, analytics_template, latitude, longitude,' +
-                    'telemetry_snapshots(last_timestamp, level_percentage, depth_value, flow_rate, total_liters)'
+            // Fallback: parallel queries across all 3 unified device tables
+            const tableMap: Record<string, string> = {
+                evaratank: 'EvaraTank',
+                evaraflow: 'EvaraFlow',
+                evaradeep: 'EvaraDeep',
+            };
+            const [tankRes, flowRes, deepRes] = await Promise.all(
+                ['evaratank', 'evaraflow', 'evaradeep'].map(t =>
+                    supabase.from(t as any)
+                        .select('id, name, node_key, asset_type, analytics_template, latitude, longitude, last_seen')
+                        .is('deleted_at', null)
                 )
-                .is('deleted_at', null);
+            );
+            const rows = [
+                ...(tankRes.data || []).map((d: any) => ({ ...d, _table: 'evaratank' })),
+                ...(flowRes.data || []).map((d: any) => ({ ...d, _table: 'evaraflow' })),
+                ...(deepRes.data || []).map((d: any) => ({ ...d, _table: 'evaradeep' })),
+            ];
+            if (tankRes.error && flowRes.error && deepRes.error) throw tankRes.error;
 
-            if (sbError) {
-                console.error('[DeviceService] Supabase error:', sbError);
-                throw sbError;
-            }
-
-            console.log('[DeviceService] Fetched devices from Supabase fallback:', data?.length || 0);
-            console.log('[DeviceService] Supabase devices:', data);
-
-            return (data || []).map((d: any) => {
-                const snap: TelemetrySnapshot | null = Array.isArray(d.telemetry_snapshots)
-                    ? (d.telemetry_snapshots[0] ?? null)
-                    : (d.telemetry_snapshots ?? null);
-
-                const template: string | null = d.analytics_template || null;
-                const status = computeDeviceStatus(template, snap?.last_timestamp ?? d.last_seen);
+            return rows.map((d: any) => {
+                const template: string = tableMap[d._table] || d.analytics_template || 'EvaraTank';
+                const snap: TelemetrySnapshot | null = null;
+                const status = computeDeviceStatus(template, d.last_seen);
 
                 return {
                     id: d.id,
-                    name: d.label || d.node_key || 'Unnamed Node',
-                    label: d.label,
+                    name: d.name || d.node_key || 'Unnamed Node',
+                    label: d.name,
                     node_key: d.node_key,
                     asset_type: d.asset_type || (template === 'EvaraTank' ? 'tank' : template === 'EvaraFlow' ? 'flow_meter' : 'borewell'),
                     asset_category: null,
@@ -182,7 +186,7 @@ class DeviceService {
                     capacity: null,
                     specifications: null,
                     status,
-                    last_seen: snap?.last_timestamp ?? null,
+                    last_seen: (snap as any)?.last_timestamp ?? null,
                     telemetry_snapshot: snap,
                 } satisfies MapDevice;
             });

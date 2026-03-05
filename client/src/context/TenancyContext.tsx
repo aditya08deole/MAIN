@@ -26,12 +26,10 @@ export const TenancyProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const activeDistributor = distributors.find((d: any) => d.id === selectedDistributorId) || null;
 
-    // If user is a distributor-level admin, lock them to their own ID
+    // If user is a distributor-level admin, lock them to their own distributor_id
     useEffect(() => {
-        if (user?.role === 'distributor' && user.id) {
-            // Note: In physical production, the distributor profile row contains the distributor_id.
-            // For now, assuming the profile distributor_id is available in the user object.
-            // (Wait, I should check if AuthContext.tsx includes distributor_id in the User interface)
+        if (user?.role === 'distributor' && user.distributor_id) {
+            setSelectedDistributorId(user.distributor_id);
         }
     }, [user]);
 

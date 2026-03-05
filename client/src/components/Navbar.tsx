@@ -3,12 +3,14 @@ import { LayoutDashboard, Database, LogOut, Crown, Map } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../context/AuthContext';
 import { useTenancy } from '../context/TenancyContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 const Navbar = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { user, logout, isAuthenticated } = useAuth();
-    useTenancy(); // Keep hook active for context side-effects if any
+    const queryClient = useQueryClient();
+    useTenancy();
 
     const navItems = [
         { name: 'MAP', path: '/map', icon: Map },
@@ -23,12 +25,20 @@ const Navbar = () => {
         navigate('/login');
     };
 
-    // Primary palette defined in the new specs
+    // P33: Detect analytics page and pull device context from React Query cache (zero extra fetch)
+    const analyticsMatch = location.pathname.match(/^\/(evaratank|evaraflow|evaradeep)\/([^/]+)/);
+    const analyticsDeviceId = analyticsMatch?.[2] ?? null;
+    const analyticsData = analyticsDeviceId
+        ? (queryClient.getQueryData(['analytics', 'full', analyticsDeviceId]) as any)
+        : null;
+    const analyticsDeviceName = analyticsData?.info?.data?.name ?? analyticsData?.info?.data?.label ?? null;
+    const analyticsOnline = analyticsData?.info?.data?.online ?? analyticsData?.latest?.online ?? null;
+
     const primaryActive = '#3A7AFE';
     const textPrimary = '#1A1F36';
     const textSecondary = 'rgba(26,31,54,0.65)';
-
     const primaryDarkActive = '#1D4ED8';
+
 
     return (
         <div className="fixed top-3 lg:top-[16px] left-1/2 -translate-x-1/2 z-[2000] w-[94%] md:w-[68%] max-w-[1140px] group transition-all duration-[220ms] ease-out hover:-translate-y-[2px]">
@@ -102,6 +112,31 @@ const Navbar = () => {
                         );
                     })}
                 </div>
+
+                {/* P33: Device breadcrumb pill — shown when on an analytics page */}
+                {analyticsDeviceId && analyticsDeviceName && (
+                    <div
+                        className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px] font-bold"
+                        style={{
+                            background: 'rgba(255,255,255,0.3)',
+                            border: '1px solid rgba(255,255,255,0.45)',
+                            backdropFilter: 'blur(12px)',
+                            color: '#1A1F36',
+                        }}
+                    >
+                        {/* Online/Offline status dot */}
+                        <span
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{
+                                background: analyticsOnline === true ? '#22c55e'
+                                    : analyticsOnline === false ? '#ef4444'
+                                        : '#94a3b8',
+                                boxShadow: analyticsOnline === true ? '0 0 5px #22c55e80' : undefined,
+                            }}
+                        />
+                        <span className="max-w-[140px] truncate">{analyticsDeviceName}</span>
+                    </div>
+                )}
 
                 <div className="flex items-center gap-3 flex-shrink-0">
                     {isAuthenticated && user ? (

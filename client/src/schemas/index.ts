@@ -56,25 +56,27 @@ export const deviceSchema = z.object({
     analytics_template: z.string().min(1, 'Analytics template is required'),
     latitude: z.string().min(1, 'Latitude is required').refine((v) => !isNaN(Number(v)) && Number(v) >= -90 && Number(v) <= 90, 'Invalid latitude (-90 to 90)'),
     longitude: z.string().min(1, 'Longitude is required').refine((v) => !isNaN(Number(v)) && Number(v) >= -180 && Number(v) <= 180, 'Invalid longitude (-180 to 180)'),
-    capacity: z.string().optional(),
-    specifications: z.string().optional(),
     thingspeak_channel_id: z.string().optional(),
     thingspeak_read_key: z.string().optional(),
     thingspeak_write_key: z.string().optional(),
+    // ThingSpeak field mappings
     water_level_field: z.string().optional(),
     depth_field: z.string().optional(),
     meter_reading_field: z.string().optional(),
     flow_rate_field: z.string().optional(),
-    // Technical metadata fields
-    max_depth: z.string().optional(),
-    static_depth: z.string().optional(),
-    dynamic_depth: z.string().optional(),
+    // EvaraTank physical dimensions
+    height_m: z.string().optional(),
+    length_m: z.string().optional(),
+    breadth_m: z.string().optional(),
+    capacity_liters: z.string().optional(),
+    // EvaraDeep borewell specifications
+    total_bore_depth: z.string().optional(),
+    static_water_level: z.string().optional(),
+    dynamic_water_level: z.string().optional(),
     recharge_threshold: z.string().optional(),
+    // EvaraFlow pipe specifications
     pipe_diameter: z.string().optional(),
     max_flow_rate: z.string().optional(),
-    // Tank physical dimensions
-    length: z.string().optional(),
-    breadth: z.string().optional(),
     node_key: z.string().min(4, 'Node key (Hardware ID) is required'),
     community_id: z.string().uuid('Community is required'),
     customer_id: z.string().uuid('Customer assignment is strictly required for hierarchy'),

@@ -19,6 +19,7 @@ import { Modal } from '../../ui/Modal';
 import { MapPicker } from '../MapPicker';
 
 import { adminService } from '../../../services/admin';
+import api from '../../../services/api';
 import { useZones } from '../../../hooks/useZones';
 import { useCommunities } from '../../../hooks/useCommunities';
 import { useToast } from '../../ToastProvider';
@@ -69,17 +70,21 @@ export const AddDeviceForm = ({ onSubmit, onCancel }: Props) => {
             analytics_template: 'EvaraTank',
             status: 'Online',
             is_active: true,
-            capacity: '',
-            max_depth: '',
-            static_depth: '',
-            dynamic_depth: '',
+            // EvaraTank
+            height_m: '',
+            length_m: '',
+            breadth_m: '',
+            capacity_liters: '',
+            water_level_field: 'field1',
+            // EvaraDeep
+            total_bore_depth: '',
+            static_water_level: '',
+            dynamic_water_level: '',
             recharge_threshold: '',
+            depth_field: 'field1',
+            // EvaraFlow
             pipe_diameter: '',
             max_flow_rate: '',
-            length: '',
-            breadth: '',
-            water_level_field: 'field1',
-            depth_field: 'field1',
             meter_reading_field: 'field1',
             flow_rate_field: 'field2',
         },
@@ -130,48 +135,98 @@ export const AddDeviceForm = ({ onSubmit, onCancel }: Props) => {
         setValue('longitude', String(lng));
     };
 
+    const [provisioningJobId, setProvisioningJobId] = useState<string | null>(null);
+
+    // P5: Non-blocking job poll — replaces the 60-iteration blocking for-loop
+    const { data: jobStatus } = useQuery({
+        queryKey: ['provision_job', provisioningJobId],
+        queryFn: async () => {
+            const r = await api.get(`/admin/provision/${provisioningJobId}`);
+            return r.data;
+        },
+        enabled: !!provisioningJobId,
+        refetchInterval: (data: any) => {
+            if (data?.status === 'succeeded' || data?.status === 'failed') return false;
+            return 2000;
+        },
+    });
+
+    // Watch job status changes outside the submit handler
+    useEffect(() => {
+        if (!jobStatus) return;
+        if (jobStatus.status === 'succeeded') {
+            showToast('Device provisioning completed', 'success');
+            setProvisioningJobId(null);
+            onSubmit(jobStatus.result);
+        } else if (jobStatus.status === 'failed') {
+            showToast(`Provisioning failed: ${jobStatus.error}`, 'error');
+            setProvisioningJobId(null);
+        }
+    }, [jobStatus, onSubmit, showToast]);
+
     const onFormSubmit = async (data: DeviceInput) => {
         try {
-            const metadata: any = {};
-            if (data.analytics_template === 'EvaraTank') {
-                metadata.config_tank = {
-                    length: parseFloat(data.length || '0'),
-                    breadth: parseFloat(data.breadth || '0'),
-                    depth: parseFloat(data.max_depth || '0'),
-                    capacity: parseInt(data.capacity || '0'),
-                    water_level_field: data.water_level_field || 'field1',
-                };
-            } else if (data.analytics_template === 'EvaraDeep') {
-                metadata.config_deep = {
-                    total_depth: parseFloat(data.max_depth || '0'),
-                    static_water_level: parseFloat(data.static_depth || '0'),
-                    dynamic_water_level: parseFloat(data.dynamic_depth || '0'),
-                    depth_field: data.depth_field || 'field1',
-                };
-            } else if (data.analytics_template === 'EvaraFlow') {
-                metadata.config_flow = {
-                    meter_reading_field: data.meter_reading_field || 'field1',
-                    flow_rate_field: data.flow_rate_field || 'field2',
-                };
-            }
-
-            const payload = {
-                ...data,
-                label: data.name,
-                asset_type: data.device_type === 'deep' ? 'borewell'
-                    : data.device_type === 'flow' ? 'flow_meter'
-                    : assetSubType, // 'tank' or 'sump' for EvaraTank/Custom
-                client_id: data.customer_id,
-                metadata,
+            const payload: any = {
+                name: data.name,
+                node_key: data.node_key,
+                analytics_template: data.analytics_template,
+                community_id: data.community_id,
+                customer_id: data.customer_id,
+                latitude: parseFloat(data.latitude),
+                longitude: parseFloat(data.longitude),
+                thingspeak_channel_id: data.thingspeak_channel_id || null,
+                thingspeak_read_key: data.thingspeak_read_key || null,
+                thingspeak_write_key: data.thingspeak_write_key || null,
+                status: data.status,
+                is_active: data.is_active,
             };
 
+            if (data.analytics_template === 'EvaraTank') {
+                payload.water_level_field = data.water_level_field || 'field1';
+                payload.height_m = parseFloat(data.height_m || '0') || null;
+                payload.length_m = parseFloat(data.length_m || '0') || null;
+                payload.breadth_m = parseFloat(data.breadth_m || '0') || null;
+                payload.capacity_liters = parseInt(data.capacity_liters || '0') || null;
+                payload.asset_type = assetSubType;
+            } else if (data.analytics_template === 'EvaraDeep') {
+                payload.depth_field = data.depth_field || 'field1';
+                payload.total_bore_depth = parseFloat(data.total_bore_depth || '0') || null;
+                payload.static_water_level = parseFloat(data.static_water_level || '0') || null;
+                payload.dynamic_water_level = parseFloat(data.dynamic_water_level || '0') || null;
+                payload.recharge_threshold = parseFloat(data.recharge_threshold || '0') || null;
+                payload.asset_type = 'borewell';
+            } else if (data.analytics_template === 'EvaraFlow') {
+                payload.meter_reading_field = data.meter_reading_field || 'field1';
+                payload.flow_rate_field = data.flow_rate_field || 'field2';
+                payload.pipe_diameter = parseFloat(data.pipe_diameter || '0') || null;
+                payload.max_flow_rate = parseFloat(data.max_flow_rate || '0') || null;
+                payload.asset_type = 'flow_meter';
+            }
+
             const result = await adminService.createDevice(payload);
+
+            // P5: If backend returns a background job, set jobId and return immediately.
+            // The useQuery above will poll and update without blocking the UI.
+            if (result && (result as any).status === 'accepted' && (result as any).job_id) {
+                showToast('Provisioning started — tracking in background…', 'info');
+                setProvisioningJobId((result as any).job_id);
+                return; // <-- form is no longer frozen; buttons stay interactive
+            }
+
             showToast('Device commissioned successfully', 'success');
             onSubmit(result);
         } catch (err: any) {
-            showToast(err.message || 'Failed to commission device', 'error');
+            const msg =
+                err.code === 'ECONNABORTED'
+                    ? 'Request timed out — server is not responding. Try again.'
+                    : err.response?.data?.detail
+                    ?? err.response?.data?.message
+                    ?? err.message
+                    ?? 'Failed to commission device';
+            showToast(msg, 'error');
         }
     };
+
 
     const inp = (error?: any) => `w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition-all duration-150 ${error ? 'border-red-300 bg-red-50 focus:border-red-400 focus:ring-2 focus:ring-red-100' : 'border-slate-200 bg-white/60 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100'}`;
 
@@ -245,7 +300,7 @@ export const AddDeviceForm = ({ onSubmit, onCancel }: Props) => {
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <button type="button" onClick={() => setAssetSubType('tank')}
-                                            className={`flex items-center gap-2 p-3 rounded-xl border-2 text-left transition-all ${ assetSubType === 'tank' ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-slate-100 bg-white/60 hover:border-slate-200'}` }>
+                                            className={`flex items-center gap-2 p-3 rounded-xl border-2 text-left transition-all ${assetSubType === 'tank' ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-slate-100 bg-white/60 hover:border-slate-200'}`}>
                                             <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
                                                 <Droplets size={14} />
                                             </div>
@@ -256,7 +311,7 @@ export const AddDeviceForm = ({ onSubmit, onCancel }: Props) => {
                                             {assetSubType === 'tank' && <div className="ml-auto w-4 h-4 bg-indigo-500 rounded-full flex items-center justify-center"><Check size={9} className="text-white" /></div>}
                                         </button>
                                         <button type="button" onClick={() => setAssetSubType('sump')}
-                                            className={`flex items-center gap-2 p-3 rounded-xl border-2 text-left transition-all ${ assetSubType === 'sump' ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-slate-100 bg-white/60 hover:border-slate-200'}` }>
+                                            className={`flex items-center gap-2 p-3 rounded-xl border-2 text-left transition-all ${assetSubType === 'sump' ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-slate-100 bg-white/60 hover:border-slate-200'}`}>
                                             <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
                                                 <Waves size={14} />
                                             </div>
@@ -282,20 +337,24 @@ export const AddDeviceForm = ({ onSubmit, onCancel }: Props) => {
                                 <div className="grid grid-cols-3 gap-3">
                                     <FormField label="Zone Filter" icon={MapPin}>
                                         <select {...register('regionFilter' as any)} className={inp()} disabled={loadingRegions}>
-                                            <option value="">All Zones</option>
+                                            <option value="">{loadingRegions ? 'Loading zones…' : 'All Zones'}</option>
                                             {sortedRegions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                                         </select>
                                     </FormField>
                                     <FormField label="Assign Community" required icon={Building2} error={errors.community_id?.message}>
-                                        <select {...register('community_id')} className={inp(errors.community_id)} disabled={loadingCommunities}>
-                                            <option value="">Select community...</option>
+                                        <select {...register('community_id')} className={inp(errors.community_id)} disabled={loadingCommunities || !watchRegionFilter}>
+                                            <option value="">
+                                                {loadingCommunities ? 'Loading…' : !watchRegionFilter ? 'Select zone first' : 'Select community…'}
+                                            </option>
                                             {communities?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
                                     </FormField>
                                     <FormField label="Assign Customer" required icon={User} error={errors.customer_id?.message}>
                                         <select {...register('customer_id')} className={inp(errors.customer_id)} disabled={!watchCommunity || loadingClients}>
-                                            <option value="">Select client...</option>
-                                            {availableClients?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                            <option value="">
+                                                {!watchCommunity ? 'Select community first' : loadingClients ? 'Loading…' : 'Select client…'}
+                                            </option>
+                                            {availableClients?.map((c: any) => <option key={c.id} value={c.id}>{c.display_name || c.name || c.email || c.id}</option>)}
                                         </select>
                                     </FormField>
                                 </div>
@@ -353,16 +412,16 @@ export const AddDeviceForm = ({ onSubmit, onCancel }: Props) => {
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <FormField label="Length (m)" icon={Ruler as any}>
-                                            <input {...register('length')} type="number" step="0.01" placeholder="e.g. 3.0" className={inp()} />
+                                            <input {...register('length_m')} type="number" step="0.01" placeholder="e.g. 3.0" className={inp()} />
                                         </FormField>
                                         <FormField label="Breadth (m)" icon={Ruler as any}>
-                                            <input {...register('breadth')} type="number" step="0.01" placeholder="e.g. 3.0" className={inp()} />
+                                            <input {...register('breadth_m')} type="number" step="0.01" placeholder="e.g. 3.0" className={inp()} />
                                         </FormField>
                                         <FormField label="Depth / Height (m)" icon={Ruler as any}>
-                                            <input {...register('max_depth')} type="number" step="0.01" placeholder="e.g. 2.5" className={inp()} />
+                                            <input {...register('height_m')} type="number" step="0.01" placeholder="e.g. 2.5" className={inp()} />
                                         </FormField>
                                         <FormField label="Capacity (Litres)" icon={Droplets as any}>
-                                            <input {...register('capacity')} type="number" placeholder="e.g. 10000" className={inp()} />
+                                            <input {...register('capacity_liters')} type="number" placeholder="e.g. 10000" className={inp()} />
                                         </FormField>
                                     </div>
                                 </div>
@@ -376,13 +435,13 @@ export const AddDeviceForm = ({ onSubmit, onCancel }: Props) => {
                                     </div>
                                     <div className="grid grid-cols-3 gap-3">
                                         <FormField label="Total Bore Depth (m)" icon={Ruler as any}>
-                                            <input {...register('max_depth')} type="number" step="0.1" placeholder="e.g. 200" className={inp()} />
+                                            <input {...register('total_bore_depth')} type="number" step="0.1" placeholder="e.g. 200" className={inp()} />
                                         </FormField>
                                         <FormField label="Static Water Level (m)" icon={Droplets as any}>
-                                            <input {...register('static_depth')} type="number" step="0.1" placeholder="e.g. 50" className={inp()} />
+                                            <input {...register('static_water_level')} type="number" step="0.1" placeholder="e.g. 50" className={inp()} />
                                         </FormField>
                                         <FormField label="Dynamic Water Level (m)" icon={Waves as any}>
-                                            <input {...register('dynamic_depth')} type="number" step="0.1" placeholder="e.g. 80" className={inp()} />
+                                            <input {...register('dynamic_water_level')} type="number" step="0.1" placeholder="e.g. 80" className={inp()} />
                                         </FormField>
                                     </div>
                                 </div>

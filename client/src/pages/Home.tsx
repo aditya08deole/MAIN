@@ -15,7 +15,7 @@ import SystemDashboardPanel from '../components/map/SystemDashboardPanel';
 import MapLegend from '../components/map/MapLegend';
 
 export const Home = () => {
-    const [showIndex, setShowIndex] = useState(false);
+    const [showIndex, setShowIndex] = useState(true);
     const [showStatusOverview, setShowStatusOverview] = useState(false);
     const [showSystemDashboard, setShowSystemDashboard] = useState(false);
     const [activeFilter, setActiveFilter] = useState<string | null>(null);

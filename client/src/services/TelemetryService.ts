@@ -1,4 +1,6 @@
-import { supabase } from '../lib/supabase';
+import api from './api';
+import type { TimeRange } from '../utils/telemetryPipeline';
+import { timeRangeToResults } from '../utils/telemetryPipeline';
 
 export interface TelemetryData {
     timestamp: string;
@@ -11,12 +13,23 @@ export interface TelemetryData {
     temperature_value?: number | null;
     flow_rate?: number | null;
     total_liters?: number | null;
+    /** Backend-computed online flag (30-min freshness rule). Use this first. */
+    online?: boolean | null;
 }
 
 export interface DeviceMetadata {
     id: string;
     node_key: string | null;
     classification: string;
+}
+
+export interface ThingSpeakChannelInfo {
+    channel_id: string;
+    name: string;
+    fields: Record<string, string>; // { field1: "Temperature", field2: "Distance" }
+    last_entry_id: number | null;
+    last_values: Record<string, string | null>;
+    updated_at: string | null;
 }
 
 class TelemetryService {
@@ -32,32 +45,40 @@ class TelemetryService {
     }
 
     /**
-     * Fetches real-time telemetry from the hardened FastAPI gateway.
+     * Fetches real-time telemetry via the FastAPI gateway.
+     * Uses the shared api.ts Axios instance (auth, timeout, interceptors included).
      */
-    public async getLiveTelemetry(deviceId: string): Promise<TelemetryData | null> {
+    public async getLiveTelemetry(deviceId: string): Promise<TelemetryData & { online?: boolean } | null> {
         try {
-            // Calling our centralized FastAPI Backend proxy
-            // The backend handles coalescing, rate limits, and secure key retrieval
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/telemetry/devices/${deviceId}/latest`, {
-                headers: {
-                    'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-                }
-            });
+            const { data } = await api.get(`/devices/${deviceId}/telemetry/latest`);
+            if (!data) return null;
 
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            const data = await response.json();
+            // The /telemetry/latest endpoint returns TelemetryResponse (Pydantic model):
+            //   { timestamp, data: {field1, field2, ...raw_feed}, level_percentage,
+            //     depth_value, temperature_value, flow_rate, total_liters }
+            //
+            // The Axios interceptor does NOT auto-unwrap this (no status+data envelope).
+            // Typed metrics are at the TOP level; raw feed is under `data`.
+            const response = data as Record<string, unknown>;
+            const rawFeed = (response['data'] as Record<string, unknown>) ?? {};
 
-            if (!data || !data.data) return null;
+            // Timestamp: prefer top-level `timestamp`, fall back to raw_feed.created_at
+            const timestamp =
+                (response['timestamp'] as string)
+                ?? (rawFeed['created_at'] as string)
+                ?? null;
 
             return {
-                timestamp: data.timestamp,
-                values: data.data,
-                deviceId: deviceId,
-                level_percentage: data.level_percentage,
-                depth_value: data.depth_value,
-                temperature_value: data.temperature_value,
-                flow_rate: data.flow_rate,
-                total_liters: data.total_liters
+                timestamp: timestamp ?? '',
+                values: rawFeed as Record<string, number | string | null>,
+                deviceId,
+                level_percentage:  (response['level_percentage']  as number) ?? null,
+                depth_value:       (response['depth_value']        as number) ?? null,
+                temperature_value: (response['temperature_value']  as number) ?? null,
+                flow_rate:         (response['flow_rate']          as number) ?? null,
+                total_liters:      (response['total_liters']       as number) ?? null,
+                // No online flag in TelemetryResponse — derived client-side from timestamp
+                online: null,
             };
         } catch (err) {
             console.error('[TelemetryService] Live telemetry fetch failed for', deviceId, ':', err);
@@ -66,28 +87,24 @@ class TelemetryService {
     }
 
     /**
-     * Fetches historical telemetry from the hardened FastAPI gateway.
+     * Fetches historical telemetry via the FastAPI gateway.
+     * Backend normalizes all feeds with TelemetryMapper.
      */
     public async getHistoryTelemetry(deviceId: string, results: number = 100): Promise<TelemetryData[] | null> {
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/telemetry/devices/${deviceId}/telemetry/history?results=${results}`, {
-                headers: {
-                    'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-                }
-            });
-
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            const rawData = await response.json();
-
+            const { data: rawData } = await api.get(
+                `/devices/${deviceId}/telemetry/history?results=${results}`
+            );
             if (!rawData || !rawData.feeds) return null;
-
-            // Simple map of feeds back to normalized UI telemetry records
-            // Note: The history endpoint currently returns raw feeds; we might need to normalize them based on 
-            // the same logic used in the backend's latest endpoint if we want absolute UI mapping parity.
-            return rawData.feeds.map((feed: any) => ({
-                timestamp: feed.created_at,
-                values: feed, // Fallback to raw fields for history until backend-side normalization is added to history endpoint
-                deviceId: deviceId
+            return rawData.feeds.map((feed: Record<string, unknown>) => ({
+                timestamp: feed.created_at as string,
+                values: feed,
+                deviceId,
+                level_percentage: (feed.level_percentage as number) ?? null,
+                depth_value: (feed.depth_value as number) ?? null,
+                temperature_value: (feed.temperature_value as number) ?? null,
+                flow_rate: (feed.flow_rate as number) ?? null,
+                total_liters: (feed.total_liters as number) ?? null,
             }));
         } catch (err) {
             console.error('[TelemetryService] History fetch failed for', deviceId, ':', err);
@@ -96,10 +113,60 @@ class TelemetryService {
     }
 
     /**
-     * Clears local state.
+     * Tests a ThingSpeak channel connection.
+     * Returns channel name, field labels, last values, and entry count.
      */
+    public async testConnection(channelId: string, readKey: string): Promise<ThingSpeakChannelInfo | null> {
+        try {
+            const { data } = await api.post('/telemetry/test-connection', {
+                channel_id: channelId,
+                read_key: readKey,
+            });
+            return data as ThingSpeakChannelInfo;
+        } catch (err) {
+            console.error('[TelemetryService] Test connection failed:', err);
+            return null;
+        }
+    }
+
+    /**
+     * Fetches channel metadata (field names) for the field-mapping dropdowns.
+     */
+    public async getChannelInfo(channelId: string, readKey: string): Promise<ThingSpeakChannelInfo | null> {
+        try {
+            const { data } = await api.get(
+                `/telemetry/channel-info?channel_id=${channelId}&read_key=${encodeURIComponent(readKey)}`
+            );
+            return data as ThingSpeakChannelInfo;
+        } catch (err) {
+            console.error('[TelemetryService] Channel info failed:', err);
+            return null;
+        }
+    }
+
+    /**
+     * Fetches historical telemetry by TimeRange label.
+     * Uses timeRangeToResults() from telemetryPipeline for consistent result counts.
+     */
+    public async getHistoryByTimeRange(
+        deviceId: string,
+        range: TimeRange,
+    ): Promise<{ feeds: Record<string, unknown>[] } | null> {
+        const results = timeRangeToResults(range);
+        try {
+            const { data } = await api.get(
+                `/devices/${deviceId}/telemetry/history?results=${results}`,
+            );
+            return data ?? null;
+        } catch (err) {
+            console.error('[TelemetryService] History by time range failed for', deviceId, ':', err);
+            return null;
+        }
+    }
+
+    /** No-op kept for API compatibility. React Query cache is the source of truth. */
     public clearCache(): void {
-        console.log('[TelemetryService] State cleared');
+        console.info('[TelemetryService] clearCache() called — React Query cache is managed by hooks.');
     }
 }
 

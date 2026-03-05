@@ -37,12 +37,24 @@ export const useDevices = (searchQuery: string = '', enableRealtime: boolean = t
             if (!user?.id) return [];
 
             try {
-                // Fetch directly from Postgres securely using RLS
-                const { data: result, error: fetchError } = await supabase
-                    .from('devices')
-                    .select('*');
+                // Fetch from all 3 unified device tables in parallel
+                const [tankRes, flowRes, deepRes] = await Promise.all([
+                    supabase.from('evaratank' as any).select('*'),
+                    supabase.from('evaraflow' as any).select('*'),
+                    supabase.from('evaradeep' as any).select('*'),
+                ]);
 
-                if (fetchError || !result) throw fetchError || new Error('No devices found');
+                const fetchError = tankRes.error || flowRes.error || deepRes.error;
+                if (fetchError && !tankRes.data && !flowRes.data && !deepRes.data)
+                    throw fetchError || new Error('No devices found');
+
+                const result = [
+                    ...(tankRes.data || []).map((d: any) => ({ ...d, _device_type: 'EvaraTank' })),
+                    ...(flowRes.data || []).map((d: any) => ({ ...d, _device_type: 'EvaraFlow' })),
+                    ...(deepRes.data || []).map((d: any) => ({ ...d, _device_type: 'EvaraDeep' })),
+                ];
+
+                if (!result.length) throw new Error('No devices found');
 
                 // Map the DB rows to Device type
                 let mappedResult: Device[] = result.map((d: any) => {

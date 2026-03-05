@@ -29,7 +29,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
         // eslint-disable-next-line react-hooks/purity
         const id = Date.now();
         setToasts(prev => [...prev, { id, message, type }]);
-        setTimeout(() => removeToast(id), 3000);
+        setTimeout(() => removeToast(id), 5000);
     };
 
     const removeToast = (id: number) => {

@@ -1,7 +1,6 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from datetime import datetime
@@ -9,14 +8,50 @@ import asyncio
 
 # Local imports
 from config import get_settings
-from database import get_db, init_db, engine
-from schemas import HealthResponse
+from database import get_db, engine, SessionLocal
+from database import init_db
 from logger import setup_logger
-# from performance import metrics, get_performance_report, check_slow_queries, check_slow_endpoints
+from ingestion_service import start_ingestion_service, stop_ingestion_service
 from thingspeak import get_thingspeak_client
+from schemas import HealthResponse
+from background_jobs import start_background_jobs, stop_background_jobs, recover_pending_jobs
 
 settings = get_settings()
 logger = setup_logger(__name__, settings.LOG_LEVEL)
+
+
+# ─── Lifecycle (lifespan replaces deprecated @app.on_event) ─────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info(f"EvaraTech IoT Backend Started | Env: {settings.ENVIRONMENT}")
+    # Ensure DB tables exist in development / local runs
+    try:
+        await init_db()
+    except Exception:
+        logger.exception("Database initialization failed (continuing)")
+
+    start_ingestion_service(SessionLocal)
+    # Start background job workers (provisioning, etc.)
+    try:
+        start_background_jobs()
+        # P31: Re-enqueue any pending jobs that were in-flight when the server last restarted
+        await recover_pending_jobs()
+    except Exception:
+        logger.exception("Failed to start background jobs")
+    yield
+    # Shutdown
+    stop_ingestion_service()
+    ts = get_thingspeak_client()
+    await ts.close()
+    try:
+        await stop_background_jobs()
+    except Exception:
+        logger.exception("Failed to stop background jobs")
+    await engine.dispose()
+    logger.info("EvaraTech IoT Backend Shutdown")
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -24,6 +59,7 @@ app = FastAPI(
     description="EvaraTech IoT Platform Backend",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -43,21 +79,9 @@ async def log_requests(request, call_next):
     response = await call_next(request)
     duration = round((time.time() - start_time) * 1000, 2)
     response.headers["X-Process-Time"] = str(duration)
+    logger.info("%s %s → %d (%.0fms)", request.method, request.url.path, response.status_code, duration)
     return response
 
-# ─── Lifecycle ───────────────────────────────────────────────────────────
-
-@app.on_event("startup")
-async def startup_event():
-    # await init_db() # Schema managed via migrations
-    print(f"EvaraTech IoT Backend Started | Env: {settings.ENVIRONMENT}")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    ts = get_thingspeak_client()
-    await ts.close()
-    await engine.dispose()
-    print("EvaraTech IoT Backend Shutdown")
 
 
 # ─── Root & Health Endpoints ─────────────────────────────────────────────
@@ -110,7 +134,7 @@ async def health_check():
 
         await asyncio.wait_for(check_db(), timeout=15.0)
         response_time = round((time.time() - start_time) * 1000, 2)
-        if response_time > 3000:
+        if response_time > 6000:
             db_status = "slow"
             overall_status = "degraded"
     except asyncio.TimeoutError:
@@ -137,12 +161,13 @@ async def health_check():
 
 
 # ─── Include Domain Routers ─────────────────────────────────────────────
-from routers import admin, telemetry, stats
+from routers import admin, telemetry, stats, analytics
 
 api_router = APIRouter()
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
 api_router.include_router(telemetry.router)
 api_router.include_router(stats.router)
+api_router.include_router(analytics.router)
 
 # Mount all API routes under /api/v1
 app.include_router(api_router, prefix="/api/v1")
@@ -157,9 +182,13 @@ if settings.ENVIRONMENT == "development":
         """Check database connection and table status."""
         try:
             await db.execute(text("SELECT 1"))
-            profile_count = await db.execute(text("SELECT COUNT(*) FROM profiles"))
-            device_count = await db.execute(text("SELECT COUNT(*) FROM devices"))
-            return {"status": "ok", "tables": {"profiles": profile_count.scalar(), "device": device_count.scalar()}}
+            customer_count = await db.execute(text("SELECT COUNT(*) FROM customers"))
+            device_count = await db.execute(text(
+                "SELECT (SELECT COUNT(*) FROM evaratank WHERE deleted_at IS NULL) + "
+                "(SELECT COUNT(*) FROM evaraflow WHERE deleted_at IS NULL) + "
+                "(SELECT COUNT(*) FROM evaradeep WHERE deleted_at IS NULL)"
+            ))
+            return {"status": "ok", "tables": {"customers": customer_count.scalar(), "devices": device_count.scalar()}}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 

@@ -28,6 +28,7 @@ services:
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql+asyncpg://evara:evara_local@db:5432/evaratech
+      - REDIS_URL=redis://redis:6379/0
       - ALLOW_DEV_BYPASS=true
     volumes:
       - ./server:/app/server
@@ -45,7 +46,7 @@ services:
       context: ./client
       dockerfile: Dockerfile
     ports:
-      - "5173:5173"
+      - "8080:8080"
     environment:
       - VITE_API_URL=http://backend:8000/api/v1
     depends_on:
@@ -53,5 +54,18 @@ services:
     volumes:
       - ./client/src:/app/src
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL","redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   pgdata:
+  redisdata:

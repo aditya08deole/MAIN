@@ -184,20 +184,29 @@ const Admin = () => {
     const { data: hierarchy = [], isLoading: loadingHierarchy } = useQuery<Zone[]>({
         queryKey: ['admin_hierarchy', selectedDistributorId],
         queryFn: () => adminService.getHierarchy() as Promise<Zone[]>,
-        enabled: isAuthenticated && user?.role === 'superadmin'
+        enabled: isAuthenticated && user?.role === 'superadmin',
+        staleTime: 1000 * 60,
+        gcTime: 1000 * 60 * 5,
+        placeholderData: (prev) => prev,
     });
 
     const { data: stats, isLoading: loadingStats } = useQuery<AdminStats>({
         queryKey: ['admin_stats', selectedDistributorId],
         queryFn: () => adminService.getStats(selectedDistributorId || undefined) as Promise<AdminStats>,
         enabled: isAuthenticated,
-        refetchInterval: 30000 // Refresh every 30s
+        staleTime: 1000 * 20,
+        gcTime: 1000 * 60 * 2,
+        placeholderData: (prev) => prev,
+        refetchInterval: 30000
     });
 
     const { data: auditLogs = [] } = useQuery<any[]>({
         queryKey: ['admin_audit_logs', selectedDistributorId],
         queryFn: () => adminService.getAuditLogs(15, selectedDistributorId || undefined),
-        enabled: isAuthenticated && user?.role === 'superadmin'
+        enabled: isAuthenticated && user?.role === 'superadmin',
+        staleTime: 1000 * 30,
+        gcTime: 1000 * 60 * 3,
+        placeholderData: (prev) => prev,
     });
 
     const activeTab = user?.role === 'superadmin' ? 'Command' : 'Customer';
